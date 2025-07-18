@@ -1,0 +1,2923 @@
+openapi: 3.0.0
+info:
+  title: Recipes API
+  version: 1.0.0
+  description: API para gestión de recetas, ingredientes, menús, usuarios, proveedores, inventario e impuestos.
+servers:
+  - url: http://localhost:4000
+    description: Servidor local de desarrollo
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: '#/components/schemas/UserToken'
+
+    UserToken:
+      type: object
+      properties:
+        user_id:
+          type: integer
+        role:
+          type: string
+          description: Rol del usuario (por ejemplo, `admin`, `user`)
+
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+
+    Ingredient:
+      type: object
+      properties:
+        ingredient_id:
+          type: integer
+        name:
+          type: string
+        unit:
+          type: string
+        base_price:
+          type: number
+        waste_percent:
+          type: number
+        net_price:
+          type: number
+        stock:
+          type: number
+        expiration_date:
+          type: string
+          format: date
+        is_available:
+          type: boolean
+        comment:
+          type: string
+
+    IngredientCreate:
+      type: object
+      required:
+        - name
+        - unit
+        - base_price
+        - waste_percent
+        - net_price
+        - stock
+        - expiration_date
+        - is_available
+      properties:
+        name:
+          type: string
+        unit:
+          type: string
+        base_price:
+          type: number
+        waste_percent:
+          type: number
+        net_price:
+          type: number
+        stock:
+          type: number
+        expiration_date:
+          type: string
+          format: date
+        is_available:
+          type: boolean
+        comment:
+          type: string
+
+    PriceHistoryItem:
+      type: object
+      properties:
+        history_id:
+          type: integer
+        old_price:
+          type: number
+        new_price:
+          type: number
+        change_date:
+          type: string
+          format: date-time
+        user:
+          $ref: '#/components/schemas/UserMini'
+
+    UserMini:
+      type: object
+      properties:
+        user_id:
+          type: integer
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+          format: email
+
+    ResponseMessage:
+      type: object
+      properties:
+        message:
+          type: string
+
+    InventoryMovement:
+      type: object
+      properties:
+        movement_id:
+          type: integer
+        date:
+          type: string
+          format: date-time
+        quantity:
+          type: number
+        movement_type:
+          type: string
+        comment:
+          type: string
+        recorded_by_user_id:
+          type: integer
+
+    InventoryMovementCreate:
+      type: object
+      required:
+        - ingredient_id
+        - date
+        - quantity
+        - movement_type
+      properties:
+        ingredient_id:
+          type: integer
+        date:
+          type: string
+          format: date-time
+        quantity:
+          type: number
+        movement_type:
+          type: string
+        comment:
+          type: string
+
+    StockResponse:
+      type: object
+      properties:
+        ingredient_id:
+          type: integer
+        stock:
+          type: number
+
+    Menu:
+      type: object
+      properties:
+        menu_id:
+          type: integer
+        name:
+          type: string
+        menu_date:
+          type: string
+          format: date
+
+    MenuCreate:
+      type: object
+      required:
+        - name
+        - menu_date
+      properties:
+        name:
+          type: string
+        menu_date:
+          type: string
+          format: date
+
+    MenuRecipeItem:
+      type: object
+      properties:
+        recipe_id:
+          type: integer
+        name:
+          type: string
+        net_price:
+          type: number
+        cost_per_serving:
+          type: number
+
+    Recipe:
+      type: object
+      properties:
+        recipe_id:
+          type: integer
+        name:
+          type: string
+        servings:
+          type: integer
+        production_servings:
+          type: integer
+        net_price:
+          type: number
+        prep_time:
+          type: number
+        difficulty:
+          type: string
+        is_featured_recipe:
+          type: boolean
+        instructions:
+          type: string
+        tax_id:
+          type: integer
+
+    RecipeCreate:
+      type: object
+      required:
+        - name
+        - servings
+        - production_servings
+        - net_price
+        - prep_time
+        - difficulty
+        - is_featured_recipe
+        - instructions
+        - tax_id
+      properties:
+        name:
+          type: string
+        servings:
+          type: integer
+        production_servings:
+          type: integer
+        net_price:
+          type: number
+        prep_time:
+          type: number
+        difficulty:
+          type: string
+        is_featured_recipe:
+          type: boolean
+        instructions:
+          type: string
+        tax_id:
+          type: integer
+
+    RecipeUpdate:
+      type: object
+      required:
+        - name
+        - description
+        - preparation_time
+        - cooking_time
+        - servings
+        - is_active
+        - comment
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        preparation_time:
+          type: number
+        cooking_time:
+          type: number
+        servings:
+          type: integer
+        is_active:
+          type: boolean
+        comment:
+          type: string
+
+    RecipeIngredient:
+      type: object
+      properties:
+        ingredient_id:
+          type: integer
+        name:
+          type: string
+        quantity_per_serving:
+          type: number
+        unit:
+          type: string
+        base_price:
+          type: number
+        waste_percent:
+          type: number
+        net_price:
+          type: number
+        section_name:
+          type: string
+
+    RecipeIngredientSimple:
+      type: object
+      properties:
+        ingredient_id:
+          type: integer
+        name:
+          type: string
+        quantity_per_serving:
+          type: number
+        unit:
+          type: string
+        base_price:
+          type: number
+        waste_percent:
+          type: number
+        net_price:
+          type: number
+
+    SectionUpdate:
+      type: object
+      required:
+        - section_id
+      properties:
+        section_id:
+          type: integer
+
+    RecipeSection:
+      type: object
+      properties:
+        section_id:
+          type: integer
+        name:
+          type: string
+        order:
+          type: integer
+
+    RecipeSectionCreate:
+      type: object
+      required:
+        - name
+        - order
+      properties:
+        name:
+          type: string
+        order:
+          type: integer
+
+    Supplier:
+      type: object
+      properties:
+        supplier_id:
+          type: integer
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+          format: email
+        website_url:
+          type: string
+          format: uri
+        address:
+          type: string
+
+    SupplierCreate:
+      type: object
+      required:
+        - name
+        - phone
+        - email
+        - website_url
+        - address
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+          format: email
+        website_url:
+          type: string
+          format: uri
+        address:
+          type: string
+
+    SupplierIngredientItem:
+      type: object
+      properties:
+        ingredient_id:
+          type: integer
+        name:
+          type: string
+        price:
+          type: number
+        delivery_time:
+          type: string
+          description: Tiempo de entrega (por ejemplo, "3 días")
+        is_preferred_supplier:
+          type: boolean
+
+    SupplierIngredientCreate:
+      type: object
+      required:
+        - ingredient_id
+        - price
+        - delivery_time
+        - is_preferred_supplier
+      properties:
+        ingredient_id:
+          type: integer
+        price:
+          type: number
+        delivery_time:
+          type: string
+          description: Tiempo de entrega (por ejemplo, "3 días")
+        is_preferred_supplier:
+          type: boolean
+
+    Tax:
+      type: object
+      properties:
+        tax_id:
+          type: integer
+        name:
+          type: string
+        percent:
+          type: number
+          description: Porcentaje aplicado (por ejemplo, 21.0 para 21%)
+
+    TaxCreate:
+      type: object
+      required:
+        - name
+        - percent
+      properties:
+        name:
+          type: string
+        percent:
+          type: number
+          description: Porcentaje aplicado (por ejemplo, 21.0 para 21%)
+
+    User:
+      type: object
+      properties:
+        user_id:
+          type: integer
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+        is_active:
+          type: boolean
+
+    UserCreate:
+      type: object
+      required:
+        - first_name
+        - last_name
+        - email
+        - role
+        - password
+        - is_active
+      properties:
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+        password:
+          type: string
+          format: password
+        is_active:
+          type: boolean
+
+    UserUpdate:
+      type: object
+      required:
+        - first_name
+        - last_name
+        - email
+        - role
+        - is_active
+      properties:
+        first_name:
+          type: string
+        last_name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+        is_active:
+          type: boolean
+
+    Allergen:
+      type: object
+      properties:
+        allergen_id:
+          type: integer
+        name:
+          type: string
+      required:
+        - allergen_id
+        - name
+
+    NewAllergen:
+      type: object
+      properties:
+        name:
+          type: string
+      required:
+        - name
+
+    IdResponse:
+      type: object
+      properties:
+        id:
+          type: integer
+      required:
+        - id
+
+    RecipeCategory:
+      type: object
+      properties:
+        category_id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        color:
+          type: string
+        is_active:
+          type: boolean
+
+    RecipeCategoryCreate:
+      type: object
+      required:
+        - name
+        - description
+        - color
+        - is_active
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        color:
+          type: string
+        is_active:
+          type: boolean
+
+    DashboardSummary:
+      type: object
+      properties:
+        total_recipes:
+          type: integer
+        total_ingredients:
+          type: integer
+        total_suppliers:
+          type: integer
+        total_events:
+          type: integer
+        low_stock_count:
+          type: integer
+        upcoming_events_count:
+          type: integer
+
+    LowStockIngredient:
+      type: object
+      properties:
+        ingredient_id:
+          type: integer
+        name:
+          type: string
+        current_stock:
+          type: number
+        unit:
+          type: string
+        minimum_stock:
+          type: number
+        days_until_empty:
+          type: integer
+
+    RecipesByCategory:
+      type: object
+      properties:
+        category_name:
+          type: string
+        recipe_count:
+          type: integer
+        color:
+          type: string
+
+    LatestRecipe:
+      type: object
+      properties:
+        recipe_id:
+          type: integer
+        name:
+          type: string
+        created_date:
+          type: string
+          format: date-time
+        difficulty:
+          type: string
+        prep_time:
+          type: integer
+
+    UpcomingEvent:
+      type: object
+      properties:
+        event_id:
+          type: integer
+        event_name:
+          type: string
+        event_date:
+          type: string
+          format: date
+        event_type:
+          type: string
+        status:
+          type: string
+
+    EventWithMenu:
+      type: object
+      properties:
+        event_id:
+          type: integer
+        event_name:
+          type: string
+        event_date:
+          type: string
+          format: date
+        menu_id:
+          type: integer
+        menu_name:
+          type: string
+        recipes_count:
+          type: integer
+
+    SupplierOrderReminder:
+      type: object
+      properties:
+        supplier_id:
+          type: integer
+        supplier_name:
+          type: string
+        ingredient_id:
+          type: integer
+        ingredient_name:
+          type: string
+        current_stock:
+          type: number
+        minimum_stock:
+          type: number
+        delivery_time:
+          type: string
+        priority:
+          type: string
+          enum: [alta, media, baja]
+
+    SeasonalIngredient:
+      type: object
+      properties:
+        ingredient_id:
+          type: integer
+        name:
+          type: string
+        peak_season_start:
+          type: string
+          format: date
+        peak_season_end:
+          type: string
+          format: date
+        availability_status:
+          type: string
+          enum: [peak, available, limited, unavailable]
+
+paths:
+  /login:
+    post:
+      tags:
+        - Auth
+      summary: Autenticar usuario
+      description: |
+        Autentica un usuario con email y contraseña y devuelve un JWT.
+        **Roles permitidos**: `public`
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login exitoso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Email o contraseña incorrectos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /me:
+    get:
+      tags:
+        - Auth
+      summary: Verificar sesión activa
+      description: |
+        Verifica si el usuario tiene una sesión activa válida y devuelve sus datos.
+        **Roles permitidos**: `todos los usuarios autenticados`
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Sesión válida
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/UserMini'
+        '401':
+          description: Sesión inválida o expirada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /logout:
+    post:
+      tags:
+        - Auth
+      summary: Cerrar sesión
+      description: |
+        Cierra la sesión activa del usuario y elimina su cookie de autenticación.
+        **Roles permitidos**: `todos los usuarios autenticados`
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Sesión cerrada correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /ingredients:
+    get:
+      tags:
+        - Ingredientes
+      summary: Listar ingredientes
+      description: |
+        Obtiene el catálogo completo de ingredientes.
+        **Roles permitidos**: `admin`, `chef`, `inventory_manager`
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista de ingredientes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Ingredient'
+
+    post:
+      tags:
+        - Ingredientes
+      summary: Crear nuevo ingrediente
+      description: |
+        Crea un nuevo ingrediente en el sistema.
+        **Roles permitidos**: `admin`, `chef`
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IngredientCreate'
+      responses:
+        '201':
+          description: Ingrediente creado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '400':
+          description: Parámetros inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /ingredients/{id}:
+    get:
+      tags:
+        - Ingredientes
+      summary: Obtener ingrediente por ID
+      description: |
+        Recupera un ingrediente según su identificador.
+        **Roles permitidos**: `admin`, `chef`, `inventory_manager`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Detalle del ingrediente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ingredient'
+        '404':
+          description: Ingrediente no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags:
+        - Ingredientes
+      summary: Actualizar ingrediente
+      description: |
+        Modifica los datos de un ingrediente existente.
+        **Roles permitidos**: `admin`, `chef`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IngredientCreate'
+      responses:
+        '200':
+          description: Ingrediente actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '404':
+          description: Ingrediente no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - Ingredientes
+      summary: Eliminar ingrediente
+      description: |
+        Elimina un ingrediente del sistema.
+        **Roles permitidos**: `admin`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Ingrediente eliminado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '404':
+          description: Ingrediente no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /ingredients/{id}/price-history:
+    get:
+      tags:
+        - Ingredientes
+      summary: Historial de precios de un ingrediente
+      description: |
+        Recupera el historial de cambios de precio para un ingrediente.
+        **Roles permitidos**: `admin`, `supplier_manager`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Lista de cambios de precio
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PriceHistoryItem'
+
+  /ingredients/{id}/allergens:
+    get:
+      tags:
+        - Ingredientes
+      summary: Obtener alérgenos de un ingrediente
+      description: |
+        Recupera todos los alérgenos asociados a un ingrediente específico.
+        **Roles permitidos**: `admin`, `chef`, `waiter`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Lista de alérgenos del ingrediente
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Allergen'
+        '404':
+          description: Ingrediente no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags:
+        - Ingredientes
+      summary: Asignar alérgenos a ingrediente
+      description: |
+        Asigna múltiples alérgenos a un ingrediente.
+        **Roles permitidos**: `admin`, `chef`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - allergen_ids
+              properties:
+                allergen_ids:
+                  type: array
+                  items:
+                    type: integer
+      responses:
+        '201':
+          description: Alérgenos asignados correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '400':
+          description: Parámetros inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /ingredients/{id}/allergens/{allergen_id}:
+    delete:
+      tags:
+        - Ingredientes
+      summary: Quitar alérgeno de ingrediente
+      description: |
+        Elimina la asociación de un alérgeno específico con un ingrediente.
+        **Roles permitidos**: `admin`, `chef`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: allergen_id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Alérgeno eliminado del ingrediente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '404':
+          description: Ingrediente o alérgeno no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /inventory/{ingredient_id}:
+    get:
+      tags:
+        - Inventario
+      summary: Historial de movimientos
+      description: |
+        Recupera el historial de movimientos de inventario de un ingrediente.
+        **Roles permitidos**: `admin`, `inventory_manager`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: ingredient_id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Lista de movimientos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InventoryMovement'
+        '404':
+          description: Ingrediente no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /inventory/stock/{ingredient_id}:
+    get:
+      tags:
+        - Inventario
+      summary: Stock actual
+      description: |
+        Obtiene el stock actual calculado para un ingrediente sumando entradas y ajustes y restando salidas.
+        **Roles permitidos**: `admin`, `inventory_manager`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: ingredient_id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Stock actual del ingrediente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StockResponse'
+        '404':
+          description: Ingrediente no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /inventory:
+    post:
+      tags:
+        - Inventario
+      summary: Registrar nuevo movimiento
+      description: |
+        Registra un nuevo movimiento de inventario (entrada, ajuste o salida).
+        **Roles permitidos**: `admin`, `inventory_manager`
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InventoryMovementCreate'
+      responses:
+        '201':
+          description: Movimiento registrado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '400':
+          description: Parámetros inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /menus:
+    get:
+      tags:
+        - Menús
+      summary: Listar menús
+      description: |
+        Recupera todos los menús ordenados por fecha.
+        **Roles permitidos**: `admin`, `chef`, `waiter`
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista de menús
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Menu'
+
+    post:
+      tags:
+        - Menús
+      summary: Crear menú
+      description: |
+        Crea un nuevo menú con nombre y fecha.
+        **Roles permitidos**: `admin`, `chef`
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MenuCreate'
+      responses:
+        '201':
+          description: Menú creado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '400':
+          description: Parámetros inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /menus/{id}:
+    get:
+      tags:
+        - Menús
+      summary: Obtener menú por ID
+      description: |
+        Recupera los datos de un menú específico.
+        **Roles permitidos**: `admin`, `chef`, `waiter`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Datos del menú
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Menu'
+        '404':
+          description: Menú no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags:
+        - Menús
+      summary: Actualizar menú
+      description: |
+        Modifica nombre y/o fecha de un menú existente.
+        **Roles permitidos**: `admin`, `chef`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MenuCreate'
+      responses:
+        '200':
+          description: Menú actualizado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '404':
+          description: Menú no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - Menús
+      summary: Eliminar menú
+      description: |
+        Elimina un menú y sus asociaciones de recetas.
+        **Roles permitidos**: `admin`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Menú eliminado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '404':
+          description: Menú no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /menus/{id}/recipes:
+    get:
+      tags:
+        - Menús
+      summary: Listar recetas de un menú
+      description: |
+        Obtiene las recetas asignadas a un menú.
+        **Roles permitidos**: `admin`, `chef`, `waiter`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Recetas del menú
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/MenuRecipeItem'
+
+    post:
+      tags:
+        - Menús
+      summary: Asignar receta a menú
+      description: |
+        Añade una receta existente a un menú.
+        **Roles permitidos**: `admin`, `chef`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - recipe_id
+              properties:
+                recipe_id:
+                  type: integer
+      responses:
+        '201':
+          description: Receta asignada al menú
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '400':
+          description: La receta ya está asignada o parámetros inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /menus/{id}/recipes/{recipe_id}:
+    delete:
+      tags:
+        - Menús
+      summary: Quitar receta de menú
+      description: |
+        Elimina la asignación de una receta a un menú.
+        **Roles permitidos**: `admin`, `chef`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: recipe_id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Receta eliminada del menú
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '404':
+          description: Menú o receta no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /recipes:
+    get:
+      tags:
+        - Recetas
+      summary: Listar recetas
+      description: |
+        Recupera todas las recetas.
+        **Roles permitidos**: `admin`, `chef`
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista de recetas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Recipe'
+
+    post:
+      tags:
+        - Recetas
+      summary: Crear receta
+      description: |
+        Crea una nueva receta.
+        **Roles permitidos**: `admin`, `chef`
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecipeCreate'
+      responses:
+        '201':
+          description: Receta creada correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '400':
+          description: Parámetros inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /recipes/{id}:
+    get:
+      tags:
+        - Recetas
+      summary: Obtener receta por ID
+      description: |
+        Recupera una receta específica.
+        **Roles permitidos**: `admin`, `chef`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Datos de la receta
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Recipe'
+        '404':
+          description: Receta no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags:
+        - Recetas
+      summary: Actualizar receta
+      description: |
+        Modifica una receta existente.
+        **Roles permitidos**: `admin`, `chef`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecipeUpdate'
+      responses:
+        '200':
+          description: Receta actualizada correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - Recetas
+      summary: Eliminar receta
+      description: |
+        Elimina una receta.
+        **Roles permitidos**: `admin`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Receta eliminada correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /recipes/{id}/ingredients:
+    get:
+      tags:
+        - Recetas
+      summary: Listar ingredientes de receta
+      description: |
+        Obtiene los ingredientes de una receta.
+        **Roles permitidos**: `admin`, `chef`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Ingredientes de la receta
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RecipeIngredient'
+        '404':
+          description: No se encontraron ingredientes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /recipes/{id}/ingredients/by-section:
+    get:
+      tags:
+        - Recetas
+      summary: Ingredientes por sección
+      description: |
+        Obtiene los ingredientes agrupados por sección.
+        **Roles permitidos**: `admin`, `chef`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Ingredientes agrupados por sección
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/RecipeIngredientSimple'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /recipes/{recipe_id}/ingredients/{ingredient_id}/section:
+    put:
+      tags:
+        - Recetas
+      summary: Actualizar sección de ingrediente
+      description: |
+        Cambia la sección de un ingrediente en una receta.
+        **Roles permitidos**: `admin`, `chef`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: recipe_id
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: ingredient_id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SectionUpdate'
+      responses:
+        '200':
+          description: Sección actualizada correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /recipes/{id}/costs:
+    put:
+      tags:
+        - Recetas
+      summary: Recalcular costos de receta
+      description: |
+        Ejecuta el procedimiento para actualizar los costos de una receta.
+        **Roles permitidos**: `admin`, `chef`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Costos actualizados correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /recipes/{id}/sections:
+    get:
+      tags:
+        - Secciones de receta
+      summary: Listar secciones de receta
+      description: |
+        Obtiene las secciones de una receta.
+        **Roles permitidos**: `admin`, `chef`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Lista de secciones
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RecipeSection'
+        '404':
+          description: Receta no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      tags:
+        - Secciones de receta
+      summary: Crear sección de receta
+      description: |
+        Crea una nueva sección para una receta.
+        **Roles permitidos**: `admin`, `chef`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecipeSectionCreate'
+      responses:
+        '201':
+          description: Sección creada correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '400':
+          description: Parámetros inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /recipes/{id}/sections/{section_id}:
+    put:
+      tags:
+        - Secciones de receta
+      summary: Actualizar sección de receta
+      description: |
+        Actualiza el nombre o el orden de una sección.
+        **Roles permitidos**: `admin`, `chef`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: section_id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecipeSectionCreate'
+      responses:
+        '200':
+          description: Sección actualizada correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '404':
+          description: Receta o sección no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - Secciones de receta
+      summary: Eliminar sección de receta
+      description: |
+        Elimina una sección y desvincula sus ingredientes.
+        **Roles permitidos**: `admin`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: section_id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Sección eliminada correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /suppliers:
+    get:
+      tags:
+        - Proveedores
+      summary: Listar proveedores
+      description: |
+        Recupera todos los proveedores ordenados por nombre.
+        **Roles permitidos**: `admin`, `supplier_manager`
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista de proveedores
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Supplier'
+
+    post:
+      tags:
+        - Proveedores
+      summary: Crear proveedor
+      description: |
+        Crea un nuevo proveedor en el sistema.
+        **Roles permitidos**: `admin`, `supplier_manager`
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SupplierCreate'
+      responses:
+        '201':
+          description: Proveedor creado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '400':
+          description: Parámetros inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /suppliers/{id}:
+    get:
+      tags:
+        - Proveedores
+      summary: Obtener proveedor por ID
+      description: |
+        Recupera los datos de un proveedor específico.
+        **Roles permitidos**: `admin`, `supplier_manager`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Datos del proveedor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Supplier'
+        '404':
+          description: Proveedor no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags:
+        - Proveedores
+      summary: Actualizar proveedor
+      description: |
+        Modifica los datos de un proveedor existente.
+        **Roles permitidos**: `admin`, `supplier_manager`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SupplierCreate'
+      responses:
+        '200':
+          description: Proveedor actualizado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '404':
+          description: Proveedor no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - Proveedores
+      summary: Eliminar proveedor
+      description: |
+        Elimina un proveedor y sus ingredientes asociados.
+        **Roles permitidos**: `admin`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Proveedor eliminado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '404':
+          description: Proveedor no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /suppliers/{id}/ingredients:
+    get:
+      tags:
+        - Proveedores
+      summary: Listar ingredientes de proveedor
+      description: |
+        Obtiene los ingredientes asociados a un proveedor.
+        **Roles permitidos**: `admin`, `supplier_manager`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Ingredientes del proveedor
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SupplierIngredientItem'
+
+    post:
+      tags:
+        - Proveedores
+      summary: Asignar ingrediente a proveedor
+      description: |
+        Asocia un ingrediente a un proveedor.
+        **Roles permitidos**: `admin`, `supplier_manager`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SupplierIngredientCreate'
+      responses:
+        '201':
+          description: Ingrediente asignado al proveedor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '400':
+          description: Ingrediente ya asociado o parámetros inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /suppliers/{id}/ingredients/{ingredient_id}:
+    put:
+      tags:
+        - Proveedores
+      summary: Actualizar relación proveedor-ingrediente
+      description: |
+        Actualiza los datos de la relación entre un proveedor y un ingrediente (precio, tiempo de entrega, proveedor preferido).
+        **Roles permitidos**: `admin`, `supplier_manager`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: ingredient_id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SupplierIngredientCreate'
+      responses:
+        '200':
+          description: Relación actualizada correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '404':
+          description: Proveedor o ingrediente no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - Proveedores
+      summary: Desvincular ingrediente de proveedor
+      description: |
+        Elimina la asociación de un ingrediente con un proveedor.
+        **Roles permitidos**: `admin`, `supplier_manager`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: ingredient_id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Ingrediente eliminado del proveedor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '404':
+          description: Ingrediente o proveedor no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /recipe-categories:
+    get:
+      tags:
+        - Categorías de Recetas
+      summary: Listar categorías de recetas
+      description: |
+        Recupera todas las categorías de recetas ordenadas por nombre.
+        **Roles permitidos**: `admin`, `chef`
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista de categorías de recetas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RecipeCategory'
+
+    post:
+      tags:
+        - Categorías de Recetas
+      summary: Crear categoría de receta
+      description: |
+        Crea una nueva categoría de receta.
+        **Roles permitidos**: `admin`, `chef`
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecipeCategoryCreate'
+      responses:
+        '201':
+          description: Categoría creada correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '400':
+          description: Parámetros inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /recipe-categories/{id}:
+    get:
+      tags:
+        - Categorías de Recetas
+      summary: Obtener categoría por ID
+      description: |
+        Recupera una categoría de receta específica.
+        **Roles permitidos**: `admin`, `chef`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Datos de la categoría
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipeCategory'
+        '404':
+          description: Categoría no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags:
+        - Categorías de Recetas
+      summary: Actualizar categoría
+      description: |
+        Modifica una categoría de receta existente.
+        **Roles permitidos**: `admin`, `chef`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecipeCategoryCreate'
+      responses:
+        '200':
+          description: Categoría actualizada correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '404':
+          description: Categoría no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - Categorías de Recetas
+      summary: Eliminar categoría
+      description: |
+        Elimina una categoría de receta.
+        **Roles permitidos**: `admin`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Categoría eliminada correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '404':
+          description: Categoría no encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /dashboard/summary:
+    get:
+      tags:
+        - Dashboard
+      summary: Resumen del dashboard
+      description: |
+        Obtiene un resumen general con contadores para el dashboard principal.
+        **Roles permitidos**: `admin`, `chef`, `supplier_manager`
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Datos del resumen del dashboard
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardSummary'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /dashboard/low-stock-ingredients:
+    get:
+      tags:
+        - Dashboard
+      summary: Ingredientes con stock bajo
+      description: |
+        Recupera lista de ingredientes con stock por debajo del mínimo.
+        **Roles permitidos**: `admin`, `chef`, `inventory_manager`
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista de ingredientes con stock bajo
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LowStockIngredient'
+
+  /dashboard/recipes-by-category:
+    get:
+      tags:
+        - Dashboard
+      summary: Recetas por categoría
+      description: |
+        Obtiene estadísticas de recetas agrupadas por categoría para gráficos.
+        **Roles permitidos**: `admin`, `chef`
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Distribución de recetas por categoría
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RecipesByCategory'
+
+  /dashboard/latest-recipes:
+    get:
+      tags:
+        - Dashboard
+      summary: Últimas recetas añadidas
+      description: |
+        Recupera las recetas más recientes añadidas al sistema.
+        **Roles permitidos**: `admin`, `chef`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            default: 5
+          description: Número máximo de recetas a devolver
+      responses:
+        '200':
+          description: Lista de últimas recetas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LatestRecipe'
+
+  /dashboard/upcoming-events:
+    get:
+      tags:
+        - Dashboard
+      summary: Próximos eventos
+      description: |
+        Obtiene eventos programados próximos.
+        **Roles permitidos**: `admin`, `chef`, `event_manager`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: period
+          required: false
+          schema:
+            type: string
+            default: "30"
+          description: Período en días para buscar eventos
+      responses:
+        '200':
+          description: Lista de próximos eventos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UpcomingEvent'
+
+  /dashboard/events-with-menus:
+    get:
+      tags:
+        - Dashboard
+      summary: Eventos con menús asignados
+      description: |
+        Recupera próximos eventos que ya tienen menús asignados.
+        **Roles permitidos**: `admin`, `chef`, `event_manager`
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista de eventos con menús
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EventWithMenu'
+
+  /dashboard/supplier-order-reminders:
+    get:
+      tags:
+        - Dashboard
+      summary: Recordatorios de pedidos
+      description: |
+        Obtiene ingredientes que requieren pedidos a proveedores basado en stock y tiempo de entrega.
+        **Roles permitidos**: `admin`, `supplier_manager`, `inventory_manager`
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista de recordatorios de pedidos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SupplierOrderReminder'
+
+  /dashboard/seasonal-ingredients:
+    get:
+      tags:
+        - Dashboard
+      summary: Ingredientes de temporada
+      description: |
+        Obtiene calendario de temporada de ingredientes para planificación.
+        **Roles permitidos**: `admin`, `chef`, `supplier_manager`
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista de ingredientes de temporada
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SeasonalIngredient'
+
+  /taxes:
+    get:
+      tags:
+        - Impuestos
+      summary: Listar impuestos
+      description: |
+        Recupera todos los impuestos ordenados por nombre.
+        **Roles permitidos**: `admin`
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista de impuestos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Tax'
+
+    post:
+      tags:
+        - Impuestos
+      summary: Crear impuesto
+      description: |
+        Crea un nuevo impuesto.
+        **Roles permitidos**: `admin`
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaxCreate'
+      responses:
+        '201':
+          description: Impuesto creado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '400':
+          description: Parámetros inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /taxes/{id}:
+    get:
+      tags:
+        - Impuestos
+      summary: Obtener impuesto por ID
+      description: |
+        Recupera los datos de un impuesto específico.
+        **Roles permitidos**: `admin`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Datos del impuesto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tax'
+        '404':
+          description: Impuesto no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags:
+        - Impuestos
+      summary: Actualizar impuesto
+      description: |
+        Modifica el nombre o porcentaje de un impuesto.
+        **Roles permitidos**: `admin`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaxCreate'
+      responses:
+        '200':
+          description: Impuesto actualizado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '404':
+          description: Impuesto no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - Impuestos
+      summary: Eliminar impuesto
+      description: |
+        Elimina un impuesto del sistema.
+        **Roles permitidos**: `admin`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Impuesto eliminado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '404':
+          description: Impuesto no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users:
+    get:
+      tags:
+        - Usuarios
+      summary: Listar usuarios
+      description: |
+        Recupera todos los usuarios.
+        **Roles permitidos**: `admin`
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista de usuarios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+
+    post:
+      tags:
+        - Usuarios
+      summary: Crear usuario
+      description: |
+        Crea un nuevo usuario con contraseña.
+        **Roles permitidos**: `admin`
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreate'
+      responses:
+        '201':
+          description: Usuario creado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '400':
+          description: Parámetros inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/{id}:
+    get:
+      tags:
+        - Usuarios
+      summary: Obtener usuario por ID
+      description: |
+        Recupera los datos de un usuario específico.
+        **Roles permitidos**: `admin`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Datos del usuario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: Usuario no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags:
+        - Usuarios
+      summary: Actualizar usuario
+      description: |
+        Modifica los datos de un usuario (sin contraseña).
+        **Roles permitidos**: `admin`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserUpdate'
+      responses:
+        '200':
+          description: Usuario actualizado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '404':
+          description: Usuario no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - Usuarios
+      summary: Eliminar usuario
+      description: |
+        Elimina un usuario del sistema.
+        **Roles permitidos**: `admin`
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Usuario eliminado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '404':
+          description: Usuario no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /allergens:
+    get:
+      tags:
+        - Alérgenos
+      summary: Obtener todos los alérgenos
+      description: |
+        **Roles permitidos**: `admin`, `chef`, `waiter`
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Lista de alérgenos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Allergen'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      tags:
+        - Alérgenos
+      summary: Crear un nuevo alérgeno
+      description: |
+        **Roles permitidos**: `admin`, `chef`
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewAllergen'
+      responses:
+        '201':
+          description: Alérgeno creado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IdResponse'
+        '400':
+          description: Campo inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Ya existe un alérgeno con ese nombre
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /allergens/{id}:
+    parameters:
+      - in: path
+        name: id
+        description: ID del alérgeno
+        required: true
+        schema:
+          type: integer
+    get:
+      tags:
+        - Alérgenos
+      summary: Obtener un alérgeno por ID
+      description: |
+        **Roles permitidos**: `admin`, `chef`, `waiter`
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Alérgeno encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Allergen'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Alérgeno no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    put:
+      tags:
+        - Alérgenos
+      summary: Actualizar un alérgeno
+      description: |
+        **Roles permitidos**: `admin`, `chef`
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewAllergen'
+      responses:
+        '200':
+          description: Alérgeno actualizado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '400':
+          description: Campo inválido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Alérgeno no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Ya existe un alérgeno con ese nombre
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - Alérgenos
+      summary: Eliminar un alérgeno
+      description: |
+        **Roles permitidos**: `admin`
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Alérgeno eliminado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResponseMessage'
+        '401':
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Alérgeno no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'

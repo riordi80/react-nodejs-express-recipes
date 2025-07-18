@@ -1,0 +1,340 @@
+/* src/App.css */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', Helvetica, Arial, sans-serif;
+  font-weight: 300;
+  background-color: #f8fafc;
+}
+
+/* Notification styles - Global */
+.notification {
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.notification.success {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.notification.error {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+/* Error message styles - Global */
+.error {
+  color: #dc3545;
+  margin-bottom: 10px;
+}
+
+/* Common page container styles - Global */
+.allergens-container,
+.ingredients-container,
+.suppliers-container {
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  padding-top: 80px;
+  max-width: 1800px;
+  margin: 0 auto;
+  min-height: 100vh;
+}
+
+.allergens-container h2,
+.ingredients-container h2,
+.suppliers-container h2 {
+  font-size: 32px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 8px 0;
+}
+
+/* Estilos para el contenedor de recipes */
+.recipes-container {
+  padding: 24px;
+  padding-top: 80px;
+  max-width: 1800px;
+  margin: 0 auto;
+  min-height: 100vh;
+}
+
+.recipes-container h1 {
+  font-size: 32px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 32px 0;
+}
+
+/* Common subheader styles - Global */
+.subheader {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+/* Contenedor principal para toda la página */
+.main-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh; /* Altura completa de la página */
+}
+
+/* Contenedor para sidebar y contenido */
+.layout-body {
+  display: flex;
+  flex: 1;
+  position: relative;
+}
+
+/* Contenido principal (sin el sidebar) */
+.content {
+  flex-grow: 1;
+  margin-left: 5rem; /* Deja espacio para el sidebar colapsado */
+  padding: 0;
+  background-color: #f8fafc;
+  height: calc(100vh - 60px); /* Deja espacio para el topbar */
+  overflow-y: auto;
+  transition: margin-left 0.35s cubic-bezier(0.175, 0.685, 0.32, 1);
+}
+
+/* Solo aplicar el efecto cuando se hace hover sobre el navbar */
+.layout-body #navbar:hover ~ .content {
+  margin-left: 16rem;
+}
+
+/* Cuando el sidebar está fijado, mantener el contenido desplazado */
+.layout-body #navbar.pinned ~ .content {
+  margin-left: 16rem;
+}
+
+
+/* Estilo global para botones genéricos */
+button {
+  background-color: rgb(93, 135, 255);
+  color: white;
+  border: none;
+  padding: 10px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  width: 100%;
+}
+
+button:hover {
+  background-color: rgb(236, 242, 255); /* Fondo cuando pasa el ratón */
+}
+
+button:focus, button:active {
+  background-color: rgb(93, 135, 255);
+  box-shadow: none;
+}
+
+/* ===== Estilos específicos para botones de acciones ===== */
+.btn {
+  height: 32px;
+  line-height: 32px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  text-decoration: none; /* para cuando se use como link */
+  box-sizing: border-box;
+}
+
+.btn.add    { background-color: #28a745; color: #fff; }
+.btn.edit   { background-color: rgb(93,135,255); color: #fff; }
+.btn.view   { background-color: rgb(93,135,255); color: #fff; }
+.btn.delete { background-color: #dc3545; color: #fff; }
+.btn.cancel { background-color: #6c757d; color: #fff; }
+
+.btn.add:hover    { background-color: #218838; }
+.btn.edit:hover   { background-color: rgb(73,115,235); }
+.btn.view:hover   { background-color: rgb(73,115,235); }
+.btn.delete:hover { background-color: #c82333; }
+.btn.cancel:hover { background-color: #5a6268; }
+
+.actions {
+  display: flex;
+  gap: 4px;
+}
+
+/* ===== Estilos globales para botones con iconos ===== */
+.table-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  align-items: center;
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  padding: 8px;
+  border-radius: 4px;
+  transition: all 0.35s cubic-bezier(0.175, 0.685, 0.32, 1);
+  min-width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgb(90, 106, 133);
+}
+
+.icon-btn:hover {
+  color: rgb(93, 135, 255);
+  background-color: rgb(236, 242, 255);
+}
+
+.icon-btn:focus {
+  outline: none;
+  color: white;
+  background-color: rgb(93, 135, 255);
+}
+
+.edit-icon {
+  color: rgb(90, 106, 133);
+}
+
+.edit-icon:hover {
+  color: rgb(93, 135, 255);
+  background-color: rgb(236, 242, 255);
+}
+
+.edit-icon:focus {
+  outline: none;
+  color: white;
+  background-color: rgb(93, 135, 255);
+}
+
+.delete-icon {
+  color: rgb(90, 106, 133);
+}
+
+.delete-icon:hover {
+  color: rgb(93, 135, 255);
+  background-color: rgb(236, 242, 255);
+}
+
+.delete-icon:focus {
+  outline: none;
+  color: white;
+  background-color: rgb(93, 135, 255);
+}
+
+/* Responsive Design - Global */
+@media (max-width: 1024px) {
+  .allergens-container,
+  .ingredients-container,
+  .suppliers-container {
+    padding: 16px;
+    padding-top: 80px;
+  }
+  
+  .allergens-container h2,
+  .ingredients-container h2,
+  .suppliers-container h2 {
+    font-size: 28px;
+  }
+  
+  .recipes-container {
+    padding: 16px;
+    padding-top: 80px;
+  }
+  
+  .recipes-container h1 {
+    font-size: 28px;
+    margin-bottom: 24px;
+  }
+}
+
+@media (max-width: 768px) {
+  .allergens-container,
+  .ingredients-container,
+  .suppliers-container {
+    padding: 12px;
+    padding-top: 80px;
+  }
+  
+  .allergens-container h2,
+  .ingredients-container h2,
+  .suppliers-container h2 {
+    font-size: 24px;
+    margin-bottom: 16px;
+  }
+  
+  .recipes-container {
+    padding: 12px;
+    padding-top: 80px;
+  }
+  
+  .recipes-container h1 {
+    font-size: 24px;
+    margin-bottom: 16px;
+  }
+  
+  .subheader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+  .search-input {
+    width: 100% !important;
+  }
+  
+  .btn {
+    width: 100%;
+    justify-content: center;
+    height: 44px !important;
+    line-height: 44px !important;
+    font-size: 16px !important;
+  }
+  
+  .actions {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  /* En móvil, el contenido aprovecha todo el ancho por defecto */
+  .content {
+    margin-left: 0 !important;
+    transition: margin-left 0.3s ease !important;
+  }
+  
+  /* Cuando el sidebar móvil está abierto, encoger el contenido */
+  .layout-body #navbar.mobile-open ~ .content {
+    margin-left: 5rem !important;
+  }
+  
+  /* Deshabilitar efectos de hover y pinned en móvil */
+  .layout-body #navbar:hover ~ .content {
+    margin-left: 0 !important;
+  }
+  
+  .layout-body #navbar.pinned ~ .content {
+    margin-left: 0 !important;
+  }
+  
+  /* Cuando el sidebar móvil está abierto Y tiene hover/pinned, mantener el margen */
+  .layout-body #navbar.mobile-open:hover ~ .content,
+  .layout-body #navbar.mobile-open.pinned ~ .content {
+    margin-left: 5rem !important;
+  }
+}

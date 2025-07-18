@@ -1,0 +1,154 @@
+/* src/layout/topbar/Topbar.css */
+/* Estilo para la barra superior (Topbar) */
+.topbar {
+  width: 100%;
+  padding: 10px 20px;
+  color: rgb(90, 106, 133);
+  font-weight: bold;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 10; /* Asegura que esté por encima del sidebar */
+  border-bottom: 1px solid #eeeeee; /* Borde inferior del topbar */
+  background-color: #fff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.logo-image {
+  height: 30px; /* o el tamaño que necesites */
+  width: auto;
+}
+
+.logo-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.logo-container:hover {
+  transform: translateY(-1px);
+}
+
+.logo-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background-color: rgb(90, 106, 133);
+  color: white;
+  font-size: 20px;
+  border-radius: 5px;
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 1.5rem;
+}
+
+.logo-text {
+  color: rgb(90, 106, 133);
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: -0.3px;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.config-button, .profile-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 5px;
+  color: rgb(90, 106, 133);
+  text-decoration: none;
+  transition: all 0.3s ease;
+}
+
+.config-button:hover, .profile-button:hover {
+  background-color: rgb(236, 242, 255);
+  color: rgb(93, 135, 255);
+}
+
+.config-button.active, .profile-button.active {
+  background-color: rgb(93, 135, 255);
+  color: white;
+}
+
+.config-button svg, .profile-button svg {
+  font-size: 20px;
+}
+
+/* Botón del menú móvil */
+.mobile-menu-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 5px;
+  background: none;
+  border: none;
+  color: rgb(90, 106, 133);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.mobile-menu-toggle.active {
+  background-color: rgb(90, 106, 133);
+  color: white;
+}
+
+.mobile-menu-toggle:hover:not(.active) {
+  background-color: rgb(236, 242, 255);
+  color: rgb(93, 135, 255);
+}
+
+.mobile-menu-toggle:focus {
+  outline: none;
+}
+
+.mobile-menu-toggle:focus:not(.active) {
+  background-color: transparent;
+  color: rgb(90, 106, 133);
+}
+
+.mobile-menu-toggle svg {
+  font-size: 20px !important;
+}
+
+/* Mostrar botón móvil solo en dispositivos móviles */
+@media only screen and (max-width: 756px) {
+  .mobile-menu-toggle {
+    display: flex;
+    width: 40px;
+    height: 40px;
+  }
+  
+  .mobile-menu-toggle svg {
+    font-size: 24px !important;
+  }
+  
+  /* Ocultar botón de Settings en móvil */
+  .config-button {
+    display: none;
+  }
+}

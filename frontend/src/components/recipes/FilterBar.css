@@ -1,0 +1,269 @@
+/* ─── Contenedor de filtros ─── */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;       /* permite que los filtros pasen a la siguiente línea */
+  gap: 8px;
+  align-items: flex-start; /* alinear al inicio para elementos en múltiples filas */
+  overflow: visible;     /* que no recorte nada */
+  width: 100%;          /* ocupar todo el ancho disponible */
+}
+
+/* ─── Inputs y selects estándar ─── */
+.filter-input,
+.filter-select {
+  padding: 6px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: inherit;
+  height: 36px; /* altura estándar */
+  width: 180px;    /* ancho fijo para todos los selects */
+  flex-shrink: 0;  /* evitar que se compriman */
+}
+
+/* Campo de búsqueda más ancho */
+.filter-input {
+  width: 220px;    /* ancho fijo para el campo de búsqueda */
+}
+
+/* ─── Multi-select custom para alérgenos ─── */
+.filter-multiselect {
+  position: relative;    /* origen para el menú absoluto */
+  z-index: 10;          /* asegurar que esté por encima de otros elementos */
+  flex-shrink: 0;       /* evitar que se comprima en desktop */
+}
+
+/* Botón que se ve igual que un <select> - sobrescribir estilos globales de button */
+.filter-multiselect-toggle {
+  /* Resetear todos los estilos globales de button */
+  background-color: #f9f9f9 !important; /* fondo gris como selects nativos */
+  background-image: linear-gradient(to bottom, #fff, #f0f0f0) !important;
+  color: #333 !important; /* texto oscuro */
+  border: 1px solid #ccc !important;
+  border-radius: 4px !important;
+  padding: 6px 8px !important;
+  font-size: inherit !important;
+  font-family: inherit !important;
+  font-weight: normal !important;
+  height: 36px !important;
+  width: 180px !important; /* mismo ancho que los otros selects */
+  flex-shrink: 0;
+  box-sizing: border-box;
+  cursor: default !important;
+  display: inline-block;
+  text-align: left;
+  outline: none;
+  
+  /* Flecha del select usando CSS */
+  background-image: 
+    linear-gradient(45deg, transparent 50%, #666 50%), 
+    linear-gradient(135deg, #666 50%, transparent 50%),
+    linear-gradient(to bottom, #fff, #f0f0f0) !important;
+  background-position: 
+    calc(100% - 12px) calc(50% + 2px),
+    calc(100% - 8px) calc(50% + 2px),
+    0 0 !important;
+  background-size: 
+    4px 4px,
+    4px 4px,
+    100% 100% !important;
+  background-repeat: no-repeat !important;
+  padding-right: 24px !important; /* espacio para la flecha */
+}
+
+/* Estados sobrescribiendo estilos globales de button */
+.filter-multiselect-toggle:hover {
+  background-color: #ebebeb !important;
+  background-image: linear-gradient(to bottom, #f5f5f5, #e8e8e8) !important;
+  border-color: #999 !important;
+  color: #333 !important;
+  /* Mantener la flecha en hover */
+  background-image: 
+    linear-gradient(45deg, transparent 50%, #666 50%), 
+    linear-gradient(135deg, #666 50%, transparent 50%),
+    linear-gradient(to bottom, #f5f5f5, #e8e8e8) !important;
+  background-position: 
+    calc(100% - 12px) calc(50% + 2px),
+    calc(100% - 8px) calc(50% + 2px),
+    0 0 !important;
+  background-size: 
+    4px 4px,
+    4px 4px,
+    100% 100% !important;
+  background-repeat: no-repeat !important;
+}
+
+.filter-multiselect-toggle:focus {
+  outline: none !important;
+  background-color: #f9f9f9 !important;
+  border-color: #666 !important;
+  color: #333 !important;
+  box-shadow: none !important;
+  /* Mantener la flecha en focus */
+  background-image: 
+    linear-gradient(45deg, transparent 50%, #666 50%), 
+    linear-gradient(135deg, #666 50%, transparent 50%),
+    linear-gradient(to bottom, #fff, #f0f0f0) !important;
+  background-position: 
+    calc(100% - 12px) calc(50% + 2px),
+    calc(100% - 8px) calc(50% + 2px),
+    0 0 !important;
+  background-size: 
+    4px 4px,
+    4px 4px,
+    100% 100% !important;
+  background-repeat: no-repeat !important;
+}
+
+.filter-multiselect-toggle:active {
+  background-color: #f9f9f9 !important;
+  color: #333 !important;
+  box-shadow: none !important;
+}
+
+/* Estado activo cuando hay alérgenos seleccionados */
+.filter-multiselect-toggle.active {
+  background-color: rgb(93,135,255) !important;
+  background-image: none !important;
+  color: #fff !important;
+  border-color: rgb(93,135,255) !important;
+  /* Mantener la flecha pero blanca */
+  background-image: 
+    linear-gradient(45deg, transparent 50%, #fff 50%), 
+    linear-gradient(135deg, #fff 50%, transparent 50%) !important;
+  background-position: 
+    calc(100% - 12px) calc(50% + 2px),
+    calc(100% - 8px) calc(50% + 2px) !important;
+  background-size: 
+    4px 4px,
+    4px 4px !important;
+  background-repeat: no-repeat !important;
+}
+
+/* Hover del estado activo */
+.filter-multiselect-toggle.active:hover {
+  background-color: rgb(73,115,235) !important;
+  background-image: 
+    linear-gradient(45deg, transparent 50%, #fff 50%), 
+    linear-gradient(135deg, #fff 50%, transparent 50%) !important;
+  background-position: 
+    calc(100% - 12px) calc(50% + 2px),
+    calc(100% - 8px) calc(50% + 2px) !important;
+  background-size: 
+    4px 4px,
+    4px 4px !important;
+  background-repeat: no-repeat !important;
+  border-color: rgb(73,115,235) !important;
+  color: #fff !important;
+}
+
+/* Menú desplegable */
+.filter-multiselect-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  width: 100%;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  max-height: min(300px, calc(100vh - 100px - var(--menu-top, 0px)));    /* altura adaptativa */
+  overflow-y: auto;     /* scroll interno si hay muchos alérgenos */
+  overflow-x: hidden;   /* sin scroll horizontal */
+  z-index: 9999;        /* z-index muy alto para estar por encima de todo */
+  min-width: 200px;
+}
+
+/* En móviles, aprovechar más altura */
+@media (max-width: 768px) {
+  .filter-multiselect-menu {
+    max-height: calc(100vh - 200px);  /* más altura en móviles */
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+  }
+}
+
+/* Cada opción con checkbox */
+.filter-multiselect-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1.4;
+  text-align: left;
+}
+
+.filter-multiselect-item:hover {
+  background-color: #f5f5f5;
+}
+
+.filter-multiselect-item input[type="checkbox"] {
+  margin-right: 8px;
+  width: 16px !important;
+  height: 16px !important;
+  flex-shrink: 0;
+  cursor: pointer;
+  appearance: checkbox;
+  -webkit-appearance: checkbox;
+  -moz-appearance: checkbox;
+  box-sizing: border-box;
+  background: transparent;
+  border: 1px solid #ccc;
+}
+
+.filter-multiselect-item label {
+  margin: 0 !important;
+  font-weight: normal !important;
+  cursor: pointer;
+  flex: 1;
+  font-size: 14px;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ─── Responsive design ─── */
+@media (max-width: 768px) {
+  .filter-bar {
+    gap: 6px; /* reducir espacio en móviles */
+  }
+  
+  .filter-input,
+  .filter-select {
+    width: 100% !important; /* ancho completo en móviles */
+    font-size: 16px; /* ajustar tamaño de fuente */
+    height: 44px; /* altura táctil */
+  }
+  
+  .filter-bar .filter-multiselect {
+    width: 100% !important; /* contenedor de ancho completo */
+    flex-shrink: 1 !important; /* permitir que se expanda en móviles */
+  }
+  
+  .filter-bar .filter-multiselect-toggle {
+    width: 100% !important; /* ancho completo en móviles */
+    height: 44px !important; /* altura táctil */
+    font-size: 16px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .filter-input,
+  .filter-select {
+    width: 100% !important; /* ancho completo */
+    height: 44px;
+    font-size: 16px;
+  }
+  
+  .filter-bar .filter-multiselect {
+    width: 100% !important; /* contenedor de ancho completo */
+    flex-shrink: 1 !important; /* permitir que se expanda en móviles */
+  }
+  
+  .filter-bar .filter-multiselect-toggle {
+    width: 100% !important; /* ancho completo */
+    height: 44px !important;
+    font-size: 16px !important;
+  }
+}

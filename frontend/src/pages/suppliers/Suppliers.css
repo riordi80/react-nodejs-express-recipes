@@ -1,0 +1,550 @@
+/* src/pages/suppliers/Suppliers.css */
+
+.suppliers-container {
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  padding-top: 80px;
+  max-width: 1800px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background-color: #f8fafc;
+}
+
+.suppliers-content {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+}
+
+.suppliers-content h2 {
+  font-size: 32px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 32px 0;
+}
+
+.search-input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  line-height: 36px;
+  padding: 0 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.suppliers-table {
+  margin-top: 20px;
+}
+
+/* Responsive Design - Suppliers */
+@media (max-width: 1024px) {
+  .suppliers-container {
+    padding: 16px;
+    padding-top: 80px;
+  }
+  
+  .suppliers-content {
+    padding: 24px;
+  }
+  
+  .suppliers-container .modal-body-form {
+    min-width: 300px;
+  }
+}
+
+@media (max-width: 768px) {
+  .suppliers-container {
+    padding: 12px;
+    padding-top: 80px;
+  }
+  
+  .suppliers-content {
+    padding: 16px;
+  }
+  
+  .suppliers-content h2 {
+    font-size: 24px;
+    margin-bottom: 16px;
+  }
+  
+  .search-input {
+    height: 44px;
+    line-height: 44px;
+    font-size: 16px;
+  }
+  
+  .suppliers-container .modal-body-form {
+    min-width: 280px;
+  }
+  
+  .suppliers-container .modal-body-form .input-field,
+  .suppliers-container .modal-body-form .textarea-field {
+    height: 44px;
+    line-height: 44px;
+    font-size: 16px;
+  }
+  
+  .suppliers-container .modal-body-form .textarea-field {
+    min-height: 88px;
+    line-height: 1.4;
+  }
+}
+
+@media (max-width: 480px) {
+  .suppliers-container {
+    padding: 8px;
+    padding-top: 80px;
+  }
+  
+  .suppliers-content {
+    padding: 12px;
+  }
+  
+  .suppliers-content h2 {
+    font-size: 22px;
+  }
+  
+  .suppliers-container .modal-body-form {
+    min-width: 100%;
+  }
+}
+
+
+/* Modal form dentro de <Modal> - específico para suppliers */
+.suppliers-container .modal-body-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 400px;
+}
+
+/* Contenedor de los campos principales - específico para suppliers */
+.suppliers-container .form-fields-main {
+  display: flex;
+  flex-direction: column;
+}
+
+.suppliers-container .modal-body-form label {
+  margin-top: 10px;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+/* Primera etiqueta sin margen superior */
+.suppliers-container .modal-body-form label:first-child {
+  margin-top: 0;
+}
+
+.suppliers-container .modal-body-form .input-field,
+.suppliers-container .modal-body-form textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.suppliers-container .modal-body-form textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+/* Flex para los botones del modal */
+.suppliers-container .modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+/* Enlaces en la tabla */
+.suppliers-table a {
+  color: #007bff;
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.suppliers-table a:hover {
+  text-decoration: underline;
+}
+
+/* Modal con pestañas */
+.modal-with-tabs {
+  min-width: 600px;
+}
+
+/* Forzar 1 columna SOLO en el modal de proveedores para la pestaña info */
+.supplier-info-form {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 16px !important;
+  grid-template-columns: none !important;
+}
+
+.modal-tabs {
+  display: flex;
+  border-bottom: 2px solid #e9ecef;
+  margin-bottom: 20px;
+}
+
+.tab-button {
+  padding: 12px 24px;
+  border: none;
+  background: transparent !important;
+  cursor: pointer;
+  font-weight: 500;
+  color: #6c757d;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.tab-button:hover {
+  color: #495057;
+  background: transparent !important;
+}
+
+.tab-button.active {
+  color: #007bff;
+  border-bottom-color: #007bff;
+  background: transparent !important;
+}
+
+/* Tab de ingredientes del proveedor */
+.supplier-ingredients-tab {
+  padding: 10px 0;
+}
+
+.supplier-ingredients-tab p {
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: #6c757d;
+}
+
+.supplier-ingredients-table {
+  margin-bottom: 20px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.supplier-ingredients-table table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.supplier-ingredients-table th,
+.supplier-ingredients-table td {
+  padding: 6px 12px;
+  text-align: left;
+  border-bottom: 1px solid #dee2e6;
+  vertical-align: middle;
+}
+
+/* Formulario modal de una columna con labels a la izquierda */
+.modal-single-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.modal-single-column .form-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.modal-single-column label {
+  font-weight: 500;
+  min-width: 120px;
+  text-align: left;
+  margin: 0;
+}
+
+.modal-single-column .input-field,
+.modal-single-column textarea {
+  flex: 1;
+  box-sizing: border-box;
+}
+
+.supplier-ingredients-table th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+  color: #495057;
+}
+
+.supplier-ingredients-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+}
+
+.supplier-ingredients-table th.sortable:hover {
+  background-color: #e9ecef;
+}
+
+.sort-indicator {
+  font-size: 12px;
+  color: #007bff;
+  margin-left: 4px;
+}
+
+.supplier-ingredients-table tr:hover {
+  background-color: #f8f9fa;
+}
+
+.supplier-ingredients-table .btn.small {
+  padding: 4px 8px;
+  font-size: 12px;
+  margin-right: 4px;
+}
+
+
+/* Modal para añadir ingredientes */
+.add-ingredient-modal {
+  width: 100%;
+  max-width: 100%;
+  min-width: auto;
+}
+
+.add-ingredient-modal p {
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: #6c757d;
+}
+
+.search-ingredients {
+  margin-bottom: 16px;
+}
+
+.search-ingredients .search-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.ingredients-selection {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 12px;
+  margin-bottom: 20px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.ingredient-item {
+  margin-bottom: 16px;
+  padding: 12px;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  background-color: #f8f9fa;
+}
+
+.ingredient-item:last-child {
+  margin-bottom: 0;
+}
+
+.ingredient-header {
+  margin-bottom: 8px;
+}
+
+.ingredient-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.ingredient-checkbox input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+}
+
+.ingredient-name {
+  font-size: 14px;
+  color: #495057;
+}
+
+.ingredient-details {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #dee2e6;
+}
+
+.detail-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-field label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #6c757d;
+  margin-bottom: 4px;
+}
+
+.detail-field .input-field.small {
+  padding: 6px 8px;
+  font-size: 13px;
+  height: auto;
+}
+
+.detail-field .checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+.detail-field .checkbox-label input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+}
+
+/* Modal para editar relación proveedor-ingrediente */
+.edit-supplier-ingredient-modal {
+  width: 100%;
+  max-width: 100%;
+  min-width: auto;
+}
+
+.edit-supplier-ingredient-modal p {
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: #6c757d;
+}
+
+.edit-form-inline {
+  margin-bottom: 20px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 16px;
+  align-items: end;
+}
+
+.form-field-inline {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-field-inline label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #495057;
+  margin-bottom: 6px;
+}
+
+.form-field-inline .input-field-inline {
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.checkbox-field {
+  display: flex;
+  align-items: center;
+  margin-top: 20px;
+}
+
+.checkbox-label-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.checkbox-label-inline input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .suppliers-container {
+    padding: 20px;
+  }
+  
+  .suppliers-container .modal-body-form {
+    min-width: 300px;
+  }
+  
+  .modal-with-tabs {
+    min-width: 400px;
+  }
+  
+  .suppliers-container .subheader {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .suppliers-container .search-input {
+    width: 100%;
+  }
+  
+  .supplier-ingredients-table {
+    font-size: 12px;
+  }
+  
+  .tab-button {
+    padding: 10px 16px;
+    font-size: 14px;
+  }
+  
+  .add-ingredient-modal {
+    width: 100%;
+    min-width: auto;
+  }
+  
+  .ingredient-details {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  
+  .ingredients-selection {
+    max-height: 300px;
+  }
+  
+  /* Iconos más grandes en móvil */
+  .icon-btn {
+    font-size: 18px;
+    min-width: 32px;
+    height: 32px;
+  }
+  
+  /* Modal de edición en móvil */
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .checkbox-field {
+    margin-top: 8px;
+  }
+}

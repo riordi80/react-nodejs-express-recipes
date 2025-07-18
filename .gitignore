@@ -1,0 +1,72 @@
+# Ignorar directorio de documentación técnica en la raíz
+/documentacion/
+
+#Ignorar backup antigua
+/frontend-old/
+
+# Ignorar archivos de entorno (en cualquier lugar)
+**/.env
+**/.env.local
+**/.env.cloudflare
+**/.env.production
+**/.env.development
+
+# Ignorar configuración runtime (generada por switch-env.sh)
+/frontend/public/config.json
+
+# Ignorar dependencias node_modules solo en backend y frontend
+/backend/node_modules/
+/frontend/node_modules/
+
+# Ignorar builds y distribuciones solo en backend y frontend
+/backend/build/
+/backend/dist/
+/frontend/build/
+/frontend/dist/
+
+# Ignorar archivos de copias de seguridad (mantener carpeta pero no archivos)
+/backend/backups/*
+
+# Ignorar coberturas de tests
+/backend/coverage/
+/frontend/coverage/
+
+# Ignorar logs comunes
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+**/logs/
+*.log
+
+# Ignorar archivos de sistema
+.DS_Store
+Thumbs.db
+
+# Otros artefactos de desarrollo
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Ejemplo: ignorar SQLite o bases temporales (si usas para tests locales)
+*.sqlite
+*.db
+
+# Configuraciones de Cloudflare (sensibles)
+.cloudflared/
+**/.cloudflared/
+cloudflared.yml
+tunnel.yml
+
+# Certificados y claves
+*.key
+*.crt
+*.pem
+*.p12
+**/.ssh/
+**/ssl/
+**/certs/
+
+# Archivos de configuración para Claude Code
+CLAUDE.md
+

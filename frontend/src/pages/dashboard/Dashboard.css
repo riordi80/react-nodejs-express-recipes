@@ -1,0 +1,731 @@
+/* src/pages/dashboard/Dashboard.css */
+
+/* Contenedor principal del Dashboard */
+.dashboard-container {
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  padding-top: 80px;
+  max-width: 1800px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background-color: #f8fafc;
+}
+
+/* Contenedor del contenido con fondo blanco */
+.dashboard-content {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header del Dashboard */
+.dashboard-header {
+  margin-bottom: 32px;
+}
+
+.dashboard-header h1 {
+  font-size: 32px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 8px 0;
+}
+
+.dashboard-header p {
+  font-size: 16px;
+  color: #64748b;
+  margin: 0;
+}
+
+/* Tarjetas de resumen */
+.dashboard-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.summary-card {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.summary-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.summary-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: white;
+}
+
+.summary-icon.recipes {
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+}
+
+.summary-icon.ingredients {
+  background: linear-gradient(135deg, #10b981, #059669);
+}
+
+.summary-icon.suppliers {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.summary-icon.low-stock {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+}
+
+.summary-content h3 {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 4px 0;
+}
+
+.summary-content p {
+  font-size: 14px;
+  color: #64748b;
+  margin: 0;
+  font-weight: 500;
+}
+
+/* Grid de widgets */
+.dashboard-widgets {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 24px;
+}
+
+.widget {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+.widget.wide {
+  grid-column: 1 / -1;
+}
+
+.widget-header {
+  padding: 20px 24px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.widget-header h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+}
+
+.widget-icon {
+  font-size: 20px;
+  color: #3b82f6;
+}
+
+.widget-icon.alert {
+  color: #ef4444;
+}
+
+.widget-icon.seasonal {
+  color: #10b981;
+}
+
+.widget-content {
+  padding: 24px;
+}
+
+/* Estados de carga y error */
+.dashboard-loading {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #e2e8f0;
+  border-top: 4px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 16px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.dashboard-error {
+  text-align: center;
+  padding: 60px 20px;
+  color: #ef4444;
+}
+
+.dashboard-error svg {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.no-data {
+  text-align: center;
+  color: #64748b;
+  font-style: italic;
+  margin: 20px 0;
+}
+
+/* Widget: Alertas de Stock */
+.stock-alerts {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stock-alert-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+}
+
+.alert-info strong {
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.alert-details {
+  font-size: 14px;
+  color: #64748b;
+  margin-left: 8px;
+}
+
+.alert-badge {
+  background: #ef4444;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Widget: Recetas por categoría */
+.category-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.category-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.category-bar {
+  width: 100%;
+  height: 8px;
+  background: #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.category-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #1d4ed8);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.category-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.category-name {
+  font-weight: 500;
+  color: #1e293b;
+}
+
+.category-count {
+  font-weight: 600;
+  color: #3b82f6;
+  background: #eff6ff;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+}
+
+/* Widget: Últimas recetas */
+.latest-recipes {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.recipe-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.recipe-info strong {
+  color: #1e293b;
+  font-weight: 600;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.recipe-details {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.recipe-difficulty,
+.recipe-time,
+.recipe-servings {
+  font-size: 12px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.recipe-difficulty {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.recipe-time {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.recipe-servings {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.recipe-date {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+/* Widget: Eventos próximos */
+.upcoming-events {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.event-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.event-info strong {
+  color: #1e293b;
+  font-weight: 600;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.event-details {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.event-date,
+.event-time {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.event-guests {
+  font-size: 12px;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.event-status {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+.event-status.confirmed {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.event-status.planned {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+/* Widget: Ingredientes de temporada */
+.seasonal-info h4 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 16px 0;
+  text-transform: capitalize;
+}
+
+.seasonal-ingredients {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.seasonal-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+}
+
+.seasonal-item strong {
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.seasonal-stock {
+  font-size: 14px;
+  color: #166534;
+  font-weight: 500;
+}
+
+/* Widget: Eventos con menús */
+.events-with-menus {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.event-menu-item {
+  padding: 20px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.event-menu-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.event-menu-header strong {
+  color: #1e293b;
+  font-weight: 600;
+}
+
+.event-menu-date {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.event-menu-details {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.event-menu-guests {
+  font-size: 14px;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.menu-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.menu-item {
+  background: white;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  color: #1e293b;
+  border: 1px solid #e2e8f0;
+  font-weight: 500;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .dashboard-container {
+    padding: 16px;
+    padding-top: 80px;
+  }
+  
+  .dashboard-content {
+    padding: 24px;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-container {
+    padding: 12px;
+    padding-top: 80px;
+  }
+  
+  .dashboard-content {
+    background: none;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    padding: 0;
+  }
+  
+  .dashboard-summary {
+    grid-template-columns: 1fr;
+  }
+  
+  .dashboard-widgets {
+    grid-template-columns: 1fr;
+  }
+  
+  .widget.wide {
+    grid-column: 1;
+  }
+  
+  .summary-card {
+    padding: 16px;
+  }
+  
+  .widget-content {
+    padding: 16px;
+  }
+  
+  .event-menu-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  
+}
+
+@media (max-width: 480px) {
+  .dashboard-container {
+    padding: 8px;
+    padding-top: 80px;
+  }
+  
+  .dashboard-content {
+    background: none;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    padding: 0;
+  }
+  
+  .dashboard-header h1 {
+    font-size: 26px;
+  }
+}
+
+/* Widget: Órdenes de Compra Pendientes */
+.supplier-orders {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.order-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  transition: transform 0.2s;
+}
+
+.order-item:hover {
+  transform: translateX(4px);
+}
+
+.order-info strong {
+  color: #1e293b;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.order-details {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.order-status {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+.order-status.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.order-status.urgent {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+/* Widget: Tendencias de Costos */
+.cost-trends {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.trend-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.trend-info strong {
+  color: #1e293b;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.trend-period {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.trend-change {
+  font-size: 14px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 12px;
+}
+
+.trend-change.increase {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.trend-change.decrease {
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.trend-change.stable {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+/* Widget: Alertas de Temporada */
+.seasonal-alerts {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.alert-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.alert-info strong {
+  color: #1e293b;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.alert-details {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.alert-badge {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+.alert-badge.warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.alert-badge.info {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.alert-badge.success {
+  background: #dcfce7;
+  color: #166534;
+}

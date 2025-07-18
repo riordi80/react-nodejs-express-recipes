@@ -1,0 +1,399 @@
+:root {
+    --primary: 93, 135, 255;
+    --background: 255, 255, 255;
+    --background-secondary: 255, 255, 255;
+    --background-secondary-dark: 255, 255, 255;
+    --background-secondary-light: 236, 242, 255;
+    --text-primary: 90, 106, 133;
+    /* Colors */
+    --black: 0, 0%, 0%;
+    --white: 0, 0%, 100%;
+    --quite-gray: 90, 106, 133;
+    --grooble: 236, 242, 255;
+    /* Sizes */
+    --heading-large: 5.6rem;
+    --heading-medium: 3.6rem;
+    --heading-small: 2.4rem;
+    --paragraph: 1.11rem;
+    --navbar-buttons: 1.4rem;
+    /* misc */
+    --transition-main: .175, .685, .32;
+    /* Fonts */
+    --font-main: "Poppins";
+}
+
+/* ===========
+    Variables
+   =========== */
+
+/* Ocultar item de Settings en desktop por defecto */
+.navbar-item.mobile-only-item {
+    display: none;
+}
+
+*, *::before, *::after {
+    box-sizing: inherit;
+}
+html, body {
+    margin: 0;
+    width: 100%;
+    color: hsl(var(--text-primary));
+    font-family: var(--font-main);
+    background-color: hsl(var(--background));
+    -webkit-font-smoothing: antialiased;
+    scroll-behavior: smooth;
+    box-sizing: border-box;
+}
+
+/* ============
+    Typography
+   ============ */
+
+h1, h2, h3, h4, h5, h6 {
+    margin: 0;
+}
+h1 { font-size: var(--heading-large); }
+h2 { font-size: var(--heading-medium); }
+h3 { font-size: var(--heading-small); }
+h4 { font-size: calc(var(--heading-small) - .2rem); }
+h5 { font-size: calc(var(--heading-small) - .4rem); }
+h6 { font-size: calc(var(--heading-small) - .6rem); }
+
+h1, h2 { font-weight: 900; }
+h3, h4, h5, h6 { font-weight: 800; }
+
+p {
+    margin: 0;
+    font-size: var(--paragraph);
+}
+
+a {
+    color: hsla(var(--primary), 1);
+    font-size: var(--paragraph);
+    text-decoration: underline;
+}
+a:visited {
+    color: hsla(var(--primary), .5);
+}
+
+/* =========
+    Flexbox
+   ========= */
+
+.flexbox {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+.flexbox-left {
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+}
+.flexbox-right {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+}
+.flexbox-col {
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+}
+.flexbox-col-left {
+    display: flex;
+    justify-content: flex-start;
+    flex-direction: column;
+    align-items: flex-start;
+}
+.flexbox-col-left-ns {
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+    align-items: flex-start;
+}
+.flexbox-col-right {
+    display: flex;
+    justify-content: flex-end;
+    flex-direction: column;
+    align-items: flex-end;
+}
+.flexbox-col-start-center {
+    display: flex;
+    justify-content: flex-start;
+    flex-direction: column;
+    align-items: center;
+}
+.flexbox-space-bet {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* ========
+    Navbar
+   ======== */
+
+#navbar {
+    top: 41px;
+    padding: 20px 0;
+    width: 5em;
+    height: calc(100vh - 41px);
+    position: fixed;
+    background-color: rgb(var(--background-secondary));
+    transition: width .35s cubic-bezier(var(--transition-main), 1);
+    overflow-y: auto;
+    overflow-x: hidden;
+    z-index: 9;
+    border-right: 1px solid #eeeeee;
+}
+#navbar:hover {
+    width: 16em;
+}
+
+/* Cuando el sidebar está fijado, mantener ancho expandido */
+#navbar.pinned {
+    width: 16em;
+}
+
+/* Cuando está fijado, no cambiar el ancho en hover */
+#navbar.pinned:hover {
+    width: 16em;
+}
+#navbar::-webkit-scrollbar-track {
+    background-color: rgb(var(--background-secondary));
+}
+#navbar::-webkit-scrollbar {
+    width: 8px;
+    background-color: rgb(var(--background-secondary));
+}
+#navbar::-webkit-scrollbar-thumb {
+    background-color: rgb(var(--primary));
+}
+.navbar-items {
+    margin: 0;
+    padding: 0;
+    list-style-type: none;
+}
+.navbar-item {
+    padding: 0 .5em;
+    width: 100%;
+    cursor: pointer;
+    margin-bottom: 18px;
+}
+
+.navbar-item.logout {
+    margin-top: auto;
+    margin-bottom: 8px;
+}
+.navbar-item-inner {
+    padding: 10px 0;
+    width: 100%;
+    margin: 0;
+    position: relative;
+    color: rgb(var(--quite-gray));
+    border-radius: 5px;
+    text-decoration: none;
+    transition: all .3s ease;
+    background: none;
+    border: none;
+    font: inherit;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    font-size: 14px;
+}
+.navbar-item-inner:hover {
+    color: rgb(var(--primary));
+    background: rgb(var(--background-secondary-light));
+}
+.navbar-item-inner:hover .navbar-item-inner-icon-wrapper svg {
+    color: rgb(var(--primary));
+}
+.navbar-item-inner.active {
+    color: white;
+    background: rgb(var(--primary));
+}
+.navbar-item-inner.active .navbar-item-inner-icon-wrapper svg {
+    color: white;
+}
+.navbar-item-inner.active .link-text {
+    color: white;
+}
+.navbar-item-inner-icon-wrapper {
+    width: 5rem;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    flex-shrink: 0;
+    padding-right: 16px;
+}
+.navbar-item-inner-icon-wrapper svg {
+    font-size: 20px;
+    color: rgb(90, 106, 133);
+}
+.link-text {
+    margin: 0;
+    width: 0;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: all .35s cubic-bezier(var(--transition-main), 1);
+    overflow: hidden;
+    opacity: 0;
+    color: rgb(90, 106, 133);
+}
+#navbar:hover .link-text {
+    width: calc(100% - calc(5rem - 8px));
+    opacity: 1;
+}
+
+/* Cuando está fijado, mostrar siempre el texto */
+#navbar.pinned .link-text {
+    width: calc(100% - calc(5rem - 8px));
+    opacity: 1;
+}
+
+.navbar-items {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+/* Para que los botones no tengan borde ni fondo */
+.navbar-item-inner[type="button"], .navbar-item-inner.button {
+    border: none;
+    background: none;
+    cursor: pointer;
+    outline: none;
+}
+
+/* Estilos para el botón de pin */
+.pin-button-container {
+    margin-bottom: 10px;
+    border-bottom: 1px solid #eeeeee;
+    padding-bottom: 10px;
+}
+
+.pin-button {
+    width: 100%;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 10px 0;
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    transition: all 0.3s ease;
+    outline: none;
+    margin: 0 auto;
+}
+
+.pin-button:focus {
+    outline: none;
+    background: none;
+}
+
+.pin-button:hover {
+    background-color: rgb(var(--background-secondary-light));
+}
+
+.pin-icon {
+    font-size: 16px;
+    color: rgb(90, 106, 133);
+}
+
+/* ==============
+    @media rules
+   ============== */
+
+@media only screen and (max-width: 1660px) {
+    :root {
+        --heading-large: 5.4rem;
+        --heading-medium: 3.4rem;
+        --heading-small: 2.2rem;
+    }
+}
+@media only screen and (max-width: 1456px) {
+    :root {
+        --heading-large: 5.2rem;
+        --heading-medium: 3.2rem;
+        --heading-small: 2rem;
+    }
+}
+@media only screen and (max-width: 1024px) {
+    :root {
+        --heading-large: 5rem;
+        --heading-medium: 3rem;
+        --heading-small: 1.8rem;
+    }
+}
+@media only screen and (max-width: 756px) {
+    :root {
+        --heading-large: 4rem;
+        --heading-medium: 2.6rem;
+        --heading-small: 1.6rem;
+        --paragraph: 1rem;
+        --navbar-buttons: 2.2rem;
+    }
+    
+    /* En móvil, ocultar completamente el sidebar por defecto */
+    #navbar {
+        position: fixed !important;
+        left: -100% !important;
+        top: 60px !important;
+        height: calc(100vh - 60px) !important;
+        width: 5em !important;
+        z-index: 1000 !important;
+        transition: left 0.3s ease !important;
+        background-color: hsl(var(--background-secondary)) !important;
+        box-shadow: none !important;
+    }
+    
+    /* Mostrar sidebar cuando tenga la clase mobile-open */
+    #navbar.mobile-open {
+        left: 0 !important;
+    }
+    
+    /* En móvil, mantener sidebar siempre contraído (sin texto) */
+    #navbar:hover {
+        width: 5em !important;
+    }
+    
+    /* No expandir el texto en móvil */
+    #navbar:hover .link-text {
+        width: 0 !important;
+        opacity: 0 !important;
+    }
+    
+    /* Tampoco expandir cuando esté fijado en móvil */
+    #navbar.pinned {
+        width: 5em !important;
+    }
+    
+    #navbar.pinned .link-text {
+        width: 0 !important;
+        opacity: 0 !important;
+    }
+    
+    .link-text {
+        transition: none !important;
+        width: 0 !important;
+        opacity: 0 !important;
+    }
+    
+    /* Ocultar botón de pin en móvil */
+    .pin-button-container {
+        display: none !important;
+    }
+    
+    /* Mostrar item de Settings solo en móvil */
+    .mobile-only-item {
+        display: flex !important;
+    }
+    
+    /* Remover overlay - no necesario ya que el contenido se encoge */
+}
