@@ -1,27 +1,22 @@
 // src/pages/ingredients/Ingredients.jsx
 import React, { useEffect, useState, useMemo } from 'react';
-import { FaTrash } from 'react-icons/fa';
+import { FaBan, FaUndo } from 'react-icons/fa';
 import BasePage from '../../components/BasePage';
 import Modal from '../../components/modal/Modal';
 import { usePageState } from '../../hooks/usePageState';
 import api from '../../api/axios';
 import './Ingredients.css';
+import '../../components/recipes/FilterBar.css';
 
 export default function Ingredients() {
-  const {
-    filteredData,
-    loading,
-    error,
-    message,
-    messageType,
-    filterText,
-    setFilterText,
-    deleteItem,
-    reload,
-  } = usePageState('/ingredients');
-
-  // Additional data needed for ingredients
+  const [ingredients, setIngredients] = useState([]);
   const [allergens, setAllergens] = useState([]);
+  const [availabilityFilter, setAvailabilityFilter] = useState('available'); // 'available', 'all', 'unavailable'
+  const [filterText, setFilterText] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [message, setMessage] = useState(null);
+  const [messageType, setMessageType] = useState('success');
 
   // Modal states
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -49,6 +44,43 @@ export default function Ingredients() {
   const [editedWastePercent, setEditedWastePercent] = useState('');
   const [editedSelectedAllergens, setEditedSelectedAllergens] = useState([]);
 
+  // Load ingredients with availability filter
+  const loadIngredients = async () => {
+    try {
+      setLoading(true);
+      const params = {};
+      if (availabilityFilter === 'available') {
+        params.available = 'true';
+      } else if (availabilityFilter === 'unavailable') {
+        params.available = 'false';
+      }
+      // For 'all', don't add any parameter
+      
+      const response = await api.get('/ingredients', { params });
+      setIngredients(response.data);
+      setError(null);
+    } catch (err) {
+      setError(`Error al cargar ingredientes: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Notification function
+  const notify = (msg, type = 'success') => {
+    setMessage(msg);
+    setMessageType(type);
+    setTimeout(() => setMessage(null), 3000);
+  };
+
+  // Filter ingredients by search text
+  const filteredData = useMemo(() => {
+    if (!filterText) return ingredients;
+    return ingredients.filter(ingredient => 
+      ingredient.name.toLowerCase().includes(filterText.toLowerCase())
+    );
+  }, [ingredients, filterText]);
+
   // Load allergens data
   useEffect(() => {
     const fetchAllergens = async () => {
@@ -61,6 +93,11 @@ export default function Ingredients() {
     };
     fetchAllergens();
   }, []);
+
+  // Load ingredients when filter changes
+  useEffect(() => {
+    loadIngredients();
+  }, [availabilityFilter]);
 
   // Create handler
   const handleCreate = async (e) => {
@@ -98,9 +135,11 @@ export default function Ingredients() {
       setIsCreateOpen(false);
       
       // Reload data
-      await reload();
+      await loadIngredients();
+      notify('Ingrediente creado correctamente', 'success');
     } catch (err) {
       console.error('Error creating ingredient:', err);
+      notify(err.response?.data?.message || 'Error al crear ingrediente', 'error');
     }
   };
 
@@ -153,9 +192,11 @@ export default function Ingredients() {
       setEditedItem(null);
       setEditedWastePercent('');
       setEditedSelectedAllergens([]);
-      await reload();
+      await loadIngredients();
+      notify('Ingrediente actualizado correctamente', 'success');
     } catch (error) {
       console.error('Error detallado al actualizar:', error);
+      notify(error.response?.data?.message || 'Error al actualizar ingrediente', 'error');
     }
   };
 
@@ -166,10 +207,26 @@ export default function Ingredients() {
   };
 
   const handleDelete = async () => {
-    const success = await deleteItem(currentItem.ingredient_id);
-    if (success) {
+    try {
+      await api.delete(`/ingredients/${currentItem.ingredient_id}`);
       setIsDeleteOpen(false);
       setCurrentItem(null);
+      await loadIngredients();
+      notify('Ingrediente desactivado correctamente', 'success');
+    } catch (error) {
+      console.error('Error al desactivar ingrediente:', error);
+      notify(error.response?.data?.message || 'Error al desactivar ingrediente', 'error');
+    }
+  };
+
+  const handleActivate = async (ingredient) => {
+    try {
+      await api.put(`/ingredients/${ingredient.ingredient_id}/activate`);
+      await loadIngredients();
+      notify('Ingrediente reactivado correctamente', 'success');
+    } catch (error) {
+      console.error('Error al reactivar ingrediente:', error);
+      notify(error.response?.data?.message || 'Error al reactivar ingrediente', 'error');
     }
   };
 
@@ -219,7 +276,21 @@ export default function Ingredients() {
 
   // columnas
 const columns = useMemo(() => [
-  { name: 'Nombre', selector: r => r.name, sortable: true, grow: 1 },
+  { 
+    name: 'Nombre', 
+    selector: r => r.name, 
+    sortable: true, 
+    grow: 1,
+    cell: row => (
+      <span style={{ 
+        color: row.is_available ? '#000' : '#94a3b8',
+        fontStyle: row.is_available ? 'normal' : 'italic'
+      }}>
+        {row.name}
+        {!row.is_available && <span style={{ marginLeft: '8px', fontSize: '12px' }}>(Inactivo)</span>}
+      </span>
+    )
+  },
   { name: 'P. Base', selector: r => r.base_price, sortable: true },
   { name: 'Merma (%)', selector: row => `${(row.waste_percent * 100).toFixed(2)}%`, sortable: true },
   { name: 'P. Neto', selector: r => r.net_price, sortable: true },
@@ -253,14 +324,41 @@ const columns = useMemo(() => [
     sortable: true,
     minWidth: '120px'
   },
-  { name: 'Disponible', selector: r => r.is_available ? 'Sí' : 'No', sortable: true },
+  { 
+    name: 'Estado', 
+    selector: r => r.is_available ? 'Activo' : 'Inactivo', 
+    sortable: true,
+    cell: row => (
+      <span style={{ 
+        color: row.is_available ? '#10b981' : '#ef4444',
+        fontWeight: '500'
+      }}>
+        {row.is_available ? 'Activo' : 'Inactivo'}
+      </span>
+    )
+  },
   {
     name: 'Acciones',
     cell: row => (
       <div className="table-actions">
-        <button className="icon-btn delete-icon" onClick={() => openDeleteModal(row)} title="Eliminar">
-          <FaTrash />
-        </button>
+        {row.is_available ? (
+          <button 
+            className="icon-btn delete-icon" 
+            onClick={() => openDeleteModal(row)} 
+            title="Desactivar ingrediente"
+          >
+            <FaBan />
+          </button>
+        ) : (
+          <button 
+            className="icon-btn activate-icon" 
+            onClick={() => handleActivate(row)} 
+            title="Reactivar ingrediente"
+            style={{ background: '#10b981' }}
+          >
+            <FaUndo />
+          </button>
+        )}
       </div>
     ),
     ignoreRowClick: true,
@@ -270,6 +368,29 @@ const columns = useMemo(() => [
   }
 ], []);
 
+
+  // Custom filter component - siguiendo el patrón visual de FilterBar
+  const availabilityFilterComponent = (
+    <div className="filter-bar" style={{ marginBottom: '12px' }}>
+      <input
+        type="text"
+        className="filter-input"
+        placeholder="Buscar ingrediente…"
+        value={filterText}
+        onChange={e => setFilterText(e.target.value)}
+        style={{ flex: 1, width: 'auto' }}
+      />
+      <select 
+        className="filter-select"
+        value={availabilityFilter} 
+        onChange={(e) => setAvailabilityFilter(e.target.value)}
+      >
+        <option value="available">Solo disponibles</option>
+        <option value="all">Todos los ingredientes</option>
+        <option value="unavailable">Solo no disponibles</option>
+      </select>
+    </div>
+  );
 
   return (
     <>
@@ -281,13 +402,15 @@ const columns = useMemo(() => [
         error={error}
         message={message}
         messageType={messageType}
-        filterText={filterText}
-        onFilterChange={setFilterText}
+        filterText=""
+        onFilterChange={() => {}}
+        showSearch={false}
         onAdd={() => setIsCreateOpen(true)}
         onRowClicked={openEditModal}
         addButtonText="Añadir ingrediente"
         searchPlaceholder="Buscar ingrediente..."
         noDataMessage="No hay ingredientes para mostrar"
+        customFilters={availabilityFilterComponent}
       />
 
       {/* CREATE MODAL */}
@@ -437,11 +560,14 @@ const columns = useMemo(() => [
       </Modal>
 
       {/* DELETE MODAL */}
-      <Modal isOpen={isDeleteOpen} title="Confirmar eliminación" onClose={() => setIsDeleteOpen(false)}>
-        <p>¿Seguro que deseas eliminar <strong>{currentItem?.name}</strong>?</p>
+      <Modal isOpen={isDeleteOpen} title="Confirmar desactivación" onClose={() => setIsDeleteOpen(false)}>
+        <p>¿Seguro que deseas desactivar <strong>{currentItem?.name}</strong>?</p>
+        <p style={{ fontSize: '14px', color: '#64748b', marginTop: '8px' }}>
+          El ingrediente se marcará como no disponible pero se mantendrá en las recetas existentes.
+        </p>
         <div className="modal-actions">
           <button type="button" className="btn cancel" onClick={() => setIsDeleteOpen(false)}>Cancelar</button>
-          <button type="button" className="btn delete" onClick={handleDelete}>Eliminar</button>
+          <button type="button" className="btn delete" onClick={handleDelete}>Desactivar</button>
         </div>
       </Modal>
     </>

@@ -1,7 +1,7 @@
 // src/components/recipes/RecipeCard.jsx
 import React from 'react';
 import PropTypes from 'prop-types';
-import { FaClock, FaStar, FaEye, FaUtensils } from 'react-icons/fa';
+import { FaClock, FaStar, FaUtensils } from 'react-icons/fa';
 import { translateDifficulty } from '../../pages/recipes/Recipes';
 import './RecipeCard.css';
 
@@ -12,10 +12,6 @@ export default function RecipeCard({ id, name, thumbnailUrl, prepTime, difficult
     onView(id);
   };
 
-  const handleButtonClick = (e) => {
-    e.stopPropagation();
-    onView(id);
-  };
 
   return (
     <div className="recipe-card" onClick={handleCardClick}>
@@ -25,15 +21,6 @@ export default function RecipeCard({ id, name, thumbnailUrl, prepTime, difficult
           alt={name}
           className="recipe-card-image"
         />
-        <div className="recipe-card-overlay">
-          <button 
-            className="recipe-card-action"
-            onClick={handleButtonClick}
-            title="Ver receta"
-          >
-            <FaEye />
-          </button>
-        </div>
       </div>
       
       <div className="recipe-card-content">

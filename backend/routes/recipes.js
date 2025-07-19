@@ -135,9 +135,6 @@ router.get('/:id/ingredients', authenticateToken, authorizeRoles('admin','chef')
       `,
       [id]
     );
-    if (!rows.length) {
-      return res.status(404).json({ message: 'No se encontraron ingredientes para esta receta.' });
-    }
     res.json(rows);
   } catch (err) {
     console.error('Error fetching recipe ingredients:', err);
@@ -325,15 +322,33 @@ router.put('/:id/costs', authenticateToken, authorizeRoles('admin','chef'), asyn
 // DELETE /recipes/:id - Eliminar receta
 router.delete('/:id', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   const { id } = req.params;
+  const connection = await pool.getConnection();
+  
   try {
-    await pool.query('DELETE FROM RECIPES WHERE recipe_id = ?', [id]);
+    await connection.beginTransaction();
+    
+    // Eliminar referencias en orden de dependencias
+    await connection.query('DELETE FROM EVENT_MENUS WHERE recipe_id = ?', [id]);
+    await connection.query('DELETE FROM MENU_RECIPES WHERE recipe_id = ?', [id]);
+    await connection.query('DELETE FROM RECIPE_CATEGORY_ASSIGNMENTS WHERE recipe_id = ?', [id]);
+    await connection.query('DELETE FROM RECIPE_INGREDIENTS WHERE recipe_id = ?', [id]);
+    await connection.query('DELETE FROM RECIPE_SECTIONS WHERE recipe_id = ?', [id]);
+    
+    // Finalmente eliminar la receta
+    await connection.query('DELETE FROM RECIPES WHERE recipe_id = ?', [id]);
+    
+    await connection.commit();
+    
     await logAudit(req.user.user_id, 'delete', 'RECIPES', id,
-      `Receta con ID ${id} eliminada`
+      `Receta con ID ${id} eliminada con todas sus referencias`
     );
     res.json({ message: 'Receta eliminada correctamente' });
   } catch (err) {
+    await connection.rollback();
     console.error('Error deleting recipe:', err);
     res.status(500).json({ message: 'Error interno del servidor' });
+  } finally {
+    connection.release();
   }
 });
 

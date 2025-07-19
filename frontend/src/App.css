@@ -69,11 +69,11 @@ body {
   min-width: 0;
   height: 36px;
   line-height: 36px;
-  padding: 0 12px;
+  padding: 6px 8px;
   border: 1px solid #ccc;
   border-radius: 4px;
   box-sizing: border-box;
-  font-size: 14px;
+  font-size: 16px !important;
 }
 
 /* Botón añadir en subheader tiene la misma altura que el campo de búsqueda */
@@ -432,8 +432,8 @@ button:focus, button:active {
   }
   
   .common-search-input {
-    height: 40px;
-    line-height: 40px;
+    height: 36px;
+    line-height: 36px;
   }
   
   /* Legacy support */
@@ -477,8 +477,8 @@ button:focus, button:active {
   }
   
   .common-search-input {
-    height: 44px;
-    line-height: 44px;
+    height: 36px;
+    line-height: 36px;
     font-size: 16px;
   }
   

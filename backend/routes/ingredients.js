@@ -14,9 +14,23 @@ const pool = mysql.createPool({
   database: process.env.DB_NAME,
 });
 
-// GET /ingredients - Todos los ingredientes
+// GET /ingredients - Todos los ingredientes con filtro de disponibilidad
 router.get('/', authenticateToken, authorizeRoles('admin', 'chef', 'inventory_manager'), async (req, res) => {
-  const [rows] = await pool.query('SELECT * FROM INGREDIENTS');
+  const { available } = req.query; // 'true', 'false', o undefined (todos)
+  
+  let query = 'SELECT * FROM INGREDIENTS';
+  let params = [];
+  
+  if (available === 'true') {
+    query += ' WHERE is_available = TRUE';
+  } else if (available === 'false') {
+    query += ' WHERE is_available = FALSE';
+  }
+  // Si available es undefined, devolver todos los ingredientes
+  
+  query += ' ORDER BY name ASC';
+  
+  const [rows] = await pool.query(query, params);
   res.json(rows);
 });
 
@@ -159,14 +173,48 @@ router.delete('/:id/allergens/:allergen_id', authenticateToken, authorizeRoles('
   res.json({ message: 'Alérgeno eliminado correctamente' });
 });
 
-// DELETE /ingredients/:id - Eliminar ingrediente
+// DELETE /ingredients/:id - Soft delete: desactivar ingrediente
 router.delete('/:id', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   const { id } = req.params;
 
-  await pool.query('DELETE FROM INGREDIENTS WHERE ingredient_id = ?', [id]);
+  try {
+    // Obtener el nombre del ingrediente para la auditoría
+    const [ingredient] = await pool.query('SELECT name FROM INGREDIENTS WHERE ingredient_id = ?', [id]);
+    if (ingredient.length === 0) {
+      return res.status(404).json({ message: 'Ingrediente no encontrado' });
+    }
 
-  await logAudit(req.user.user_id, 'delete', 'INGREDIENTS', id, `Ingrediente con ID ${id} eliminado`);
-  res.json({ message: 'Ingrediente eliminado' });
+    // Soft delete: marcar como no disponible
+    await pool.query('UPDATE INGREDIENTS SET is_available = FALSE WHERE ingredient_id = ?', [id]);
+
+    await logAudit(req.user.user_id, 'update', 'INGREDIENTS', id, `Ingrediente "${ingredient[0].name}" desactivado (soft delete)`);
+    res.json({ message: 'Ingrediente desactivado correctamente' });
+  } catch (error) {
+    console.error('Error al desactivar ingrediente:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// PUT /ingredients/:id/activate - Reactivar ingrediente
+router.put('/:id/activate', authenticateToken, authorizeRoles('admin'), async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    // Obtener el nombre del ingrediente para la auditoría
+    const [ingredient] = await pool.query('SELECT name FROM INGREDIENTS WHERE ingredient_id = ?', [id]);
+    if (ingredient.length === 0) {
+      return res.status(404).json({ message: 'Ingrediente no encontrado' });
+    }
+
+    // Reactivar: marcar como disponible
+    await pool.query('UPDATE INGREDIENTS SET is_available = TRUE WHERE ingredient_id = ?', [id]);
+
+    await logAudit(req.user.user_id, 'update', 'INGREDIENTS', id, `Ingrediente "${ingredient[0].name}" reactivado`);
+    res.json({ message: 'Ingrediente reactivado correctamente' });
+  } catch (error) {
+    console.error('Error al reactivar ingrediente:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
 });
 
 module.exports = router;
