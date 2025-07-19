@@ -262,26 +262,48 @@ router.post('/', authenticateToken, authorizeRoles('admin','chef'), async (req, 
 // PUT /recipes/:id - Actualizar receta
 router.put('/:id', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
   const { id } = req.params;
+  console.log('Datos recibidos para actualizar receta:', req.body);
+  
+  // Extraer solo los campos que existen en la tabla RECIPES
   const {
-    name, description, preparation_time,
-    cooking_time, servings, is_active, comment
+    name,
+    servings,
+    production_servings,
+    net_price,
+    prep_time,
+    difficulty,
+    is_featured_recipe,
+    instructions,
+    tax_id
   } = req.body;
+
   try {
+    console.log('Campos procesados:', {
+      name, servings, production_servings, net_price,
+      prep_time, difficulty, is_featured_recipe, instructions, tax_id
+    });
+
     await pool.query(
       `UPDATE RECIPES SET
-         name = ?, description = ?,
-         preparation_time = ?, cooking_time = ?,
-         servings = ?, is_active = ?, comment = ?
+         name = ?, servings = ?, production_servings = ?,
+         net_price = ?, prep_time = ?, difficulty = ?,
+         is_featured_recipe = ?, instructions = ?, tax_id = ?
        WHERE recipe_id = ?`,
-      [name, description, preparation_time, cooking_time, servings, is_active, comment, id]
+      [name, servings, production_servings, net_price, prep_time, 
+       difficulty, is_featured_recipe, instructions, tax_id, id]
     );
+    
     await logAudit(req.user.user_id, 'update', 'RECIPES', id,
       `Receta "${name}" actualizada`
     );
     res.json({ message: 'Receta actualizada correctamente' });
   } catch (err) {
     console.error('Error updating recipe:', err);
-    res.status(500).json({ message: 'Error interno del servidor' });
+    console.error('SQL Error details:', err.sqlMessage);
+    res.status(500).json({ 
+      message: 'Error interno del servidor',
+      details: err.sqlMessage || err.message 
+    });
   }
 });
 

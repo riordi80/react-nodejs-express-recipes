@@ -224,7 +224,25 @@
 }
 
 /* ─── Responsive design ─── */
+
+/* Mostrar/ocultar versiones según dispositivo */
+.desktop-only {
+  display: flex;
+}
+
+.mobile-only {
+  display: none;
+}
+
 @media (max-width: 768px) {
+  .desktop-only {
+    display: none !important;
+  }
+  
+  .mobile-only {
+    display: flex !important;
+  }
+  
   .filter-bar {
     gap: 6px; /* reducir espacio en móviles */
   }
@@ -248,6 +266,150 @@
   }
 }
 
+/* ─── Estilos para botón móvil de filtros ─── */
+.filter-mobile-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+  color: #64748b;
+  min-width: 120px;
+  height: 44px;
+  position: relative;
+}
+
+.filter-mobile-button:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #475569;
+}
+
+.filter-mobile-button.active {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: white;
+}
+
+.filter-mobile-button.active:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+.filter-count {
+  background: #ef4444;
+  color: white;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 600;
+  position: absolute;
+  top: -8px;
+  right: -8px;
+}
+
+/* ─── Estilos para modal de filtros ─── */
+.filter-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 0;
+}
+
+.filter-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filter-label {
+  font-weight: 600;
+  color: #1e293b;
+  font-size: 14px;
+  margin: 0;
+}
+
+.filter-modal-select {
+  padding: 12px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #1e293b;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s;
+  height: 48px;
+}
+
+.filter-modal-select:hover {
+  border-color: #3b82f6;
+}
+
+.filter-modal-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.filter-allergens-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.filter-allergen-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background-color 0.2s;
+  font-size: 14px;
+  margin: 0;
+}
+
+.filter-allergen-item:hover {
+  background: #f1f5f9;
+}
+
+.filter-allergen-item input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+}
+
+.filter-modal-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.filter-modal-actions .btn {
+  flex: 1;
+  height: 48px;
+  font-size: 16px;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
 @media (max-width: 480px) {
   .filter-input,
   .filter-select {
@@ -265,5 +427,14 @@
     width: 100% !important; /* ancho completo */
     height: 44px !important;
     font-size: 16px !important;
+  }
+
+  .filter-allergens-grid {
+    grid-template-columns: 1fr;
+    max-height: 150px;
+  }
+  
+  .filter-modal-actions {
+    flex-direction: column;
   }
 }

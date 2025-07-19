@@ -1,16 +1,31 @@
 // src/components/recipes/ViewToggle.jsx
-import React from 'react';
+import React, { useRef } from 'react';
 import PropTypes from 'prop-types';
 import './ViewToggle.css';
 
 export default function ViewToggle({ view, onChange }) {
+  const inputRef = useRef(null);
+
+  const handleChange = () => {
+    const newView = view === 'list' ? 'card' : 'list';
+    onChange(newView);
+    
+    // Quitar focus después del click para evitar el contorno azul persistente
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.blur();
+      }
+    }, 100);
+  };
+
   return (
     <div className="view-toggle-switch">
       <label className="switch">
         <input
+          ref={inputRef}
           type="checkbox"
           checked={view === 'card'}
-          onChange={() => onChange(view === 'list' ? 'card' : 'list')}
+          onChange={handleChange}
         />
         <span className="slider" />
       </label>

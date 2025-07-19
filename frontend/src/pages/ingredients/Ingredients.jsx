@@ -291,7 +291,7 @@ const columns = useMemo(() => [
       />
 
       {/* CREATE MODAL */}
-      <Modal isOpen={isCreateOpen} title="Nuevo ingrediente" onClose={() => setIsCreateOpen(false)}>
+      <Modal isOpen={isCreateOpen} title="Nuevo ingrediente" onClose={() => setIsCreateOpen(false)} fullscreenMobile={true}>
         <form onSubmit={handleCreate} className="modal-body-form">
           <div className="form-fields-main">
             <label>Nombre</label>
@@ -364,7 +364,7 @@ const columns = useMemo(() => [
       </Modal>
 
       {/* EDIT MODAL */}
-      <Modal isOpen={isEditOpen} title="Editar ingrediente" onClose={() => setIsEditOpen(false)}>
+      <Modal isOpen={isEditOpen} title="Editar ingrediente" onClose={() => setIsEditOpen(false)} fullscreenMobile={true}>
         <form className="modal-body-form">
           <div className="form-fields-main">
             <label>Nombre</label>

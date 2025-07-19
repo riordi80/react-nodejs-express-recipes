@@ -64,15 +64,35 @@
 
 /* ─── Botón Nueva Receta ─────────────────────────────────────────────────── */
 .new-recipe-button {
-  padding: 8px 12px;
+  height: 36px !important;
+  line-height: 36px !important;
+  padding: 0 12px;
   border-radius: 4px;
   font-size: inherit;
   white-space: nowrap;
+  box-sizing: border-box;
 }
 
 /* ─── DataTable ───────────────────────────────────────────────────────────── */
 .recipes-table {
   margin-top: 20px;
+}
+
+/* ─── Vista de cards ──────────────────────────────────────────────────────── */
+.card-view {
+  margin-top: 20px;
+}
+
+/* Total count para vista de cards */
+.card-view .total-count {
+  text-align: center;
+  color: #64748b;
+  font-size: 14px;
+  padding: 20px 16px;
+  background: #f8fafc;
+  border-radius: 8px;
+  margin-top: 20px;
+  border: 1px solid #e2e8f0;
 }
 
 
@@ -143,9 +163,10 @@
   
   .new-recipe-button {
     width: 100%;
-    height: 44px;
+    height: 36px !important;
     font-size: 16px;
-    padding: 12px;
+    padding: 0 12px;
+    line-height: 36px !important;
   }
 }
 

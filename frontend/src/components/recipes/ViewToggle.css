@@ -18,6 +18,7 @@
   opacity: 0;
   width: 0;
   height: 0;
+  outline: none; /* Quitar outline por defecto */
 }
 
 /* El “slider” de fondo */
@@ -52,9 +53,17 @@
   transform: translateX(20px);
 }
 
-/* Opcional: foco */
-.switch input:focus + .slider {
-  box-shadow: 0 0 2px #2196F3;
+/* Focus solo visible al navegar con teclado, no al hacer click */
+.switch input:focus-visible + .slider {
+  box-shadow: 0 0 4px #2196F3;
+  outline: 2px solid #2196F3;
+  outline-offset: 2px;
+}
+
+/* Quitar focus después del click */
+.switch input:focus:not(:focus-visible) + .slider {
+  box-shadow: none;
+  outline: none;
 }
 
 /* Etiqueta que muestra “Lista” o “Tarjetas” */

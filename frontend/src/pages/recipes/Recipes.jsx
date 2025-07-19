@@ -21,8 +21,17 @@ export default function RecipesPage() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [currentRecipe, setCurrentRecipe] = useState(null);
 
-  // Vista: 'list' o 'card'
-  const [view, setView] = useState('list');
+  // Vista: 'list' o 'card' - persistir preferencia del usuario
+  const [view, setView] = useState(() => {
+    const savedView = localStorage.getItem('recipes-view-preference');
+    return savedView || 'list';
+  });
+
+  // Función para cambiar vista y guardar preferencia
+  const handleViewChange = (newView) => {
+    setView(newView);
+    localStorage.setItem('recipes-view-preference', newView);
+  };
 
   // Filter options
   const [categoryOptions, setCategoryOptions] = useState([]);
@@ -193,7 +202,7 @@ export default function RecipesPage() {
   const customFiltersComponent = (
     <div className="recipes-filters">
       <FilterBar {...filterBarProps} />
-      <ViewToggle view={view} onChange={setView} />
+      <ViewToggle view={view} onChange={handleViewChange} />
       <button
         className="btn add new-recipe-button"
         onClick={() => navigate('/recipes/new')}

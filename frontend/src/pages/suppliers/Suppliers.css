@@ -1,6 +1,132 @@
 /* src/pages/suppliers/Suppliers.css */
 
+/* Estilos para pestañas de modal con iconos */
+.modal-tabs .tab-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
+.modal-tabs .tab-icon {
+  font-size: 14px;
+}
+
+/* Dropdown móvil para pestañas de modal */
+.modal-mobile-dropdown {
+  display: none;
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.mobile-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 16px 20px;
+  background: #3b82f6;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+  color: white;
+}
+
+.mobile-dropdown-trigger:hover {
+  background: #2563eb;
+}
+
+.mobile-dropdown-trigger:active {
+  transform: translateY(1px);
+}
+
+.mobile-dropdown-icon {
+  font-size: 16px;
+  color: white;
+  margin-right: 12px;
+}
+
+.mobile-dropdown-label {
+  flex: 1;
+  text-align: left;
+  font-weight: 500;
+}
+
+.mobile-dropdown-arrow {
+  font-size: 12px;
+  color: white;
+  transition: transform 0.2s;
+}
+
+.mobile-dropdown-arrow.open {
+  transform: rotate(180deg);
+}
+
+.mobile-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-8px);
+  transition: all 0.2s;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.mobile-dropdown-menu.open {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.mobile-dropdown-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 16px 20px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+  color: #64748b;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.mobile-dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.mobile-dropdown-item:hover {
+  background: #f8fafc;
+  color: #1e293b;
+}
+
+.mobile-dropdown-item.active {
+  background: #eff6ff;
+  color: #3b82f6;
+  font-weight: 600;
+}
+
+.mobile-dropdown-item-icon {
+  font-size: 16px;
+  margin-right: 12px;
+  color: inherit;
+}
+
+.mobile-dropdown-item-label {
+  flex: 1;
+  text-align: left;
+}
 
 /* Responsive Design - Suppliers */
 @media (max-width: 1024px) {
@@ -39,7 +165,9 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
+  width: 100%;
   min-width: 400px;
+  box-sizing: border-box;
 }
 
 /* Contenedor de los campos principales - específico para suppliers */
@@ -98,12 +226,74 @@
   min-width: 600px;
 }
 
-/* Forzar 1 columna SOLO en el modal de proveedores para la pestaña info */
+/* Layout para la pestaña de información del proveedor */
 .supplier-info-form {
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 16px !important;
-  grid-template-columns: none !important;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.supplier-info-form .form-fields-main {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Asegurar que todos los campos usen el ancho completo */
+.supplier-info-form .input-field,
+.supplier-info-form textarea,
+.supplier-info-form select {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Botones de la modal de proveedores - cada uno 50% del ancho */
+.supplier-edit-modal .modal-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+  width: 100%;
+}
+
+.supplier-edit-modal .modal-actions .btn {
+  flex: 1;
+  height: 48px;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  border: none;
+  cursor: pointer;
+}
+
+.supplier-edit-modal .modal-actions .btn.cancel {
+  background-color: #6c757d;
+  color: white;
+}
+
+.supplier-edit-modal .modal-actions .btn.cancel:hover {
+  background-color: #5a6268;
+}
+
+.supplier-edit-modal .modal-actions .btn.edit {
+  background-color: #3b82f6;
+  color: white;
+}
+
+.supplier-edit-modal .modal-actions .btn.edit:hover {
+  background-color: #2563eb;
+}
+
+.supplier-edit-modal .modal-actions .btn.add {
+  background-color: #059669;
+  color: white;
+}
+
+.supplier-edit-modal .modal-actions .btn.add:hover {
+  background-color: #047857;
 }
 
 .modal-tabs {
@@ -449,5 +639,18 @@
   
   .checkbox-field {
     margin-top: 8px;
+  }
+  
+  /* Mostrar dropdown móvil y ocultar pestañas normales */
+  .modal-mobile-dropdown {
+    display: block !important;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e2e8f0;
+  }
+  
+  .modal-tabs {
+    display: none !important;
   }
 }

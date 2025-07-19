@@ -8,10 +8,11 @@ export default function CardView({ recipes, onView, hasMore, onLoadMore }) {
       <div className="card-grid">
         {recipes.map(r => (
           <RecipeCard
-            key={r.id}
-            id={r.id}
+            key={r.recipe_id || r.id}
+            id={r.recipe_id || r.id}
             name={r.name}
-            prepTime={r.prepTime}
+            thumbnailUrl={r.thumbnail_url || r.thumbnailUrl}
+            prepTime={r.prep_time || r.prepTime}
             difficulty={r.difficulty}
             category={r.category}
             onView={onView}
@@ -19,6 +20,11 @@ export default function CardView({ recipes, onView, hasMore, onLoadMore }) {
         ))}
       </div>
       {hasMore && <LoadMoreButton onClick={onLoadMore} />}
+      {!hasMore && recipes.length > 0 && (
+        <div className="total-count">
+          Total: {recipes.length} recetas
+        </div>
+      )}
     </div>
   );
 }

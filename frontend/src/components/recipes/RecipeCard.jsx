@@ -1,16 +1,63 @@
 // src/components/recipes/RecipeCard.jsx
 import React from 'react';
 import PropTypes from 'prop-types';
+import { FaClock, FaStar, FaEye, FaUtensils } from 'react-icons/fa';
 import { translateDifficulty } from '../../pages/recipes/Recipes';
+import './RecipeCard.css';
 
 export default function RecipeCard({ id, name, thumbnailUrl, prepTime, difficulty, category, onView }) {
+  const handleCardClick = (e) => {
+    // Evitar que el click en el botón dispare también el click de la card
+    if (e.target.closest('.recipe-card-action')) return;
+    onView(id);
+  };
+
+  const handleButtonClick = (e) => {
+    e.stopPropagation();
+    onView(id);
+  };
+
   return (
-    <div className="recipe-card" onClick={() => onView(id)}>
-      <img src={thumbnailUrl || '/placeholder.png'} alt={name} />
-      <h3>{name}</h3>
-      <div>⏱ {prepTime}m | ⭐ {translateDifficulty(difficulty)}</div>
-      {category && <div className="badge">{category}</div>}
-      <button className="btn view" onClick={() => onView(id)}>Ver</button>
+    <div className="recipe-card" onClick={handleCardClick}>
+      <div className="recipe-card-image-container">
+        <img 
+          src={thumbnailUrl || '/placeholder.png'} 
+          alt={name}
+          className="recipe-card-image"
+        />
+        <div className="recipe-card-overlay">
+          <button 
+            className="recipe-card-action"
+            onClick={handleButtonClick}
+            title="Ver receta"
+          >
+            <FaEye />
+          </button>
+        </div>
+      </div>
+      
+      <div className="recipe-card-content">
+        <div className="recipe-card-header">
+          <h3 className="recipe-card-title">{name}</h3>
+          {category && (
+            <span className="recipe-card-category">
+              <FaUtensils />
+              {category}
+            </span>
+          )}
+        </div>
+        
+        <div className="recipe-card-meta">
+          <div className="recipe-card-meta-item">
+            <FaClock />
+            <span>{prepTime}m</span>
+          </div>
+          <div className="recipe-card-meta-item">
+            <FaStar />
+            <span>{translateDifficulty(difficulty)}</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

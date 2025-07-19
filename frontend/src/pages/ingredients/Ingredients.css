@@ -11,7 +11,7 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 24px;
-  align-items: stretch;
+  align-items: start;
   min-height: 450px;
 }
 
@@ -65,7 +65,6 @@
 .form-fields-allergens {
   display: flex;
   flex-direction: column;
-  height: 100%;
 }
 
 .modal-body-form label {
@@ -89,6 +88,12 @@
 .modal-body-form textarea {
   resize: none;
   min-height: 120px;
+}
+
+/* Altura específica del textarea de comentarios para alinear con chips de alérgenos */
+.form-fields-main textarea {
+  height: 133px;
+  resize: none;
 }
 
 /* Flex para los botones del modal */
@@ -136,105 +141,7 @@
   cursor: pointer;
 }
 
-/* Estilos para chips de temporadas */
-.seasons-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 0px;
-  max-height: 150px;
-  overflow-y: auto;
-  padding: 8px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background: #f8fafc;
-}
-
-.season-chip {
-  display: inline-block;
-  padding: 4px 10px;
-  background: #f1f5f9;
-  border: 1px solid #cbd5e1;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  color: #475569;
-  user-select: none;
-}
-
-.season-chip:hover {
-  background: #e2e8f0;
-  border-color: #94a3b8;
-}
-
-.season-chip.selected {
-  background: #3b82f6;
-  border-color: #3b82f6;
-  color: white;
-}
-
-.season-chip.selected:hover {
-  background: #2563eb;
-  border-color: #2563eb;
-}
-
-/* Estilos para chips de alérgenos */
-.allergens-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 0px;
-  max-height: 150px;
-  overflow-y: auto;
-  padding: 8px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background: #f8fafc;
-}
-
-.allergen-chip {
-  display: inline-block;
-  padding: 4px 10px;
-  background: #f1f5f9;
-  border: 1px solid #cbd5e1;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-  color: #475569;
-  user-select: none;
-}
-
-.allergen-chip:hover {
-  background: #e2e8f0;
-  border-color: #94a3b8;
-}
-
-.allergen-chip.selected {
-  background: #3b82f6;
-  border-color: #3b82f6;
-  color: white;
-}
-
-.allergen-chip.selected:hover {
-  background: #2563eb;
-  border-color: #2563eb;
-}
-
-/* Ajustes responsivos para chips */
-@media (max-width: 768px) {
-  .seasons-chips,
-  .allergens-chips {
-    max-height: 120px;
-    gap: 4px;
-  }
-  
-  .season-chip,
-  .allergen-chip {
-    padding: 6px 10px;
-    font-size: 13px;
-  }
-}
+/* 
+   Los estilos de chips ahora están definidos globalmente en App.css
+   Esto permite reutilización en toda la aplicación y mantiene DRY
+*/

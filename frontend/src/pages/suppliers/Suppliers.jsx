@@ -304,7 +304,7 @@ export default function Suppliers() {
       />
 
         {/* CREATE MODAL */}
-        <Modal isOpen={isCreateOpen} title="Crear proveedor" onClose={() => setIsCreateOpen(false)}>
+        <Modal isOpen={isCreateOpen} title="Crear proveedor" onClose={() => setIsCreateOpen(false)} fullscreenMobile={true}>
           <form className="modal-single-column">
             <div className="form-row">
               <label>Nombre *</label>

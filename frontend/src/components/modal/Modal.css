@@ -32,6 +32,104 @@
     max-width: 95%;
     max-height: 95vh;
   }
+  
+  /* Estilos para modales fullscreen en móvil */
+  .modal-window.fullscreen-mobile {
+    position: fixed;
+    top: 60px; /* Altura del TopBar */
+    left: 0; /* Por defecto cuando sidebar está cerrado */
+    right: 0;
+    bottom: 0;
+    width: 100%; /* Ancho completo cuando sidebar está cerrado */
+    height: calc(100vh - 60px);
+    max-width: none;
+    max-height: none;
+    border-radius: 0;
+    margin: 0;
+    transition: left 0.3s ease, width 0.3s ease; /* Transición suave como el sidebar */
+    
+    /* Animación de entrada desde la derecha */
+    transform: translateX(100%);
+    animation: slideInFromRight 0.4s ease-out forwards;
+  }
+  
+  /* Cuando el sidebar está abierto, ajustar la modal */
+  .modal-window.fullscreen-mobile.sidebar-open {
+    left: 5em; /* Ancho del sidebar abierto */
+    width: calc(100% - 5em);
+  }
+  
+  /* Animación de salida hacia la derecha */
+  .modal-window.fullscreen-mobile.closing {
+    animation: slideOutToRight 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  }
+  
+  /* Animaciones de deslizamiento */
+  @keyframes slideInFromRight {
+    from {
+      transform: translateX(100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+  
+  @keyframes slideOutToRight {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(100%);
+    }
+  }
+}
+
+/* Overlay especial para modales fullscreen en móvil */
+@media (max-width: 768px) {
+  .modal-overlay.fullscreen-mobile-overlay {
+    top: 60px;
+    left: 0; /* Por defecto cuando sidebar está cerrado */
+    width: 100%; /* Ancho completo cuando sidebar está cerrado */
+    height: calc(100vh - 60px);
+    transition: left 0.3s ease, width 0.3s ease; /* Transición suave */
+    
+    /* Animación de fade-in para el overlay */
+    opacity: 0;
+    animation: fadeInOverlay 0.3s ease-out forwards;
+  }
+  
+  /* Cuando el sidebar está abierto, ajustar el overlay */
+  .modal-overlay.fullscreen-mobile-overlay.sidebar-open {
+    left: 5em; /* Ancho del sidebar abierto */
+    width: calc(100% - 5em);
+  }
+  
+  /* Animación de fade-out para el overlay al cerrar */
+  .modal-overlay.fullscreen-mobile-overlay.closing {
+    animation: fadeOutOverlay 0.4s ease-out forwards;
+  }
+  
+  /* Animaciones del overlay */
+  @keyframes fadeInOverlay {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  
+  @keyframes fadeOutOverlay {
+    0% {
+      opacity: 1;
+    }
+    70% {
+      opacity: 1;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
 }
 
 /* Encabezado */
@@ -54,16 +152,37 @@
   background: transparent;
   border: none;
   color: #333;
-  font-size: 20px;
-  width: 24px;
-  height: 24px;
-  line-height: 24px;
+  font-size: 18px;
+  font-weight: bold;
+  width: 32px;
+  height: 32px;
   padding: 0;
+  margin: 0;
   cursor: pointer;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  line-height: 1;
+  text-align: center;
 }
 
 .modal-close:hover {
-  background: #6c757d;
+  background: #3b82f6;
+  color: #fff;
+  transform: scale(1.05);
+}
+
+.modal-close:active {
+  background: #2563eb;
+  color: #fff;
+  transform: scale(0.98);
+}
+
+.modal-close:focus {
+  outline: none;
+  background: #3b82f6;
   color: #fff;
 }
 
@@ -78,9 +197,9 @@
 /* Contenedor de botones en el pie del modal */
 .modal-actions {
   display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 16px;
+  gap: 12px;
+  margin-top: 20px;
+  width: 100%;
 }
 
 /* Botones dentro del modal: reset selectivo */
@@ -98,11 +217,14 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  height: 32px;
-  line-height: 32px;
-  padding: 0 12px;
-  border-radius: 4px;
-  font-size: 14px;
+  height: 48px;
+  line-height: 48px;
+  padding: 0 16px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  flex: 1; /* Cada botón ocupa la mitad del ancho disponible */
 }
 
 /* Colores de cada botón */
@@ -111,17 +233,33 @@
   color: #fff;
 }
 
+.modal-body .btn.cancel:hover {
+  background-color: #5a6268;
+}
+
 .modal-body .btn.add {
-  background-color: #28a745;
+  background-color: #059669;
   color: #fff;
+}
+
+.modal-body .btn.add:hover {
+  background-color: #047857;
+}
+
+.modal-body .btn.edit {
+  background-color: #3b82f6;
+  color: #fff;
+}
+
+.modal-body .btn.edit:hover {
+  background-color: #2563eb;
 }
 
 .modal-body .btn.delete {
-  background-color: #dc3545;
+  background-color: #ef4444;
   color: #fff;
 }
 
-/* Hover */
-.modal-body .btn:hover {
-  opacity: 0.9;
+.modal-body .btn.delete:hover {
+  background-color: #dc2626;
 }

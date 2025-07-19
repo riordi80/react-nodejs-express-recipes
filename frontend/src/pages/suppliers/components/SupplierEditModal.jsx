@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { FaUser, FaBoxOpen, FaChevronDown } from 'react-icons/fa';
 import Modal from '../../../components/modal/Modal';
 import SupplierIngredientsTable from './SupplierIngredientsTable';
 
@@ -16,28 +17,89 @@ export default function SupplierEditModal({
   onEditIngredient,
   onDeleteIngredient
 }) {
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
 
-  const handleSave = () => {
-    onSave();
+  // Definir las pestañas con iconos
+  const tabs = [
+    { id: 'info', label: 'Información General', icon: FaUser },
+    { id: 'ingredients', label: 'Ingredientes Suministrados', icon: FaBoxOpen }
+  ];
+
+  // Efecto para cerrar el dropdown cuando se hace clic fuera
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const handleTabChange = (tabId) => {
+    setEditModalTab(tabId);
+    setIsDropdownOpen(false);
   };
 
+  const toggleDropdown = () => {
+    setIsDropdownOpen(!isDropdownOpen);
+  };
+
+
   return (
-    <Modal isOpen={isOpen} title="Editar proveedor" onClose={onClose}>
+    <Modal isOpen={isOpen} title="Editar proveedor" onClose={onClose} fullscreenMobile={true}>
       <div className="supplier-edit-modal">
-        {/* Pestañas */}
+        {/* Pestañas para desktop */}
         <div className="modal-tabs">
-          <button 
-            className={`tab-button ${editModalTab === 'info' ? 'active' : ''}`}
-            onClick={() => setEditModalTab('info')}
-          >
-            Información General
+          {tabs.map(tab => {
+            const IconComponent = tab.icon;
+            return (
+              <button 
+                key={tab.id}
+                className={`tab-button ${editModalTab === tab.id ? 'active' : ''}`}
+                onClick={() => handleTabChange(tab.id)}
+              >
+                <IconComponent className="tab-icon" />
+                <span className="tab-label">{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+        
+        {/* Dropdown para móvil */}
+        <div className="modal-mobile-dropdown" ref={dropdownRef}>
+          <button className="mobile-dropdown-trigger" onClick={toggleDropdown}>
+            {(() => {
+              const activeTabData = tabs.find(tab => tab.id === editModalTab);
+              const IconComponent = activeTabData?.icon;
+              return (
+                <>
+                  <IconComponent className="mobile-dropdown-icon" />
+                  <span className="mobile-dropdown-label">{activeTabData?.label}</span>
+                  <FaChevronDown className={`mobile-dropdown-arrow ${isDropdownOpen ? 'open' : ''}`} />
+                </>
+              );
+            })()}
           </button>
-          <button 
-            className={`tab-button ${editModalTab === 'ingredients' ? 'active' : ''}`}
-            onClick={() => setEditModalTab('ingredients')}
-          >
-            Ingredientes Suministrados
-          </button>
+          <div className={`mobile-dropdown-menu ${isDropdownOpen ? 'open' : ''}`}>
+            {tabs.map(tab => {
+              const IconComponent = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  className={`mobile-dropdown-item ${editModalTab === tab.id ? 'active' : ''}`}
+                  onClick={() => handleTabChange(tab.id)}
+                >
+                  <IconComponent className="mobile-dropdown-item-icon" />
+                  <span className="mobile-dropdown-item-label">{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Contenido de las pestañas */}
@@ -86,8 +148,8 @@ export default function SupplierEditModal({
               <button type="button" className="btn cancel" onClick={onClose}>
                 Cancelar
               </button>
-              <button type="button" className="btn edit" onClick={handleSave}>
-                Guardar cambios
+              <button type="button" className="btn add" onClick={onSave}>
+                Guardar
               </button>
             </div>
           </form>

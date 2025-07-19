@@ -76,6 +76,12 @@ body {
   font-size: 14px;
 }
 
+/* Botón añadir en subheader tiene la misma altura que el campo de búsqueda */
+.subheader .btn {
+  height: 36px;
+  line-height: 36px;
+}
+
 .common-table {
   margin-top: 20px;
 }
@@ -153,17 +159,104 @@ body {
   color: #3b82f6;
 }
 
-/* Allergen chips - Global style */
+/* ======================
+   SISTEMA DE CHIPS GLOBAL
+   ====================== */
+
+/* Contenedores de chips - Base común */
+.chips-container,
+.seasons-chips,
+.allergens-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 0px;
+  padding: 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  width: 100%;
+  box-sizing: border-box;
+  align-content: flex-start;
+  align-items: flex-start;
+  min-height: 40px;
+}
+
+/* Chips base - Estilo común para todos los chips */
+.chip,
+.season-chip,
 .allergen-chip {
-  background: #fef3c7;
-  color: #92400e;
-  padding: 6px 12px;
-  border-radius: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
   font-size: 12px;
   font-weight: 500;
-  border: 1px solid #fbbf24;
-  display: inline-block;
-  margin: 2px;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #475569;
+  user-select: none;
+  margin: 0; /* Reset margin */
+  flex-shrink: 0; /* Prevent chips from shrinking */
+}
+
+/* Estados hover para todos los chips */
+.chip:hover,
+.season-chip:hover,
+.allergen-chip:hover {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+}
+
+/* Estados selected para todos los chips */
+.chip.selected,
+.season-chip.selected,
+.allergen-chip.selected {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: white;
+}
+
+/* Estados selected:hover para todos los chips */
+.chip.selected:hover,
+.season-chip.selected:hover,
+.allergen-chip.selected:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+}
+
+/* Variantes de color para casos específicos */
+.chip.warning,
+.allergen-chip.warning {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fbbf24;
+}
+
+.chip.warning:hover,
+.allergen-chip.warning:hover {
+  background: #fde68a;
+  border-color: #f59e0b;
+}
+
+/* Responsive para chips */
+@media (max-width: 768px) {
+  .chips-container,
+  .seasons-chips,
+  .allergens-chips {
+    gap: 4px;
+    /* Removed max-height to allow containers to expand naturally */
+  }
+  
+  .chip,
+  .season-chip,
+  .allergen-chip {
+    padding: 6px 10px;
+    font-size: 13px;
+  }
 }
 
 /* Contenedor principal para toda la página */
@@ -241,13 +334,13 @@ button:focus, button:active {
   box-sizing: border-box;
 }
 
-.btn.add    { background-color: #28a745; color: #fff; }
+.btn.add    { background-color: #059669; color: #fff; }
 .btn.edit   { background-color: rgb(93,135,255); color: #fff; }
 .btn.view   { background-color: rgb(93,135,255); color: #fff; }
 .btn.delete { background-color: #dc3545; color: #fff; }
 .btn.cancel { background-color: #6c757d; color: #fff; }
 
-.btn.add:hover    { background-color: #218838; }
+.btn.add:hover    { background-color: #047857; }
 .btn.edit:hover   { background-color: rgb(73,115,235); }
 .btn.view:hover   { background-color: rgb(73,115,235); }
 .btn.delete:hover { background-color: #c82333; }
