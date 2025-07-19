@@ -14,6 +14,35 @@ const pool = mysql.createPool({
   database: process.env.DB_NAME,
 });
 
+// Función para obtener configuración de sesión
+async function getSessionConfig() {
+  try {
+    const [result] = await pool.execute(`
+      SELECT setting_key, setting_value 
+      FROM SYSTEM_SETTINGS 
+      WHERE setting_key IN ('session_timeout', 'session_auto_close')
+    `);
+    
+    const settings = {};
+    result.forEach(row => {
+      settings[row.setting_key] = row.setting_value;
+    });
+    
+    // Valores por defecto si no existen
+    return {
+      session_timeout: parseInt(settings.session_timeout) || 120, // en minutos
+      session_auto_close: settings.session_auto_close === 'true'
+    };
+  } catch (error) {
+    console.error('Error obteniendo configuración de sesión:', error);
+    // Valores por defecto en caso de error
+    return {
+      session_timeout: 120,
+      session_auto_close: false
+    };
+  }
+}
+
 // POST /login — Iniciar sesión
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
@@ -34,14 +63,17 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ message: 'Email o contraseña incorrectos' });
     }
 
-    // 3) Generar JWT
+    // 3) Obtener configuración de sesión
+    const sessionConfig = await getSessionConfig();
+    
+    // 4) Generar JWT con configuración dinámica
     const token = jwt.sign(
       { user_id: user.user_id, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: '2h' }
+      { expiresIn: `${sessionConfig.session_timeout}m` }
     );
 
-    // 4) Enviar cookie
+    // 5) Enviar cookie
     const isProd = process.env.NODE_ENV === 'production';
     const isCloudflare = process.env.USE_CLOUDFLARE === 'true';
     const userAgent = req.headers['user-agent'] || '';
@@ -49,8 +81,14 @@ router.post('/login', async (req, res) => {
     
     const cookieOptions = {
       httpOnly: true,
-      maxAge: 2 * 60 * 60 * 1000, // 2 horas
+      maxAge: sessionConfig.session_timeout * 60 * 1000, // convertir minutos a milisegundos
     };
+    
+    // Si session_auto_close está habilitado, no establecer maxAge 
+    // para que la cookie sea de sesión (se elimine al cerrar navegador)
+    if (sessionConfig.session_auto_close) {
+      delete cookieOptions.maxAge;
+    }
     
     if (isCloudflare) {
       // Configuración para Cloudflare tunnel (subdominios diferentes)

@@ -57,14 +57,14 @@ const Sidebar = () => {
             <span className="link-text">Dashboard</span>
           </NavLink>
         </li>
-        <li className="navbar-item flexbox-left">
+        {/* <li className="navbar-item flexbox-left">
           <NavLink to="/planner" className="navbar-item-inner flexbox-left" onClick={handleLinkClick}>
             <div className="navbar-item-inner-icon-wrapper flexbox">
               <FaCalendar />
             </div>
             <span className="link-text">Eventos</span>
           </NavLink>
-        </li>
+        </li> */}
         <li className="navbar-item flexbox-left">
           <NavLink to="/recipes" className="navbar-item-inner flexbox-left" onClick={handleLinkClick}>
             <div className="navbar-item-inner-icon-wrapper flexbox">

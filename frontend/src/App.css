@@ -35,7 +35,52 @@ body {
   margin-bottom: 10px;
 }
 
-/* Common page container styles - Global */
+/* === COMMON PAGE STYLES === */
+.common-page-container {
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  padding-top: 80px;
+  max-width: 1800px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background-color: #f8fafc;
+}
+
+.common-page-content {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+}
+
+.common-page-title {
+  font-size: 30px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 8px 0;
+}
+
+.common-search-input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  line-height: 36px;
+  padding: 0 12px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+  font-size: 14px;
+}
+
+.common-table {
+  margin-top: 20px;
+}
+
+/* Legacy support - mantener para compatibilidad */
 .allergens-container,
 .ingredients-container,
 .suppliers-container {
@@ -51,7 +96,7 @@ body {
 .allergens-container h2,
 .ingredients-container h2,
 .suppliers-container h2 {
-  font-size: 32px;
+  font-size: 30px;
   font-weight: 700;
   color: #1e293b;
   margin: 0 0 8px 0;
@@ -67,7 +112,7 @@ body {
 }
 
 .recipes-container h1 {
-  font-size: 32px;
+  font-size: 30px;
   font-weight: 700;
   color: #1e293b;
   margin: 0 0 32px 0;
@@ -80,6 +125,45 @@ body {
   flex-wrap: wrap;
   gap: 12px;
   margin-bottom: 10px;
+}
+
+/* Total count display - Global */
+.total-count {
+  text-align: right;
+  color: #64748b;
+  font-size: 14px;
+  padding: 8px 16px;
+  background: transparent;
+}
+
+/* Custom table row hover - Global */
+.rdt_Table .rdt_TableRow:hover {
+  background-color: rgb(247, 250, 255) !important;
+  cursor: pointer;
+  border-bottom: 1px solid rgb(200, 218, 255) !important;
+  border-top: 1px solid rgb(200, 218, 255) !important;
+}
+
+/* Links in tables should have same font size as table content */
+.rdt_Table a,
+.rdt_TableCell a,
+.common-table a {
+  font-size: 14px !important;
+  text-decoration: underline;
+  color: #3b82f6;
+}
+
+/* Allergen chips - Global style */
+.allergen-chip {
+  background: #fef3c7;
+  color: #92400e;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid #fbbf24;
+  display: inline-block;
+  margin: 2px;
 }
 
 /* Contenedor principal para toda la página */
@@ -105,6 +189,7 @@ body {
   height: calc(100vh - 60px); /* Deja espacio para el topbar */
   overflow-y: auto;
   transition: margin-left 0.35s cubic-bezier(0.175, 0.685, 0.32, 1);
+  scroll-behavior: smooth;
 }
 
 /* Solo aplicar el efecto cuando se hace hover sobre el navbar */
@@ -141,9 +226,9 @@ button:focus, button:active {
 
 /* ===== Estilos específicos para botones de acciones ===== */
 .btn {
-  height: 32px;
-  line-height: 32px;
-  padding: 0 12px;
+  height: 44px;
+  line-height: 44px;
+  padding: 0 16px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
@@ -238,8 +323,27 @@ button:focus, button:active {
   background-color: rgb(93, 135, 255);
 }
 
-/* Responsive Design - Global */
+/* === COMMON PAGE RESPONSIVE STYLES === */
 @media (max-width: 1024px) {
+  .common-page-container {
+    padding: 16px;
+    padding-top: 80px;
+  }
+  
+  .common-page-content {
+    padding: 24px;
+  }
+  
+  .common-page-title {
+    font-size: 26px;
+  }
+  
+  .common-search-input {
+    height: 40px;
+    line-height: 40px;
+  }
+  
+  /* Legacy support */
   .allergens-container,
   .ingredients-container,
   .suppliers-container {
@@ -250,7 +354,7 @@ button:focus, button:active {
   .allergens-container h2,
   .ingredients-container h2,
   .suppliers-container h2 {
-    font-size: 28px;
+    font-size: 26px;
   }
   
   .recipes-container {
@@ -259,12 +363,33 @@ button:focus, button:active {
   }
   
   .recipes-container h1 {
-    font-size: 28px;
+    font-size: 26px;
     margin-bottom: 24px;
   }
 }
 
 @media (max-width: 768px) {
+  .common-page-container {
+    padding: 12px;
+    padding-top: 80px;
+  }
+  
+  .common-page-content {
+    padding: 16px;
+  }
+  
+  .common-page-title {
+    font-size: 30px;
+    margin-bottom: 16px;
+  }
+  
+  .common-search-input {
+    height: 44px;
+    line-height: 44px;
+    font-size: 16px;
+  }
+  
+  /* Legacy support */
   .allergens-container,
   .ingredients-container,
   .suppliers-container {
@@ -275,7 +400,7 @@ button:focus, button:active {
   .allergens-container h2,
   .ingredients-container h2,
   .suppliers-container h2 {
-    font-size: 24px;
+    font-size: 30px;
     margin-bottom: 16px;
   }
   
@@ -285,7 +410,7 @@ button:focus, button:active {
   }
   
   .recipes-container h1 {
-    font-size: 24px;
+    font-size: 30px;
     margin-bottom: 16px;
   }
   
@@ -295,7 +420,8 @@ button:focus, button:active {
     gap: 8px;
   }
   
-  .search-input {
+  .search-input,
+  .common-search-input {
     width: 100% !important;
   }
   

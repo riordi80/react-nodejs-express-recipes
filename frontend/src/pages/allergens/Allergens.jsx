@@ -1,116 +1,82 @@
 // src/pages/allergens/Allergens.jsx
-import React, { useEffect, useState, useMemo } from 'react';
-import DataTable from 'react-data-table-component';
-import { StyleSheetManager } from 'styled-components';
-import isPropValid from '@emotion/is-prop-valid';
-import { FaEdit, FaTrash } from 'react-icons/fa';
-import api from '../../api/axios';
+import React, { useState, useMemo } from 'react';
+import { FaTrash } from 'react-icons/fa';
+import BasePage from '../../components/BasePage';
 import Modal from '../../components/modal/Modal';
+import { usePageState } from '../../hooks/usePageState';
 import './Allergens.css';
 
 export default function Allergens() {
-  const [allergens, setAllergens] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [filterText, setFilterText] = useState('');
-  const [newName, setNewName] = useState('');
-  const [message, setMessage] = useState(null);
-  const [messageType, setMessageType] = useState('success');
+  const {
+    filteredData,
+    loading,
+    error,
+    message,
+    messageType,
+    filterText,
+    setFilterText,
+    createItem,
+    updateItem,
+    deleteItem,
+  } = usePageState('/allergens');
 
-  // Modal state
+  // Local state for forms and modals
+  const [newName, setNewName] = useState('');
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [currentAllergen, setCurrentAllergen] = useState(null);
   const [editedName, setEditedName] = useState('');
 
-  // Fetch
-  const fetchAllergens = async () => {
-    setLoading(true);
-    try {
-      const { data } = await api.get('/allergens');
-      setAllergens(data);
-    } catch {
-      setError('Error al obtener alérgenos');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchAllergens();
-  }, []);
-
-  // Notifications
-  const notify = (msg, type = 'success') => {
-    setMessage(msg);
-    setMessageType(type);
-    setTimeout(() => setMessage(null), 3000);
-  };
-
-  // Create
-  const handleAdd = async e => {
+  // Create handler
+  const handleAdd = async (e) => {
     e.preventDefault();
     if (!newName.trim()) return;
-    try {
-      await api.post('/allergens', { name: newName.trim() });
-      notify('Alérgeno creado correctamente', 'success');
+    
+    const success = await createItem({ name: newName.trim() });
+    if (success) {
       setNewName('');
-      fetchAllergens();
-    } catch (err) {
-      notify(err.response?.data?.message || 'Error al crear', 'error');
     }
   };
 
-  // Open Edit Modal
-  const openEditModal = row => {
+  // Edit handlers
+  const openEditModal = (row) => {
     setCurrentAllergen(row);
     setEditedName(row.name);
     setIsEditOpen(true);
   };
 
-  // Confirm Edit
   const confirmEdit = async () => {
     if (!editedName.trim()) return;
-    try {
-      await api.put(`/allergens/${currentAllergen.allergen_id}`, { name: editedName.trim() });
-      notify('Alérgeno actualizado', 'success');
-      fetchAllergens();
-    } catch {
-      notify('Error al actualizar', 'error');
-    } finally {
+    
+    const success = await updateItem(currentAllergen.allergen_id, { name: editedName.trim() });
+    if (success) {
       setIsEditOpen(false);
+      setCurrentAllergen(null);
+      setEditedName('');
     }
   };
 
-  // Open Delete Modal
-  const openDeleteModal = row => {
+  // Delete handlers
+  const openDeleteModal = (row) => {
     setCurrentAllergen(row);
     setIsDeleteOpen(true);
   };
 
-  // Confirm Delete
   const confirmDelete = async () => {
-    try {
-      await api.delete(`/allergens/${currentAllergen.allergen_id}`);
-      notify('Alérgeno eliminado', 'success');
-      fetchAllergens();
-    } catch {
-      notify('Error al eliminar', 'error');
-    } finally {
+    const success = await deleteItem(currentAllergen.allergen_id);
+    if (success) {
       setIsDeleteOpen(false);
+      setCurrentAllergen(null);
     }
   };
 
-  // Columns
+  // Table columns
   const columns = useMemo(() => [
     { name: 'Nombre', selector: row => row.name, sortable: true, grow: 2 },
     {
       name: 'Acciones',
       cell: row => (
         <div className="table-actions">
-          <button className="icon-btn edit-icon" onClick={() => openEditModal(row)} title="Editar">
-            <FaEdit />
-          </button>
           <button className="icon-btn delete-icon" onClick={() => openDeleteModal(row)} title="Eliminar">
             <FaTrash />
           </button>
@@ -119,79 +85,41 @@ export default function Allergens() {
       ignoreRowClick: true,
       allowOverflow: true,
       button: true,
-      width: '150px'
+      width: '100px'
     }
   ], []);
 
-  // Filtered data
-  const filtered = useMemo(
-    () => allergens.filter(a => a.name.toLowerCase().includes(filterText.toLowerCase())),
-    [allergens, filterText]
+  // Custom add form component
+  const addForm = (
+    <form className="add-form" onSubmit={handleAdd}>
+      <input
+        type="text"
+        placeholder="Nuevo alérgeno"
+        className="input-field"
+        value={newName}
+        onChange={e => setNewName(e.target.value)}
+      />
+      <button type="submit" className="btn add">Añadir</button>
+    </form>
   );
 
   return (
-    <div className="allergens-container">
-      <div className="allergens-content">
-        <h2>Lista de alérgenos</h2>
-
-        {message && (
-          <div className={`notification ${messageType}`}>
-            {message}
-          </div>
-        )}
-        {error && <p className="error">{error}</p>}
-
-        {/* Subheader: búsqueda + formulario */}
-        <div className="subheader">
-        <input
-          type="text"
-          placeholder="Buscar alérgeno..."
-          className="search-input"
-          value={filterText}
-          onChange={e => setFilterText(e.target.value)}
-        />
-        <form className="add-form" onSubmit={handleAdd}>
-          <input
-            type="text"
-            placeholder="Nuevo alérgeno"
-            className="input-field"
-            value={newName}
-            onChange={e => setNewName(e.target.value)}
-          />
-          <button type="submit" className="btn add">Añadir</button>
-        </form>
-      </div>
-
-      {/* DataTable with prop filtering */}
-      <StyleSheetManager shouldForwardProp={prop => isPropValid(prop)}>
-        <DataTable
-          className="allergens-table"
-          columns={columns}
-          data={filtered}
-          progressPending={loading}
-          progressComponent={
-            <div className="loading-overlay">
-              <div className="loading-text">
-              Cargando...
-              </div>
-            </div>
-          }
-          noDataComponent="No hay alérgenos para mostrar"
-          pagination
-          paginationPerPage={15}
-          paginationComponentOptions={{
-            rowsPerPageText: 'Filas por página',
-            rangeSeparatorText: 'de',
-            noRowsPerPage: false,
-            selectAllRowsItem: true,
-            selectAllRowsItemText: 'Todos'
-          }}
-          highlightOnHover
-          pointerOnHover
-          selectableRows={false}
-          noHeader
-        />
-      </StyleSheetManager>
+    <>
+      <BasePage
+        title="Alérgenos"
+        data={filteredData}
+        columns={columns}
+        loading={loading}
+        error={error}
+        message={message}
+        messageType={messageType}
+        filterText={filterText}
+        onFilterChange={setFilterText}
+        searchPlaceholder="Buscar alérgeno..."
+        noDataMessage="No hay alérgenos para mostrar"
+        actions={addForm}
+        onRowClicked={openEditModal}
+      />
 
       {/* Edit Modal */}
       <Modal
@@ -235,7 +163,6 @@ export default function Allergens() {
           </button>
         </div>
       </Modal>
-      </div>
-    </div>
+    </>
   );
 }

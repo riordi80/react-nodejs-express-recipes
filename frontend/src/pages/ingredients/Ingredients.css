@@ -1,50 +1,9 @@
 /* src/pages/ingredients/Ingredients.css */
 
-.ingredients-container {
-  display: flex;
-  flex-direction: column;
-  padding: 24px;
-  padding-top: 80px;
-  max-width: 1800px;
-  margin: 0 auto;
-  min-height: 100vh;
-  background-color: #f8fafc;
-}
 
-.ingredients-content {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e2e8f0;
-  padding: 32px;
-  display: flex;
-  flex-direction: column;
-}
-
-.ingredients-content h2 {
-  font-size: 32px;
-  font-weight: 700;
-  color: #1e293b;
-  margin: 0 0 32px 0;
-}
-
-.search-input {
-  flex: 1;
-  min-width: 0;
-  height: 36px;
-  line-height: 36px;
-  padding: 0 12px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 14px;
-  box-sizing: border-box;
-}
 
 /* Estilos de botones movidos a /src/styles/buttons.css */
 
-.ingredients-table {
-  margin-top: 20px;
-}
 
 
 /* Modal form dentro de <Modal> */
@@ -58,15 +17,6 @@
 
 /* Responsive Design - Ingredients */
 @media (max-width: 1024px) {
-  .ingredients-container {
-    padding: 16px;
-    padding-top: 80px;
-  }
-  
-  .ingredients-content {
-    padding: 24px;
-  }
-  
   .modal-body-form {
     gap: 16px;
   }
@@ -77,20 +27,6 @@
 }
 
 @media (max-width: 768px) {
-  .ingredients-container {
-    padding: 12px;
-    padding-top: 80px;
-  }
-  
-  .ingredients-content {
-    padding: 16px;
-  }
-  
-  .ingredients-content h2 {
-    font-size: 24px;
-    margin-bottom: 16px;
-  }
-  
   .modal-body-form {
     grid-template-columns: 1fr;
     gap: 16px;
@@ -100,13 +36,6 @@
   .allergens-selector {
     min-height: 200px;
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  }
-  
-  .search-input {
-    width: 100% !important;
-    height: 44px;
-    line-height: 44px;
-    font-size: 16px;
   }
   
   .modal-body-form .input-field,
@@ -123,18 +52,7 @@
 }
 
 @media (max-width: 480px) {
-  .ingredients-container {
-    padding: 8px;
-    padding-top: 80px;
-  }
-  
-  .ingredients-content {
-    padding: 12px;
-  }
-  
-  .ingredients-content h2 {
-    font-size: 22px;
-  }
+  /* Specific styles for 480px if needed */
 }
 
 /* Contenedor de los campos principales */

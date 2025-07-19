@@ -190,6 +190,28 @@ router.get('/:id/ingredients/by-section', authenticateToken, authorizeRoles('adm
   }
 });
 
+// GET /recipes/:id/allergens - Obtener alérgenos de una receta basados en sus ingredientes
+router.get('/:id/allergens', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [rows] = await pool.query(
+      `
+      SELECT DISTINCT a.allergen_id, a.name
+      FROM ALLERGENS a
+      JOIN INGREDIENT_ALLERGENS ia ON a.allergen_id = ia.allergen_id
+      JOIN RECIPE_INGREDIENTS ri ON ia.ingredient_id = ri.ingredient_id
+      WHERE ri.recipe_id = ?
+      ORDER BY a.name
+      `,
+      [id]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('Error fetching recipe allergens:', err);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
 // PUT /recipes/:recipe_id/ingredients/:ingredient_id/section
 router.put('/:recipe_id/ingredients/:ingredient_id/section', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
   const { recipe_id, ingredient_id } = req.params;

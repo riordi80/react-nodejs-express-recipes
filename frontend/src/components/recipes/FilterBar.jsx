@@ -89,7 +89,7 @@ export default function FilterBar({
       >
         <option value="">Cualquier dificultad</option>
         {difficultyOptions.map(d => (
-          <option key={d} value={d}>{d}</option>
+          <option key={d.value || d} value={d.value || d}>{d.label || d}</option>
         ))}
       </select>
 

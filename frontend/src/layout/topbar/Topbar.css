@@ -8,7 +8,7 @@
   position: fixed;
   top: 0;
   left: 0;
-  z-index: 10; /* Asegura que esté por encima del sidebar */
+  z-index: 1001; /* Asegura que esté por encima del sidebar y dropdowns */
   border-bottom: 1px solid #eeeeee; /* Borde inferior del topbar */
   background-color: #fff;
   display: flex;

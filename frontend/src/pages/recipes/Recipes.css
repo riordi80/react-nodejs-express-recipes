@@ -2,37 +2,15 @@
 
 /* ─── Contenedor principal ────────────────────────────────────────────────── */
 .recipes-page {
-  display: flex;
-  flex-direction: column;
-  padding: 24px;
-  padding-top: 80px;
-  max-width: 1800px;
-  margin: 0 auto;
-  min-height: 100vh;
-  font-size: 14px; /* igual que Ingredients */
+  font-size: 14px;
   overflow: visible; /* permitir que elementos se extiendan fuera */
-  background-color: #f8fafc;
 }
 
 /* ─── Contenedor del contenido ────────────────────────────────────────────── */
 .recipes-content {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e2e8f0;
-  padding: 32px;
-  display: flex;
-  flex-direction: column;
   overflow: visible;
 }
 
-/* ─── Título ─────────────────────────────────────────────────────────────── */
-.recipes-content h1 {
-  font-size: 32px;
-  font-weight: 700;
-  color: #1e293b;
-  margin: 0 0 8px 0;
-}
 
 /* ─── Filtros en línea ─────────────────────────────────────────────────────── */
 .recipes-filters {
@@ -97,6 +75,7 @@
   margin-top: 20px;
 }
 
+
 /* Cabeceras de la tabla */
 .recipes-table .rdt_TableHeadRow th {
   background-color: #f1f1f1;
@@ -119,17 +98,9 @@
 
 /* ─── Errores ─────────────────────────────────────────────────────────────── */
 
+
 /* ─── Responsive design ─── */
 @media (max-width: 1024px) {
-  .recipes-page {
-    padding: 16px;
-    padding-top: 80px;
-  }
-  
-  .recipes-content {
-    padding: 24px;
-  }
-  
   .filter-bar {
     gap: 6px;
   }
@@ -140,20 +111,6 @@
 }
 
 @media (max-width: 768px) {
-  .recipes-page {
-    padding: 12px;
-    padding-top: 80px;
-  }
-  
-  .recipes-content {
-    padding: 16px;
-  }
-  
-  .recipes-content h1 {
-    font-size: 24px;
-    margin-bottom: 10px;
-  }
-  
   .recipes-filters {
     flex-direction: column;
     align-items: stretch;
@@ -193,19 +150,6 @@
 }
 
 @media (max-width: 480px) {
-  .recipes-page {
-    padding: 8px;
-    padding-top: 80px;
-  }
-  
-  .recipes-content {
-    padding: 12px;
-  }
-  
-  .recipes-content h1 {
-    font-size: 22px;
-  }
-  
   .filter-bar {
     gap: 6px;
   }

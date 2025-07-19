@@ -1,86 +1,15 @@
 /* src/pages/suppliers/Suppliers.css */
 
-.suppliers-container {
-  display: flex;
-  flex-direction: column;
-  padding: 24px;
-  padding-top: 80px;
-  max-width: 1800px;
-  margin: 0 auto;
-  min-height: 100vh;
-  background-color: #f8fafc;
-}
 
-.suppliers-content {
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e2e8f0;
-  padding: 32px;
-  display: flex;
-  flex-direction: column;
-}
-
-.suppliers-content h2 {
-  font-size: 32px;
-  font-weight: 700;
-  color: #1e293b;
-  margin: 0 0 32px 0;
-}
-
-.search-input {
-  flex: 1;
-  min-width: 0;
-  height: 36px;
-  line-height: 36px;
-  padding: 0 12px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 14px;
-  box-sizing: border-box;
-}
-
-.suppliers-table {
-  margin-top: 20px;
-}
 
 /* Responsive Design - Suppliers */
 @media (max-width: 1024px) {
-  .suppliers-container {
-    padding: 16px;
-    padding-top: 80px;
-  }
-  
-  .suppliers-content {
-    padding: 24px;
-  }
-  
   .suppliers-container .modal-body-form {
     min-width: 300px;
   }
 }
 
 @media (max-width: 768px) {
-  .suppliers-container {
-    padding: 12px;
-    padding-top: 80px;
-  }
-  
-  .suppliers-content {
-    padding: 16px;
-  }
-  
-  .suppliers-content h2 {
-    font-size: 24px;
-    margin-bottom: 16px;
-  }
-  
-  .search-input {
-    height: 44px;
-    line-height: 44px;
-    font-size: 16px;
-  }
-  
   .suppliers-container .modal-body-form {
     min-width: 280px;
   }
@@ -99,19 +28,6 @@
 }
 
 @media (max-width: 480px) {
-  .suppliers-container {
-    padding: 8px;
-    padding-top: 80px;
-  }
-  
-  .suppliers-content {
-    padding: 12px;
-  }
-  
-  .suppliers-content h2 {
-    font-size: 22px;
-  }
-  
   .suppliers-container .modal-body-form {
     min-width: 100%;
   }
@@ -487,25 +403,12 @@
 
 /* Responsive */
 @media (max-width: 768px) {
-  .suppliers-container {
-    padding: 20px;
-  }
-  
   .suppliers-container .modal-body-form {
     min-width: 300px;
   }
   
   .modal-with-tabs {
     min-width: 400px;
-  }
-  
-  .suppliers-container .subheader {
-    flex-direction: column;
-    gap: 8px;
-  }
-  
-  .suppliers-container .search-input {
-    width: 100%;
   }
   
   .supplier-ingredients-table {

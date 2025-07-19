@@ -11,6 +11,7 @@ import Ingredients from '../pages/ingredients/Ingredients'; // ← importa tu nu
 import Recipes from '../pages/recipes/Recipes';  // ← Importa tu componente de recetas
 import Suppliers from '../pages/suppliers/Suppliers';
 import Settings from '../pages/settings/Settings';
+import RecipeDetail from '../pages/recipe-detail/RecipeDetail';
 
 const AppRoutes = () => {
   const { isAuthenticated, checkingAuth } = useAuth();
@@ -37,6 +38,7 @@ const AppRoutes = () => {
           <Route path="allergens"  element={<Allergens />} />
           <Route path="ingredients" element={<Ingredients />} />  {/* ← aquí */}
           <Route path="recipes" element={<Recipes />} />
+          <Route path="recipes/:id" element={<RecipeDetail />} />
           <Route path="suppliers" element={<Suppliers />} />
           <Route path="settings" element={<Settings />} />
           {/* más rutas hijas si las necesitas */}

@@ -1,28 +1,40 @@
 // src/pages/suppliers/Suppliers.jsx
 import React, { useEffect, useState, useMemo } from 'react';
-import DataTable from 'react-data-table-component';
-import { StyleSheetManager } from 'styled-components';
-import isPropValid from '@emotion/is-prop-valid';
-import { FaEdit, FaTrash } from 'react-icons/fa';
-import api from '../../api/axios';
+import { FaTrash } from 'react-icons/fa';
+import BasePage from '../../components/BasePage';
 import Modal from '../../components/modal/Modal';
 import SupplierEditModal from './components/SupplierEditModal';
 import AddIngredientModal from './components/AddIngredientModal';
 import EditSupplierIngredientModal from './components/EditSupplierIngredientModal';
+import { usePageState } from '../../hooks/usePageState';
+import api from '../../api/axios';
 import './Suppliers.css';
 
 export default function Suppliers() {
-  const [suppliers, setSuppliers] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [filterText, setFilterText] = useState('');
+  const {
+    filteredData,
+    loading,
+    error,
+    message,
+    messageType,
+    filterText,
+    setFilterText,
+    createItem,
+    updateItem,
+    deleteItem,
+  } = usePageState('/suppliers');
+
+  // Additional data needed for suppliers
   const [ingredients, setIngredients] = useState([]);
   const [supplierIngredients, setSupplierIngredients] = useState([]);
-  const [message, setMessage] = useState(null);
-  const [messageType, setMessageType] = useState('success');
 
-  // ---- create modal state ----
+  // Modal states
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isAddIngredientOpen, setIsAddIngredientOpen] = useState(false);
+  const [isEditSupplierIngredientOpen, setIsEditSupplierIngredientOpen] = useState(false);
+
+  // Form and edit states
   const [newItem, setNewItem] = useState({
     name: '',
     phone: '',
@@ -30,23 +42,10 @@ export default function Suppliers() {
     website_url: '',
     address: ''
   });
-
-  // ---- edit modal state ----
-  const [isEditOpen, setIsEditOpen] = useState(false);
   const [editedItem, setEditedItem] = useState(null);
   const [editModalTab, setEditModalTab] = useState('info'); // 'info' o 'ingredients'
-
-  // ---- add ingredient modal state ----
-  const [isAddIngredientOpen, setIsAddIngredientOpen] = useState(false);
-
-  // ---- edit supplier-ingredient modal state ----
-  const [isEditSupplierIngredientOpen, setIsEditSupplierIngredientOpen] = useState(false);
   const [editingSupplierIngredient, setEditingSupplierIngredient] = useState(null);
-
-  // ---- search in add ingredients modal ----
   const [ingredientSearchText, setIngredientSearchText] = useState('');
-
-  // ---- sorting for supplier-ingredients table ----
   const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' });
 
   // ---- delete modal state ----
@@ -61,28 +60,7 @@ export default function Suppliers() {
   const [selectedIngredients, setSelectedIngredients] = useState([]);
   const [ingredientDetails, setIngredientDetails] = useState({});
 
-  const notify = (msg, type = 'success') => {
-    setMessage(msg);
-    setMessageType(type);
-    setTimeout(() => setMessage(null), 3000);
-  };
-
-  // Fetch suppliers
-  const fetchSuppliers = async () => {
-    try {
-      setLoading(true);
-      const { data } = await api.get('/suppliers');
-      setSuppliers(data);
-      setError(null);
-    } catch (err) {
-      setError('Error al cargar proveedores');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Fetch ingredients
+  // Fetch ingredients (needed for supplier-ingredient relationships)
   const fetchIngredients = async () => {
     try {
       const { data } = await api.get('/ingredients');
@@ -92,19 +70,11 @@ export default function Suppliers() {
     }
   };
 
-  const reload = fetchSuppliers;
-
   useEffect(() => {
-    fetchSuppliers();
     fetchIngredients();
   }, []);
 
-  // Filtros
-  const filteredSuppliers = suppliers.filter(supplier =>
-    supplier.name.toLowerCase().includes(filterText.toLowerCase()) ||
-    (supplier.email && supplier.email.toLowerCase().includes(filterText.toLowerCase())) ||
-    (supplier.phone && supplier.phone.includes(filterText))
-  );
+  // No need for manual filtering - using filteredData from usePageState
 
   // Available ingredients (not assigned to current supplier)
   const availableIngredients = useMemo(() => {
@@ -128,14 +98,16 @@ export default function Suppliers() {
   };
 
   const handleCreate = async () => {
-    try {
-      await api.post('/suppliers', newItem);
-      notify('Proveedor creado');
+    const success = await createItem(newItem);
+    if (success) {
+      setNewItem({
+        name: '',
+        phone: '',
+        email: '',
+        website_url: '',
+        address: ''
+      });
       setIsCreateOpen(false);
-      reload();
-    } catch (err) {
-      notify('Error al crear proveedor');
-      console.error(err);
     }
   };
 
@@ -154,32 +126,25 @@ export default function Suppliers() {
   };
 
   const handleEdit = async () => {
-    try {
-      await api.put(`/suppliers/${editedItem.supplier_id}`, editedItem);
-      notify('Proveedor actualizado');
+    const success = await updateItem(editedItem.supplier_id, editedItem);
+    if (success) {
       setIsEditOpen(false);
-      reload();
-    } catch (err) {
-      notify('Error al actualizar proveedor');
-      console.error(err);
+      setEditedItem(null);
+      setEditModalTab('info');
     }
   };
 
-  // Delete
-  const openDeleteModal = row => {
+  // Delete handlers
+  const openDeleteModal = (row) => {
     setCurrentItem(row);
     setIsDeleteOpen(true);
   };
 
   const handleDelete = async () => {
-    try {
-      await api.delete(`/suppliers/${currentItem.supplier_id}`);
-      notify('Proveedor eliminado');
+    const success = await deleteItem(currentItem.supplier_id);
+    if (success) {
       setIsDeleteOpen(false);
-      reload();
-    } catch (err) {
-      notify('Error al eliminar proveedor');
-      console.error(err);
+      setCurrentItem(null);
     }
   };
 
@@ -307,9 +272,6 @@ export default function Suppliers() {
       name: 'Acciones',
       cell: row => (
         <div className="table-actions">
-          <button className="icon-btn edit-icon" onClick={() => openEditModal(row)} title="Editar">
-            <FaEdit />
-          </button>
           <button className="icon-btn delete-icon" onClick={() => openDeleteModal(row)} title="Eliminar">
             <FaTrash />
           </button>
@@ -318,55 +280,28 @@ export default function Suppliers() {
       ignoreRowClick: true,
       allowOverflow: true,
       button: true,
-      width: '150px'
+      width: '100px'
     }
   ], []);
 
   return (
-    <div className="suppliers-container">
-      <div className="suppliers-content">
-        <h2>Lista de proveedores</h2>
-        {error && <div className="error">{error}</div>}
-        
-        {message && (
-          <div className={`notification ${messageType}`}>
-            {message}
-          </div>
-        )}
-
-        <div className="subheader">
-        <input
-          type="text"
-          placeholder="Buscar proveedor..."
-          className="search-input"
-          value={filterText}
-          onChange={e => setFilterText(e.target.value)}
-        />
-        <button className="btn add" onClick={openCreateModal}>+ Añadir proveedor</button>
-      </div>
-
-      <StyleSheetManager shouldForwardProp={isPropValid}>
-        <DataTable
-          className="suppliers-table"
-          columns={columns}
-          data={filteredSuppliers}
-          progressPending={loading}
-          progressComponent="Cargando..."
-          noDataComponent="No hay proveedores registrados"
-          pagination
-          paginationComponentOptions={{ 
-            rowsPerPageText: 'Filas por página', 
-            rangeSeparatorText: 'de', 
-            noRowsPerPage: false, 
-            selectAllRowsItem: true, 
-            selectAllRowsItemText: 'Todos' 
-          }}
-          highlightOnHover
-          pointerOnHover
-          selectableRows={false}
-          noHeader
-        />
-      </StyleSheetManager>
+    <>
+      <BasePage
+        title="Proveedores"
+        data={filteredData}
+        columns={columns}
+        loading={loading}
+        error={error}
+        message={message}
+        messageType={messageType}
+        filterText={filterText}
+        onFilterChange={setFilterText}
+        onAdd={openCreateModal}
+        addButtonText="+ Añadir proveedor"
+        searchPlaceholder="Buscar proveedor..."
+        noDataMessage="No hay proveedores registrados"
+        onRowClicked={openEditModal}
+      />
 
         {/* CREATE MODAL */}
         <Modal isOpen={isCreateOpen} title="Crear proveedor" onClose={() => setIsCreateOpen(false)}>
@@ -482,7 +417,6 @@ export default function Suppliers() {
             <button type="button" className="btn delete" onClick={handleDeleteSupplierIngredient}>Eliminar</button>
           </div>
         </Modal>
-      </div>
-    </div>
+    </>
   );
 }

@@ -3,6 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import DataTable from 'react-data-table-component';
 import { StyleSheetManager } from 'styled-components';
 import isPropValid from '@emotion/is-prop-valid';
+import { FaTrash } from 'react-icons/fa';
+import BasePage from '../../components/BasePage';
+import Modal from '../../components/modal/Modal';
+import { usePageState } from '../../hooks/usePageState';
 import api from '../../api/axios';
 import FilterBar from '@/components/recipes/FilterBar';
 import ViewToggle from '@/components/recipes/ViewToggle';
@@ -12,61 +16,82 @@ import './Recipes.css';
 export default function RecipesPage() {
   const navigate = useNavigate();
 
+
+  // Delete modal state
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [currentRecipe, setCurrentRecipe] = useState(null);
+
   // Vista: 'list' o 'card'
-  const [view, setView]             = useState('list');
+  const [view, setView] = useState('list');
 
-  // Datos y estados
-  const [recipes, setRecipes]       = useState([]);
-  const [loading, setLoading]       = useState(false);
-  const [error, setError]           = useState(null);
-
-  // Filtros
-  const [searchText, setSearchText]                     = useState('');
-  const [categoryOptions, setCategoryOptions]           = useState([]);
-  const [selectedCategory, setSelectedCategory]         = useState('');
-  const [selectedPrepTime, setSelectedPrepTime]         = useState(null);
-  const [difficultyOptions]                             = useState(['Easy', 'Medium', 'Hard']);
-  const [selectedDifficulty, setSelectedDifficulty]     = useState('');
-  const [ingredientOptions, setIngredientOptions]       = useState([]);
-  const [selectedIngredient, setSelectedIngredient]     = useState('');
-  const [allergenOptions, setAllergenOptions]           = useState([]);
-  const [selectedAllergens, setSelectedAllergens]       = useState([]);
-
+  // Filter options
+  const [categoryOptions, setCategoryOptions] = useState([]);
+  const [allergenOptions, setAllergenOptions] = useState([]);
+  const [ingredientOptions, setIngredientOptions] = useState([]);
+  const difficultyOptions = [
+    { value: 'easy', label: 'Fácil' },
+    { value: 'medium', label: 'Intermedio' },
+    { value: 'hard', label: 'Difícil' }
+  ];
   const prepTimeOptions = [15, 30, 45, 60, 90, 120];
 
-  // 1) Cargar categorías, alérgenos e ingredientes
+  // Using usePageState with complex filters
+  const {
+    data: recipes,
+    loading,
+    error,
+    setFilters,
+  } = usePageState('/recipes', {
+    useFilters: true,
+    initialFilters: {
+      search: '',
+      category: '',
+      prepTime: null,
+      difficulty: '',
+      ingredient: '',
+      allergens: '',
+    }
+  });
+
+  // Individual filter states for easier management
+  const [searchText, setSearchText] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedPrepTime, setSelectedPrepTime] = useState(null);
+  const [selectedDifficulty, setSelectedDifficulty] = useState('');
+  const [selectedIngredient, setSelectedIngredient] = useState('');
+  const [selectedAllergens, setSelectedAllergens] = useState([]);
+
+  // Load filter options
   useEffect(() => {
-    api.get('/recipe-categories')
-      .then(({ data }) => setCategoryOptions(data.map(c => c.name)))
-      .catch(console.error);
-
-    api.get('/allergens')
-      .then(({ data }) => setAllergenOptions(data.map(a => a.name)))
-      .catch(console.error);
-
-    api.get('/ingredients')
-      .then(({ data }) => setIngredientOptions(data.map(i => i.name)))
-      .catch(console.error);
-  }, []);
-
-  // 2) Traer recetas cuando cambien los filtros
-  useEffect(() => {
-    setLoading(true);
-    setError(null);
-
-    const params = {
-      search:     searchText,
-      category:   selectedCategory,
-      prepTime:   selectedPrepTime,
-      difficulty: selectedDifficulty.toLowerCase(),
-      ingredient: selectedIngredient,
-      allergens:  selectedAllergens.join(','),
+    const loadOptions = async () => {
+      try {
+        const [categoriesRes, allergensRes, ingredientsRes] = await Promise.all([
+          api.get('/recipe-categories'),
+          api.get('/allergens'),
+          api.get('/ingredients')
+        ]);
+        
+        setCategoryOptions(categoriesRes.data.map(c => c.name));
+        setAllergenOptions(allergensRes.data.map(a => a.name));
+        setIngredientOptions(ingredientsRes.data.map(i => i.name));
+      } catch (error) {
+        console.error('Error loading filter options:', error);
+      }
     };
 
-    api.get('/recipes', { params })
-      .then(({ data }) => setRecipes(data))
-      .catch(() => setError('Error al obtener las recetas'))
-      .finally(() => setLoading(false));
+    loadOptions();
+  }, []);
+
+  // Update filters when individual states change
+  useEffect(() => {
+    setFilters({
+      search: searchText,
+      category: selectedCategory,
+      prepTime: selectedPrepTime,
+      difficulty: selectedDifficulty.toLowerCase(),
+      ingredient: selectedIngredient,
+      allergens: selectedAllergens.join(','),
+    });
   }, [
     searchText,
     selectedCategory,
@@ -74,6 +99,7 @@ export default function RecipesPage() {
     selectedDifficulty,
     selectedIngredient,
     selectedAllergens,
+    setFilters
   ]);
 
   // Columnas para la vista 'list' (DataTable)
@@ -99,21 +125,22 @@ export default function RecipesPage() {
     },
     {
       name:     'Dificultad',
-      selector: row => row.difficulty
-        ? row.difficulty[0].toUpperCase() + row.difficulty.slice(1)
-        : '',
+      selector: row => translateDifficulty(row.difficulty),
       sortable: true,
       width:    '120px'
     },
     {
       name:     'Acciones',
       cell:     row => (
-        <button
-          className="btn view"
-          onClick={() => navigate(`/recipes/${row.recipe_id}`)}
-        >
-          Ver
-        </button>
+        <div className="table-actions">
+          <button 
+            className="icon-btn delete-icon" 
+            onClick={() => openDeleteModal(row)}
+            title="Eliminar"
+          >
+            <FaTrash />
+          </button>
+        </div>
       ),
       ignoreRowClick: true,
       allowOverflow:  true,
@@ -121,6 +148,25 @@ export default function RecipesPage() {
       width:          '100px'
     }
   ], [navigate]);
+
+  // Delete handlers
+  const openDeleteModal = (recipe) => {
+    setCurrentRecipe(recipe);
+    setIsDeleteOpen(true);
+  };
+
+  const handleDelete = async () => {
+    try {
+      await api.delete(`/recipes/${currentRecipe.recipe_id}`);
+      // Refresh data after deletion
+      window.location.reload();
+      setIsDeleteOpen(false);
+      setCurrentRecipe(null);
+    } catch (error) {
+      console.error('Error al eliminar receta:', error);
+      alert('Error al eliminar la receta');
+    }
+  };
 
   // Props para FilterBar
   const filterBarProps = {
@@ -143,56 +189,96 @@ export default function RecipesPage() {
     onAllergensChange: setSelectedAllergens,
   };
 
-  return (
-    <div className="recipes-page">
-      <div className="recipes-content">
-        <h1>Recetas</h1>
+  // Custom filters component
+  const customFiltersComponent = (
+    <div className="recipes-filters">
+      <FilterBar {...filterBarProps} />
+      <ViewToggle view={view} onChange={setView} />
+      <button
+        className="btn add new-recipe-button"
+        onClick={() => navigate('/recipes/new')}
+      >
+        + Nueva Receta
+      </button>
+    </div>
+  );
 
-        <div className="recipes-filters">
-          <FilterBar {...filterBarProps} />
-          <ViewToggle view={view} onChange={setView} />
-          <button
-            className="btn add new-recipe-button"
-            onClick={() => navigate('/recipes/new')}
-          >
-            + Nueva Receta
-          </button>
-        </div>
-
-        {error && <p className="error">{error}</p>}
-
-        {view === 'list' ? (
-          <StyleSheetManager shouldForwardProp={prop => isPropValid(prop)}>
-            <DataTable
-              className="recipes-table"
-              columns={columns}
-              data={recipes}
-              progressPending={loading}
-              progressComponent="Cargando..."
-              noDataComponent="No hay recetas para mostrar"
-              pagination
-              paginationPerPage={15}
-              paginationComponentOptions={{
-                rowsPerPageText:       'Filas por página',
-                rangeSeparatorText:    'de',
-                noRowsPerPage:         false,
-                selectAllRowsItem:     true,
-                selectAllRowsItemText: 'Todos'
-              }}
-              highlightOnHover
-              pointerOnHover
-              noHeader
-            />
-          </StyleSheetManager>
-        ) : (
-          <CardView
-            recipes={recipes}
-            onView={id => navigate(`/recipes/${id}`)}
-            hasMore={false}
-            onLoadMore={() => {}}
-          />
-        )}
+  // Table component for list view
+  const tableComponent = (
+    <div>
+      <StyleSheetManager shouldForwardProp={prop => isPropValid(prop)}>
+        <DataTable
+          className="recipes-table"
+          columns={columns}
+          data={recipes}
+          progressPending={loading}
+          progressComponent="Cargando..."
+          noDataComponent="No hay recetas para mostrar"
+          pagination
+          paginationPerPage={15}
+          paginationComponentOptions={{
+            rowsPerPageText: 'Filas por página',
+            rangeSeparatorText: 'de',
+            noRowsPerPage: false,
+            selectAllRowsItem: true,
+            selectAllRowsItemText: 'Todos'
+          }}
+          paginationTotalRows={recipes.length}
+          paginationDefaultPage={1}
+          highlightOnHover
+          pointerOnHover
+          noHeader
+          onRowClicked={(row) => navigate(`/recipes/${row.recipe_id}`)}
+        />
+      </StyleSheetManager>
+      <div className="total-count">
+        Total: {recipes.length} recetas
       </div>
     </div>
   );
+
+  // Card component for card view
+  const cardComponent = (
+    <CardView
+      recipes={recipes}
+      onView={id => navigate(`/recipes/${id}`)}
+      hasMore={false}
+      onLoadMore={() => {}}
+    />
+  );
+
+  return (
+    <>
+      <BasePage
+        title="Recetas"
+        data={recipes}
+        columns={columns}
+        loading={loading}
+        error={error}
+        showSearch={false} // FilterBar handles search
+        customFilters={customFiltersComponent}
+        viewComponent={view === 'list' ? tableComponent : cardComponent}
+        noDataMessage="No hay recetas para mostrar"
+      />
+
+      {/* DELETE MODAL */}
+      <Modal isOpen={isDeleteOpen} title="Confirmar eliminación" onClose={() => setIsDeleteOpen(false)}>
+        <p>¿Seguro que deseas eliminar la receta <strong>{currentRecipe?.name}</strong>?</p>
+        <div className="modal-actions">
+          <button type="button" className="btn cancel" onClick={() => setIsDeleteOpen(false)}>Cancelar</button>
+          <button type="button" className="btn delete" onClick={handleDelete}>Eliminar</button>
+        </div>
+      </Modal>
+    </>
+  );
 }
+
+// Función helper exportable para traducir dificultades
+export const translateDifficulty = (difficulty) => {
+  const translations = {
+    'easy': 'Fácil',
+    'medium': 'Intermedio',
+    'hard': 'Difícil'
+  };
+  return translations[difficulty] || difficulty;
+};

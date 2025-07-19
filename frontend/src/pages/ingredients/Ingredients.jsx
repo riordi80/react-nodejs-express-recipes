@@ -1,22 +1,35 @@
 // src/pages/ingredients/Ingredients.jsx
 import React, { useEffect, useState, useMemo } from 'react';
-import DataTable from 'react-data-table-component';
-import { StyleSheetManager } from 'styled-components';
-import isPropValid from '@emotion/is-prop-valid';
-import { FaEdit, FaTrash } from 'react-icons/fa';
-import api from '../../api/axios';
+import { FaTrash } from 'react-icons/fa';
+import BasePage from '../../components/BasePage';
 import Modal from '../../components/modal/Modal';
+import { usePageState } from '../../hooks/usePageState';
+import api from '../../api/axios';
 import './Ingredients.css';
 
 export default function Ingredients() {
-  const [ingredients, setIngredients] = useState([]);
-  const [loading, setLoading]         = useState(false);
-  const [error, setError]             = useState(null);
-  const [filterText, setFilterText]   = useState('');
-  const [allergens, setAllergens]     = useState([]);
+  const {
+    filteredData,
+    loading,
+    error,
+    message,
+    messageType,
+    filterText,
+    setFilterText,
+    deleteItem,
+    reload,
+  } = usePageState('/ingredients');
 
-  // ---- create modal state ----
+  // Additional data needed for ingredients
+  const [allergens, setAllergens] = useState([]);
+
+  // Modal states
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [currentItem, setCurrentItem] = useState(null);
+
+  // Form states
   const [newItem, setNewItem] = useState({
     name: '',
     unit: 'unit',
@@ -30,59 +43,27 @@ export default function Ingredients() {
     comment: ''
   });
   const [newWastePercent, setNewWastePercent] = useState('');
-  const [newSelectedAllergens, setNewSelectedAllergens] = useState([]); // porcentaje en input
+  const [newSelectedAllergens, setNewSelectedAllergens] = useState([]);
 
-  // ---- edit modal state ----
-  const [isEditOpen, setIsEditOpen]     = useState(false);
-  const [editedItem, setEditedItem]     = useState(null);
+  const [editedItem, setEditedItem] = useState(null);
   const [editedWastePercent, setEditedWastePercent] = useState('');
   const [editedSelectedAllergens, setEditedSelectedAllergens] = useState([]);
 
-  // ---- delete modal state ----
-  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [currentItem, setCurrentItem]   = useState(null);
-
-  // mensaje de notificación
-  const [message, setMessage]         = useState(null);
-  const [messageType, setMessageType] = useState('success');
-  const notify = (msg, type = 'success') => {
-    setMessage(msg);
-    setMessageType(type);
-    setTimeout(() => setMessage(null), 3000);
-  };
-
-  // fetch inicial
+  // Load allergens data
   useEffect(() => {
-    async function fetchData() {
-      setLoading(true);
+    const fetchAllergens = async () => {
       try {
-        const [ingredientsRes, allergensRes] = await Promise.all([
-          api.get('/ingredients'),
-          api.get('/allergens')
-        ]);
-        setIngredients(ingredientsRes.data);
-        setAllergens(allergensRes.data);
-      } catch {
-        setError('Error al obtener datos');
-      } finally {
-        setLoading(false);
+        const { data } = await api.get('/allergens');
+        setAllergens(data);
+      } catch (error) {
+        console.error('Error loading allergens:', error);
       }
-    }
-    fetchData();
+    };
+    fetchAllergens();
   }, []);
 
-  // recarga lista
-  const reload = async () => {
-    try {
-      const { data } = await api.get('/ingredients');
-      setIngredients(data);
-    } catch (error) {
-      console.error('Error reloading ingredients:', error);
-    }
-  };
-
-  // create
-  const handleCreate = async e => {
+  // Create handler
+  const handleCreate = async (e) => {
     e.preventDefault();
     try {
       const payload = {
@@ -99,19 +80,32 @@ export default function Ingredients() {
         });
       }
       
-      notify('Ingrediente creado correctamente');
-      setNewItem({ name: '', unit: 'unit', base_price: '', net_price: '', stock: '', stock_minimum: '', season: [], expiration_date: '', is_available: true, comment: '' });
+      // Reset form
+      setNewItem({ 
+        name: '', 
+        unit: 'unit', 
+        base_price: '', 
+        net_price: '', 
+        stock: '', 
+        stock_minimum: '', 
+        season: [], 
+        expiration_date: '', 
+        is_available: true, 
+        comment: '' 
+      });
       setNewWastePercent('');
       setNewSelectedAllergens([]);
       setIsCreateOpen(false);
-      reload();
+      
+      // Reload data
+      await reload();
     } catch (err) {
-      notify(err.response?.data?.message || 'Error al crear', 'error');
+      console.error('Error creating ingredient:', err);
     }
   };
 
-  // open edit
-  const openEditModal = async row => {
+  // Edit handlers
+  const openEditModal = async (row) => {
     // Formatear fecha para input type="date" (YYYY-MM-DD) sin conversión de zona horaria
     let formattedDate = '';
     if (row.expiration_date) {
@@ -141,7 +135,6 @@ export default function Ingredients() {
     setIsEditOpen(true);
   };
 
-  // confirm edit
   const handleEdit = async () => {
     try {
       const payload = {
@@ -156,29 +149,27 @@ export default function Ingredients() {
         allergen_ids: editedSelectedAllergens
       });
       
-      notify('Ingrediente actualizado');
       setIsEditOpen(false);
-      reload();
+      setEditedItem(null);
+      setEditedWastePercent('');
+      setEditedSelectedAllergens([]);
+      await reload();
     } catch (error) {
       console.error('Error detallado al actualizar:', error);
-      notify(error.response?.data?.message || 'Error al actualizar', 'error');
     }
   };
 
-  // open delete
-  const openDeleteModal = row => {
+  // Delete handlers
+  const openDeleteModal = (row) => {
     setCurrentItem(row);
     setIsDeleteOpen(true);
   };
-  // confirm delete
+
   const handleDelete = async () => {
-    try {
-      await api.delete(`/ingredients/${currentItem.ingredient_id}`);
-      notify('Ingrediente eliminado');
+    const success = await deleteItem(currentItem.ingredient_id);
+    if (success) {
       setIsDeleteOpen(false);
-      reload();
-    } catch {
-      notify('Error al eliminar', 'error');
+      setCurrentItem(null);
     }
   };
 
@@ -267,9 +258,6 @@ const columns = useMemo(() => [
     name: 'Acciones',
     cell: row => (
       <div className="table-actions">
-        <button className="icon-btn edit-icon" onClick={() => openEditModal(row)} title="Editar">
-          <FaEdit />
-        </button>
         <button className="icon-btn delete-icon" onClick={() => openDeleteModal(row)} title="Eliminar">
           <FaTrash />
         </button>
@@ -278,45 +266,29 @@ const columns = useMemo(() => [
     ignoreRowClick: true,
     allowOverflow: true,
     button: true,
-    width: '150px'
+    width: '100px'
   }
 ], []);
 
 
-  // filtrado
-  const filtered = useMemo(
-    () => ingredients.filter(i => i.name.toLowerCase().includes(filterText.toLowerCase())),
-    [ingredients, filterText]
-  );
-
   return (
-    <div className="ingredients-container">
-      <div className="ingredients-content">
-        <h2>Lista de ingredientes</h2>
-        {message  && <div className={`notification ${messageType}`}>{message}</div>}
-        {error    && <p className="error">{error}</p>}
-
-        <div className="subheader">
-          <input type="text" placeholder="Buscar ingrediente..." className="search-input" value={filterText} onChange={e => setFilterText(e.target.value)} />
-          <button className="btn add" onClick={() => setIsCreateOpen(true)}>+ Añadir ingrediente</button>
-        </div>
-
-        <StyleSheetManager shouldForwardProp={prop => isPropValid(prop)}>
-        <DataTable
-          className="ingredients-table"
-          columns={columns}
-          data={filtered}
-          progressPending={loading}
-          progressComponent="Cargando..."
-          noDataComponent="No hay ingredientes para mostrar"
-          pagination
-          paginationComponentOptions={{ rowsPerPageText: 'Filas por página', rangeSeparatorText: 'de', noRowsPerPage: false, selectAllRowsItem: true, selectAllRowsItemText: 'Todos' }}
-          highlightOnHover
-          pointerOnHover
-          selectableRows={false}
-          noHeader
-        />
-      </StyleSheetManager>
+    <>
+      <BasePage
+        title="Ingredientes"
+        data={filteredData}
+        columns={columns}
+        loading={loading}
+        error={error}
+        message={message}
+        messageType={messageType}
+        filterText={filterText}
+        onFilterChange={setFilterText}
+        onAdd={() => setIsCreateOpen(true)}
+        onRowClicked={openEditModal}
+        addButtonText="+ Añadir ingrediente"
+        searchPlaceholder="Buscar ingrediente..."
+        noDataMessage="No hay ingredientes para mostrar"
+      />
 
       {/* CREATE MODAL */}
       <Modal isOpen={isCreateOpen} title="Nuevo ingrediente" onClose={() => setIsCreateOpen(false)}>
@@ -472,7 +444,6 @@ const columns = useMemo(() => [
           <button type="button" className="btn delete" onClick={handleDelete}>Eliminar</button>
         </div>
       </Modal>
-      </div>
-    </div>
+    </>
   );
 }
