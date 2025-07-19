@@ -285,7 +285,7 @@ const columns = useMemo(() => [
         onFilterChange={setFilterText}
         onAdd={() => setIsCreateOpen(true)}
         onRowClicked={openEditModal}
-        addButtonText="+ Añadir ingrediente"
+        addButtonText="Añadir ingrediente"
         searchPlaceholder="Buscar ingrediente..."
         noDataMessage="No hay ingredientes para mostrar"
       />

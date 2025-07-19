@@ -207,7 +207,7 @@ export default function RecipesPage() {
         className="btn add new-recipe-button"
         onClick={() => navigate('/recipes/new')}
       >
-        + Nueva Receta
+        Añadir Receta
       </button>
     </div>
   );

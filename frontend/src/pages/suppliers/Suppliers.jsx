@@ -297,7 +297,7 @@ export default function Suppliers() {
         filterText={filterText}
         onFilterChange={setFilterText}
         onAdd={openCreateModal}
-        addButtonText="+ Añadir proveedor"
+        addButtonText="Añadir proveedor"
         searchPlaceholder="Buscar proveedor..."
         noDataMessage="No hay proveedores registrados"
         onRowClicked={openEditModal}

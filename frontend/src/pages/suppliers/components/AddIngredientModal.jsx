@@ -52,6 +52,7 @@ export default function AddIngredientModal({
       isOpen={isOpen} 
       title="Añadir ingredientes al proveedor" 
       onClose={onClose}
+      fullscreenMobile={true}
     >
       <div className="add-ingredient-modal">
         <p>Selecciona los ingredientes que suministra <strong>{supplierName}</strong>:</p>

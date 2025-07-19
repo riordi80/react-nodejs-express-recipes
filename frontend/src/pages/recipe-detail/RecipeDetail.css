@@ -402,6 +402,202 @@
   border: 1px dashed #d1d5db;
 }
 
+/* Cuando empty-state está dentro de un grid, debe ocupar todas las columnas */
+.ingredients-list .empty-state {
+  grid-column: 1 / -1; /* Ocupa desde la primera hasta la última columna */
+}
+
+/* Ajustes para la sección de ingredientes */
+.ingredient-item {
+  position: relative; /* Para posicionar el botón de eliminar */
+}
+
+.ingredients-add-btn {
+  flex-shrink: 0;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.quantity-total {
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.quantity-per-serving {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.remove-ingredient-btn:hover {
+  background: #dc2626 !important;
+  transform: scale(1.1);
+}
+
+.edit-ingredient-btn:hover {
+  background: #2563eb !important;
+  transform: scale(1.1);
+}
+
+.ingredient-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.ingredient-actions button {
+  transition: all 0.2s ease;
+}
+
+.ingredient-actions button svg {
+  width: 18px !important;
+  height: 18px !important;
+  font-size: 18px !important;
+}
+
+.edit-ingredient-btn svg,
+.remove-ingredient-btn svg {
+  width: 18px !important;
+  height: 18px !important;
+  font-size: 18px !important;
+}
+
+/* Estilos para el modal de añadir ingredientes */
+.add-ingredient-modal {
+  width: 100%;
+  max-width: 100%;
+  min-width: auto;
+}
+
+.add-ingredient-modal p {
+  margin-bottom: 16px;
+  font-size: 14px;
+  color: #6c757d;
+}
+
+.search-ingredients {
+  margin-bottom: 16px;
+}
+
+.search-ingredients .search-input {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.ingredients-selection {
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 16px;
+  background: #f8fafc;
+  margin-bottom: 20px;
+}
+
+.ingredient-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+  background: white;
+  border-radius: 6px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s;
+}
+
+.ingredient-item:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.ingredient-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ingredient-checkbox input[type="checkbox"] {
+  margin: 0;
+  cursor: pointer;
+}
+
+.ingredient-checkbox label {
+  cursor: pointer;
+  font-weight: 500;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  flex: 1;
+}
+
+.ingredient-details {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 12px;
+  margin-top: 8px;
+  padding: 12px;
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.detail-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detail-field label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #475569;
+}
+
+.detail-input {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 14px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.detail-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.ingredient-info {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+@media (max-width: 768px) {
+  .add-ingredient-modal {
+    width: 100%;
+    min-width: auto;
+  }
+  
+  .ingredient-details {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  
+  .ingredients-selection {
+    max-height: 300px;
+  }
+}
+
 /* Tablet: responsive adjustments */
 @media (max-width: 1200px) and (min-width: 769px) {
   .form-grid-3 {

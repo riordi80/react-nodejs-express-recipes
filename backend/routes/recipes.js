@@ -337,4 +337,165 @@ router.delete('/:id', authenticateToken, authorizeRoles('admin'), async (req, re
   }
 });
 
+// POST /recipes/:id/ingredients - Añadir ingrediente a receta
+router.post('/:id/ingredients', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
+  const { id: recipe_id } = req.params;
+  const { ingredient_id, quantity_per_serving, section_id } = req.body;
+  
+  try {
+    console.log('Añadiendo ingrediente a receta:', { recipe_id, ingredient_id, quantity_per_serving, section_id });
+    
+    // Verificar si ya existe este ingrediente en la receta
+    const [existing] = await pool.query(
+      'SELECT * FROM RECIPE_INGREDIENTS WHERE recipe_id = ? AND ingredient_id = ?',
+      [recipe_id, ingredient_id]
+    );
+    
+    if (existing.length > 0) {
+      return res.status(400).json({ message: 'Este ingrediente ya está en la receta' });
+    }
+    
+    // Insertar el nuevo ingrediente
+    await pool.query(
+      'INSERT INTO RECIPE_INGREDIENTS (recipe_id, ingredient_id, quantity_per_serving, section_id) VALUES (?, ?, ?, ?)',
+      [recipe_id, ingredient_id, quantity_per_serving, section_id || null]
+    );
+    
+    await logAudit(req.user.user_id, 'create', 'RECIPE_INGREDIENTS', null,
+      `Ingrediente ${ingredient_id} añadido a receta ${recipe_id}`
+    );
+    
+    res.json({ message: 'Ingrediente añadido correctamente' });
+  } catch (err) {
+    console.error('Error adding ingredient to recipe:', err);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// PUT /recipes/:id/ingredients/:ingredient_id - Actualizar cantidad de ingrediente en receta
+router.put('/:id/ingredients/:ingredient_id', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
+  const { id: recipe_id, ingredient_id } = req.params;
+  const { quantity_per_serving, section_id } = req.body;
+  
+  try {
+    console.log('Actualizando ingrediente en receta:', { recipe_id, ingredient_id, quantity_per_serving, section_id });
+    
+    const [result] = await pool.query(
+      'UPDATE RECIPE_INGREDIENTS SET quantity_per_serving = ?, section_id = ? WHERE recipe_id = ? AND ingredient_id = ?',
+      [quantity_per_serving, section_id || null, recipe_id, ingredient_id]
+    );
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Ingrediente no encontrado en la receta' });
+    }
+    
+    await logAudit(req.user.user_id, 'update', 'RECIPE_INGREDIENTS', null,
+      `Ingrediente ${ingredient_id} actualizado en receta ${recipe_id}`
+    );
+    
+    res.json({ message: 'Ingrediente actualizado correctamente' });
+  } catch (err) {
+    console.error('Error updating ingredient in recipe:', err);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// DELETE /recipes/:id/ingredients/:ingredient_id - Eliminar ingrediente de receta
+router.delete('/:id/ingredients/:ingredient_id', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
+  const { id: recipe_id, ingredient_id } = req.params;
+  
+  try {
+    console.log('Eliminando ingrediente de receta:', { recipe_id, ingredient_id });
+    
+    const [result] = await pool.query(
+      'DELETE FROM RECIPE_INGREDIENTS WHERE recipe_id = ? AND ingredient_id = ?',
+      [recipe_id, ingredient_id]
+    );
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Ingrediente no encontrado en la receta' });
+    }
+    
+    await logAudit(req.user.user_id, 'delete', 'RECIPE_INGREDIENTS', null,
+      `Ingrediente ${ingredient_id} eliminado de receta ${recipe_id}`
+    );
+    
+    res.json({ message: 'Ingrediente eliminado correctamente' });
+  } catch (err) {
+    console.error('Error removing ingredient from recipe:', err);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// GET /recipes/:id/nutrition - Calcular información nutricional de una receta
+router.get('/:id/nutrition', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    // Obtener receta y ingredientes con información nutricional
+    const [recipeResult] = await pool.query(
+      'SELECT servings FROM RECIPES WHERE recipe_id = ?',
+      [id]
+    );
+    
+    if (!recipeResult.length) {
+      return res.status(404).json({ message: 'Receta no encontrada' });
+    }
+    
+    const recipe = recipeResult[0];
+    const servings = parseInt(recipe.servings) || 1;
+    
+    // Obtener ingredientes con datos nutricionales
+    const [ingredients] = await pool.query(`
+      SELECT 
+        ri.quantity_per_serving,
+        i.calories_per_100g,
+        i.protein_per_100g,
+        i.carbs_per_100g,
+        i.fat_per_100g
+      FROM RECIPE_INGREDIENTS ri
+      JOIN INGREDIENTS i ON ri.ingredient_id = i.ingredient_id
+      WHERE ri.recipe_id = ?
+    `, [id]);
+    
+    // Calcular totales nutricionales
+    let totalCalories = 0;
+    let totalProtein = 0;
+    let totalCarbs = 0;
+    let totalFat = 0;
+    
+    ingredients.forEach(ingredient => {
+      const quantity = parseFloat(ingredient.quantity_per_serving) || 0;
+      const calories = parseFloat(ingredient.calories_per_100g) || 0;
+      const protein = parseFloat(ingredient.protein_per_100g) || 0;
+      const carbs = parseFloat(ingredient.carbs_per_100g) || 0;
+      const fat = parseFloat(ingredient.fat_per_100g) || 0;
+      
+      // Calcular aporte nutricional: (valor_por_100g * cantidad_en_receta) / 100 / porciones
+      const caloriesContribution = (calories * quantity * servings) / 100;
+      const proteinContribution = (protein * quantity * servings) / 100;
+      const carbsContribution = (carbs * quantity * servings) / 100;
+      const fatContribution = (fat * quantity * servings) / 100;
+      
+      totalCalories += caloriesContribution;
+      totalProtein += proteinContribution;
+      totalCarbs += carbsContribution;
+      totalFat += fatContribution;
+    });
+    
+    // Calcular valores por porción
+    const nutritionPerServing = {
+      calories: Math.round(totalCalories / servings),
+      protein: Math.round((totalProtein / servings) * 10) / 10, // 1 decimal
+      carbs: Math.round((totalCarbs / servings) * 10) / 10,
+      fat: Math.round((totalFat / servings) * 10) / 10
+    };
+    
+    res.json(nutritionPerServing);
+  } catch (err) {
+    console.error('Error calculating nutrition:', err);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
 module.exports = router;
