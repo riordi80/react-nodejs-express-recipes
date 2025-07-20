@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../../../components/modal/Modal';
 import api from '../../../api/axios';
+import { formatCurrency, formatDecimal } from '../../../utils/formatters';
 
 export default function AddIngredientModal({
   isOpen,
@@ -180,9 +181,9 @@ export default function AddIngredientModal({
                         color: '#64748b',
                         marginTop: '4px'
                       }}>
-                        Precio: €{ingredient.base_price} por {ingredient.unit}
+                        Precio: {formatCurrency(ingredient.base_price)} por {ingredient.unit}
                         {ingredient.waste_percent > 0 && (
-                          <span> • Merma: {(ingredient.waste_percent * 100).toFixed(1)}%</span>
+                          <span> • Merma: {formatDecimal(ingredient.waste_percent * 100, 1)}%</span>
                         )}
                       </div>
                     </div>

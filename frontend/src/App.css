@@ -64,23 +64,9 @@ body {
   margin: 0 0 8px 0;
 }
 
-.common-search-input {
-  flex: 1;
-  min-width: 0;
-  height: 36px;
-  line-height: 36px;
-  padding: 6px 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  box-sizing: border-box;
-  font-size: 16px !important;
-}
+/* common-search-input removed - PageHeader handles all input styling */
 
-/* Botón añadir en subheader tiene la misma altura que el campo de búsqueda */
-.subheader .btn {
-  height: 36px;
-  line-height: 36px;
-}
+/* subheader styles removed - PageHeader handles all header styling */
 
 .common-table {
   margin-top: 20px;
@@ -125,13 +111,7 @@ body {
 }
 
 /* Common subheader styles - Global */
-.subheader {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-bottom: 10px;
-}
+/* subheader removed - PageHeader handles layout */
 
 /* Total count display - Global */
 .total-count {
@@ -279,7 +259,6 @@ body {
   margin-left: 5rem; /* Deja espacio para el sidebar colapsado */
   padding: 0;
   background-color: #f8fafc;
-  height: calc(100vh - 60px); /* Deja espacio para el topbar */
   overflow-y: auto;
   transition: margin-left 0.35s cubic-bezier(0.175, 0.685, 0.32, 1);
   scroll-behavior: smooth;
@@ -332,6 +311,13 @@ button:focus, button:active {
   white-space: nowrap;
   text-decoration: none; /* para cuando se use como link */
   box-sizing: border-box;
+  gap: 6px; /* Espacio entre icono y texto */
+}
+
+/* Icono en botones */
+.btn-icon {
+  font-size: 12px;
+  flex-shrink: 0;
 }
 
 .btn.add    { background-color: #059669; color: #fff; }
@@ -431,10 +417,7 @@ button:focus, button:active {
     font-size: 26px;
   }
   
-  .common-search-input {
-    height: 36px;
-    line-height: 36px;
-  }
+  /* common-search-input removed */
   
   /* Legacy support */
   .allergens-container,
@@ -476,11 +459,7 @@ button:focus, button:active {
     margin-bottom: 16px;
   }
   
-  .common-search-input {
-    height: 36px;
-    line-height: 36px;
-    font-size: 16px;
-  }
+  /* common-search-input removed */
   
   /* Legacy support */
   .allergens-container,
@@ -507,14 +486,9 @@ button:focus, button:active {
     margin-bottom: 16px;
   }
   
-  .subheader {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
+  /* subheader removed */
   
-  .search-input,
-  .common-search-input {
+  .search-input {
     width: 100% !important;
   }
   
@@ -556,4 +530,10 @@ button:focus, button:active {
   .layout-body #navbar.mobile-open.pinned ~ .content {
     margin-left: 5rem !important;
   }
+}
+
+/* Estilo global para inputs con error */
+.input-error {
+  border-color: #e53e3e !important;
+  box-shadow: 0 0 0 3px rgba(229, 62, 62, 0.1);
 }

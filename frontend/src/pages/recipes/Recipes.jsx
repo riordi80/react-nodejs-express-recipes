@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import DataTable from 'react-data-table-component';
 import { StyleSheetManager } from 'styled-components';
 import isPropValid from '@emotion/is-prop-valid';
-import { FaTrash } from 'react-icons/fa';
+import { FaTrash, FaPlus } from 'react-icons/fa';
 import BasePage from '../../components/BasePage';
 import Modal from '../../components/modal/Modal';
 import { usePageState } from '../../hooks/usePageState';
@@ -15,6 +15,20 @@ import './Recipes.css';
 
 export default function RecipesPage() {
   const navigate = useNavigate();
+
+  // Detectar si estamos en móvil
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
 
   // Delete modal state
@@ -196,10 +210,25 @@ export default function RecipesPage() {
     allergenOptions,
     selectedAllergens,
     onAllergensChange: setSelectedAllergens,
+    // Pasar ViewToggle solo en móvil
+    viewToggleComponent: isMobile ? <ViewToggle view={view} onChange={handleViewChange} /> : null,
   };
 
   // Custom filters component
-  const customFiltersComponent = (
+  const customFiltersComponent = isMobile ? (
+    // Layout móvil optimizado
+    <div className="recipes-filters mobile">
+      <FilterBar {...filterBarProps} />
+      <button
+        className="btn add new-recipe-button mobile-add-button"
+        onClick={() => navigate('/recipes/new')}
+      >
+        <FaPlus className="btn-icon" />
+         Añadir Receta
+      </button>
+    </div>
+  ) : (
+    // Layout desktop original
     <div className="recipes-filters">
       <FilterBar {...filterBarProps} />
       <ViewToggle view={view} onChange={handleViewChange} />
@@ -207,7 +236,8 @@ export default function RecipesPage() {
         className="btn add new-recipe-button"
         onClick={() => navigate('/recipes/new')}
       >
-        Añadir Receta
+        <FaPlus className="btn-icon" />
+         Añadir Receta
       </button>
     </div>
   );
@@ -268,6 +298,8 @@ export default function RecipesPage() {
         customFilters={customFiltersComponent}
         viewComponent={view === 'list' ? tableComponent : cardComponent}
         noDataMessage="No hay recetas para mostrar"
+        filters={[]}
+        enableMobileModal={false} // FilterBar has its own mobile modal
       />
 
       {/* DELETE MODAL */}

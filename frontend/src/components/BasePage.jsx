@@ -3,13 +3,26 @@ import React from 'react';
 import DataTable from 'react-data-table-component';
 import { StyleSheetManager } from 'styled-components';
 import isPropValid from '@emotion/is-prop-valid';
+import PageHeader from './PageHeader/PageHeader';
 
 const BasePage = ({
-  title,
+  // Data and table props
   data,
   columns,
   loading,
   error,
+  noDataMessage = "No hay datos para mostrar",
+  onRowClicked,
+  
+  // Content customization
+  viewComponent, // Para vistas alternativas como CardView
+  customContent, // Para contenido personalizado en lugar de DataTable
+  showTotalCount = true,
+  totalCountLabel = "elementos",
+  children, // Content between header and table
+  
+  // PageHeader props (explicitly defined for clarity)
+  title,
   message,
   messageType,
   filterText,
@@ -17,62 +30,38 @@ const BasePage = ({
   onAdd,
   addButtonText = "Añadir",
   searchPlaceholder = "Buscar...",
-  noDataMessage = "No hay datos para mostrar",
-  children, // Para contenido adicional entre el título y la tabla
-  actions, // Para botones adicionales en el subheader
-  
-  // New props for complex pages like Recipes
-  customFilters, // Para filtros complejos como FilterBar
-  viewComponent, // Para vistas alternativas como CardView
-  showSearch = true, // Para ocultar búsqueda si se usan filtros complejos
-  customContent, // Para contenido personalizado en lugar de DataTable
-  showTotalCount = true, // Para mostrar/ocultar el contador total
-  totalCountLabel = "elementos", // Etiqueta personalizada para el contador
-  onRowClicked, // Para manejar clicks en filas de tabla
+  showSearch = true,
+  filters = [],
+  customFilters,
+  actions,
+  headerLayout = 'standard',
+  enableMobileModal = true,
 }) => {
   return (
     <div className="common-page-container">
       <div className="common-page-content">
-        <h1 className="common-page-title">{title}</h1>
+        {/* PageHeader handles all header functionality */}
+        <PageHeader
+          title={title}
+          message={message}
+          messageType={messageType}
+          searchValue={filterText}
+          onSearchChange={onFilterChange}
+          searchPlaceholder={searchPlaceholder}
+          showSearch={showSearch}
+          filters={filters}
+          customFilters={customFilters}
+          onAdd={onAdd}
+          addButtonText={addButtonText}
+          actions={actions}
+          layout={headerLayout}
+          enableMobileModal={enableMobileModal}
+        >
+          {children}
+        </PageHeader>
 
-        {/* Messages */}
-        {message && (
-          <div className={`notification ${messageType}`}>
-            {message}
-          </div>
-        )}
+        {/* Error display (kept separate from PageHeader for now) */}
         {error && <div className="error">{error}</div>}
-
-        {/* Children content (for custom content between title and subheader) */}
-        {children}
-
-        {/* Complex filters (like FilterBar for Recipes) */}
-        {customFilters}
-
-        {/* Subheader with search and actions */}
-        {(showSearch || actions || onAdd) && (
-          <div className="subheader">
-            {showSearch && (
-              <input
-                type="text"
-                placeholder={searchPlaceholder}
-                className="common-search-input"
-                value={filterText}
-                onChange={(e) => onFilterChange(e.target.value)}
-              />
-            )}
-            
-            {/* Custom actions */}
-            {actions}
-            
-            {/* Add button */}
-            {onAdd && (
-              <button className="btn add" onClick={onAdd}>
-                {addButtonText}
-              </button>
-            )}
-          </div>
-        )}
 
         {/* Custom content (for alternative views like CardView) */}
         {customContent}

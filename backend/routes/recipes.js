@@ -127,6 +127,10 @@ router.get('/:id/ingredients', authenticateToken, authorizeRoles('admin','chef')
         i.base_price,
         i.waste_percent,
         i.net_price,
+        i.calories_per_100g,
+        i.protein_per_100g,
+        i.carbs_per_100g,
+        i.fat_per_100g,
         rs.name AS section_name
       FROM RECIPE_INGREDIENTS ri
       JOIN INGREDIENTS i ON ri.ingredient_id = i.ingredient_id
@@ -259,7 +263,6 @@ router.post('/', authenticateToken, authorizeRoles('admin','chef'), async (req, 
 // PUT /recipes/:id - Actualizar receta
 router.put('/:id', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
   const { id } = req.params;
-  console.log('Datos recibidos para actualizar receta:', req.body);
   
   // Extraer solo los campos que existen en la tabla RECIPES
   const {
@@ -275,10 +278,6 @@ router.put('/:id', authenticateToken, authorizeRoles('admin','chef'), async (req
   } = req.body;
 
   try {
-    console.log('Campos procesados:', {
-      name, servings, production_servings, net_price,
-      prep_time, difficulty, is_featured_recipe, instructions, tax_id
-    });
 
     await pool.query(
       `UPDATE RECIPES SET
@@ -301,6 +300,51 @@ router.put('/:id', authenticateToken, authorizeRoles('admin','chef'), async (req
       message: 'Error interno del servidor',
       details: err.sqlMessage || err.message 
     });
+  }
+});
+
+// PUT /recipes/:id/categories - Actualizar categorías de una receta
+router.put('/:id/categories', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
+  const { id } = req.params;
+  const { categoryIds } = req.body;
+  
+  if (!Array.isArray(categoryIds)) {
+    return res.status(400).json({ message: 'categoryIds debe ser un array' });
+  }
+  
+  const connection = await pool.getConnection();
+  
+  try {
+    await connection.beginTransaction();
+    
+    // Eliminar todas las categorías existentes de la receta
+    await connection.query(
+      'DELETE FROM RECIPE_CATEGORY_ASSIGNMENTS WHERE recipe_id = ?',
+      [id]
+    );
+    
+    // Insertar las nuevas categorías si hay alguna
+    if (categoryIds.length > 0) {
+      const values = categoryIds.map(categoryId => [id, categoryId]);
+      await connection.query(
+        'INSERT INTO RECIPE_CATEGORY_ASSIGNMENTS (recipe_id, category_id) VALUES ?',
+        [values]
+      );
+    }
+    
+    await connection.commit();
+    
+    await logAudit(req.user.user_id, 'update', 'RECIPE_CATEGORY_ASSIGNMENTS', null,
+      `Categorías actualizadas para receta ${id}: [${categoryIds.join(', ')}]`
+    );
+    
+    res.json({ message: 'Categorías actualizadas correctamente' });
+  } catch (err) {
+    await connection.rollback();
+    console.error('Error updating recipe categories:', err);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  } finally {
+    connection.release();
   }
 });
 
@@ -358,7 +402,6 @@ router.post('/:id/ingredients', authenticateToken, authorizeRoles('admin','chef'
   const { ingredient_id, quantity_per_serving, section_id } = req.body;
   
   try {
-    console.log('Añadiendo ingrediente a receta:', { recipe_id, ingredient_id, quantity_per_serving, section_id });
     
     // Verificar si ya existe este ingrediente en la receta
     const [existing] = await pool.query(
@@ -393,7 +436,6 @@ router.put('/:id/ingredients/:ingredient_id', authenticateToken, authorizeRoles(
   const { quantity_per_serving, section_id } = req.body;
   
   try {
-    console.log('Actualizando ingrediente en receta:', { recipe_id, ingredient_id, quantity_per_serving, section_id });
     
     const [result] = await pool.query(
       'UPDATE RECIPE_INGREDIENTS SET quantity_per_serving = ?, section_id = ? WHERE recipe_id = ? AND ingredient_id = ?',
@@ -420,7 +462,6 @@ router.delete('/:id/ingredients/:ingredient_id', authenticateToken, authorizeRol
   const { id: recipe_id, ingredient_id } = req.params;
   
   try {
-    console.log('Eliminando ingrediente de receta:', { recipe_id, ingredient_id });
     
     const [result] = await pool.query(
       'DELETE FROM RECIPE_INGREDIENTS WHERE recipe_id = ? AND ingredient_id = ?',

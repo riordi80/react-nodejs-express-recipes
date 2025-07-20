@@ -22,6 +22,7 @@ export default function Suppliers() {
     createItem,
     updateItem,
     deleteItem,
+    notify,
   } = usePageState('/suppliers');
 
   // Additional data needed for suppliers
@@ -59,6 +60,10 @@ export default function Suppliers() {
   // ---- add ingredient modal details ----
   const [selectedIngredients, setSelectedIngredients] = useState([]);
   const [ingredientDetails, setIngredientDetails] = useState({});
+
+  // ---- create modal validation ----
+  const [hasCreateError, setHasCreateError] = useState(false);
+
 
   // Fetch ingredients (needed for supplier-ingredient relationships)
   const fetchIngredients = async () => {
@@ -98,6 +103,15 @@ export default function Suppliers() {
   };
 
   const handleCreate = async () => {
+    if (!newItem.name.trim()) {
+      setHasCreateError(true);
+      notify('Introduzca el nombre del proveedor', 'error');
+      // Reset error after 3 seconds to match the message timeout
+      setTimeout(() => setHasCreateError(false), 3000);
+      return;
+    }
+
+    setHasCreateError(false);
     const success = await createItem(newItem);
     if (success) {
       setNewItem({
@@ -107,6 +121,19 @@ export default function Suppliers() {
         website_url: '',
         address: ''
       });
+      handleCloseCreateModal();
+    }
+  };
+
+  // Handler para cerrar modal crear proveedor correctamente
+  const handleCloseCreateModal = () => {
+    // Buscar todas las modales y encontrar la que está más arriba (último elemento)
+    const allCloseButtons = document.querySelectorAll('.modal-close');
+    if (allCloseButtons.length > 0) {
+      // Tomar el último botón X (el de la modal más arriba)
+      const lastCloseButton = allCloseButtons[allCloseButtons.length - 1];
+      lastCloseButton.click();
+    } else {
       setIsCreateOpen(false);
     }
   };
@@ -129,9 +156,11 @@ export default function Suppliers() {
     const success = await updateItem(editedItem.supplier_id, editedItem);
     if (success) {
       setIsEditOpen(false);
-      setEditedItem(null);
-      setEditModalTab('info');
     }
+  };
+
+  const handleCloseEditModal = () => {
+    setIsEditOpen(false);
   };
 
   // Delete handlers
@@ -167,7 +196,6 @@ export default function Suppliers() {
       }));
 
       await api.post(`/suppliers/${editedItem.supplier_id}/ingredients`, { ingredients: payload });
-      notify('Ingredientes añadidos correctamente');
       
       // Recargar ingredientes del proveedor
       const { data } = await api.get(`/suppliers/${editedItem.supplier_id}/ingredients`);
@@ -175,7 +203,6 @@ export default function Suppliers() {
       
       setIsAddIngredientOpen(false);
     } catch (err) {
-      notify('Error al añadir ingredientes');
       console.error(err);
     }
   };
@@ -197,7 +224,6 @@ export default function Suppliers() {
         is_preferred_supplier: editingSupplierIngredient.is_preferred_supplier
       };
       await api.put(`/suppliers/${editedItem.supplier_id}/ingredients/${editingSupplierIngredient.ingredient_id}`, payload);
-      notify('Relación proveedor-ingrediente actualizada');
       
       // Recargar ingredientes del proveedor
       const { data } = await api.get(`/suppliers/${editedItem.supplier_id}/ingredients`);
@@ -205,7 +231,6 @@ export default function Suppliers() {
       
       setIsEditSupplierIngredientOpen(false);
     } catch (err) {
-      notify('Error al actualizar relación');
       console.error(err);
     }
   };
@@ -219,7 +244,6 @@ export default function Suppliers() {
   const handleDeleteSupplierIngredient = async () => {
     try {
       await api.delete(`/suppliers/${editedItem.supplier_id}/ingredients/${currentSupplierIngredient.ingredient_id}`);
-      notify('Ingrediente eliminado del proveedor');
       
       // Recargar ingredientes del proveedor
       const { data } = await api.get(`/suppliers/${editedItem.supplier_id}/ingredients`);
@@ -227,7 +251,6 @@ export default function Suppliers() {
       
       setIsDeleteSupplierIngredientOpen(false);
     } catch (err) {
-      notify('Error al eliminar ingrediente del proveedor');
       console.error(err);
     }
   };
@@ -301,6 +324,9 @@ export default function Suppliers() {
         searchPlaceholder="Buscar proveedor..."
         noDataMessage="No hay proveedores registrados"
         onRowClicked={openEditModal}
+        showSearch={true}
+        filters={[]}
+        enableMobileModal={true}
       />
 
         {/* CREATE MODAL */}
@@ -310,9 +336,12 @@ export default function Suppliers() {
               <label>Nombre *</label>
               <input 
                 type="text" 
-                className="input-field" 
+                className={`input-field ${hasCreateError ? 'input-error' : ''}`}
                 value={newItem.name} 
-                onChange={e => setNewItem({ ...newItem, name: e.target.value })} 
+                onChange={e => {
+                  setNewItem({ ...newItem, name: e.target.value });
+                  if (hasCreateError) setHasCreateError(false);
+                }} 
                 required 
               />
             </div>
@@ -354,7 +383,7 @@ export default function Suppliers() {
               />
             </div>
             <div className="modal-actions">
-              <button type="button" className="btn cancel" onClick={() => setIsCreateOpen(false)}>Cancelar</button>
+              <button type="button" className="btn cancel" onClick={handleCloseCreateModal}>Cancelar</button>
               <button type="button" className="btn add" onClick={handleCreate}>Crear proveedor</button>
             </div>
           </form>
@@ -363,7 +392,7 @@ export default function Suppliers() {
         {/* EDIT MODAL */}
         <SupplierEditModal
           isOpen={isEditOpen}
-          onClose={() => setIsEditOpen(false)}
+          onClose={handleCloseEditModal}
           editedItem={editedItem}
           setEditedItem={setEditedItem}
           editModalTab={editModalTab}

@@ -145,3 +145,264 @@
    Los estilos de chips ahora están definidos globalmente en App.css
    Esto permite reutilización en toda la aplicación y mantiene DRY
 */
+
+/* Estilos para pestañas de modal - Editar ingrediente */
+.modal-tabs {
+  display: flex;
+  border-bottom: 2px solid #e9ecef;
+  margin-bottom: 20px;
+}
+
+.tab-button {
+  padding: 12px 24px;
+  border: none;
+  background: transparent !important;
+  cursor: pointer;
+  font-weight: 500;
+  color: #6c757d;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.tab-button:hover {
+  color: #495057;
+  background: transparent !important;
+}
+
+.tab-button.active {
+  color: #007bff;
+  border-bottom-color: #007bff;
+  background: transparent !important;
+}
+
+.modal-tabs .tab-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modal-tabs .tab-icon {
+  font-size: 14px;
+}
+
+/* Dropdown móvil para pestañas de modal */
+.modal-mobile-dropdown {
+  display: none;
+  position: relative;
+  margin-bottom: 12px;
+}
+
+.mobile-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 16px 20px;
+  background: #3b82f6;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+  color: white;
+}
+
+.mobile-dropdown-trigger:hover {
+  background: #2563eb;
+}
+
+.mobile-dropdown-trigger:active {
+  transform: translateY(1px);
+}
+
+.mobile-dropdown-trigger .tab-icon {
+  font-size: 16px;
+  color: white;
+  margin-right: 12px;
+}
+
+.mobile-dropdown-trigger span {
+  flex: 1;
+  text-align: left;
+  font-weight: 500;
+}
+
+.mobile-dropdown-trigger .dropdown-icon {
+  font-size: 12px;
+  color: white;
+  transition: transform 0.2s;
+}
+
+.mobile-dropdown-icon {
+  font-size: 16px;
+  color: white;
+  margin-right: 12px;
+}
+
+.mobile-dropdown-label {
+  flex: 1;
+  text-align: left;
+  font-weight: 500;
+}
+
+.mobile-dropdown-arrow {
+  font-size: 12px;
+  color: white;
+  transition: transform 0.2s;
+}
+
+.mobile-dropdown-arrow.open {
+  transform: rotate(180deg);
+}
+
+.mobile-dropdown-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-8px);
+  transition: all 0.2s;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.mobile-dropdown-menu.open {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.mobile-dropdown-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 16px 20px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 14px;
+  color: #64748b;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.mobile-dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.mobile-dropdown-item:hover {
+  background: #f8fafc;
+  color: #1e293b;
+}
+
+.mobile-dropdown-item.active {
+  background: #eff6ff;
+  color: #3b82f6;
+  font-weight: 600;
+}
+
+.mobile-dropdown-item-icon {
+  font-size: 16px;
+  margin-right: 12px;
+  color: inherit;
+}
+
+.mobile-dropdown-item-label {
+  flex: 1;
+  text-align: left;
+}
+
+/* Layout de dos columnas para modal de ingredientes */
+.ingredient-edit-modal {
+  width: 100%;
+}
+
+/* Sobrescribir el grid del modal-body-form para ingredientes */
+.ingredient-info-form.modal-body-form,
+.ingredient-nutrition-form.modal-body-form {
+  display: block !important;
+  grid-template-columns: unset !important;
+  width: 100%;
+}
+
+.form-fields-two-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.column-left,
+.column-right {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.column-left label,
+.column-right label {
+  margin-bottom: 6px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.column-left .input-field,
+.column-right .input-field {
+  margin-bottom: 16px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Mejoras para eventos táctiles en móvil */
+@media (hover: none) and (pointer: coarse) {
+  /* Remover efectos hover en dispositivos táctiles */
+  .checkbox-label:hover {
+    background-color: transparent;
+  }
+  
+  /* Mejorar el area de toque para elementos clickeables */
+  .tab-button,
+  .mobile-dropdown-trigger,
+  .mobile-dropdown-item {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Responsive Design - Ingredients */
+@media (max-width: 768px) {
+  .tab-button {
+    padding: 10px 16px;
+    font-size: 14px;
+    /* Mejorar área táctil en móvil */
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+  
+  .modal-mobile-dropdown {
+    display: block !important;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e2e8f0;
+  }
+  
+  .modal-tabs {
+    display: none !important;
+  }
+
+  /* En móvil, cambiar a una sola columna */
+  .form-fields-two-columns {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}

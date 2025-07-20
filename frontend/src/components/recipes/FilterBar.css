@@ -20,9 +20,27 @@
   flex-shrink: 0;  /* evitar que se compriman */
 }
 
-/* Campo de búsqueda más ancho */
+/* Flecha personalizada para selects */
+.filter-bar .filter-select,
+.filter-select,
+select.filter-select {
+  padding-right: 32px !important;
+  background: #f9f9f9 !important;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 8px center !important;
+  background-size: 16px 16px !important;
+  color: #333 !important;
+  cursor: pointer !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+}
+
+/* Campo de búsqueda flexible - ocupa el ancho disponible */
 .filter-input {
-  width: 220px;    /* ancho fijo para el campo de búsqueda */
+  flex: 1;         /* ocupa todo el espacio disponible */
+  min-width: 200px; /* ancho mínimo */
 }
 
 /* ─── Multi-select custom para alérgenos ─── */
@@ -53,21 +71,12 @@
   text-align: left;
   outline: none;
   
-  /* Flecha del select usando CSS */
-  background-image: 
-    linear-gradient(45deg, transparent 50%, #666 50%), 
-    linear-gradient(135deg, #666 50%, transparent 50%),
-    linear-gradient(to bottom, #fff, #f0f0f0) !important;
-  background-position: 
-    calc(100% - 12px) calc(50% + 2px),
-    calc(100% - 8px) calc(50% + 2px),
-    0 0 !important;
-  background-size: 
-    4px 4px,
-    4px 4px,
-    100% 100% !important;
+  /* Usar la misma flecha SVG que los otros selects */
+  padding-right: 32px !important;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23666' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e") !important;
   background-repeat: no-repeat !important;
-  padding-right: 24px !important; /* espacio para la flecha */
+  background-position: right 8px center !important;
+  background-size: 16px 16px !important;
 }
 
 /* Estados sobrescribiendo estilos globales de button */
@@ -266,7 +275,14 @@
   }
 }
 
-/* ─── Estilos para botón móvil de filtros ─── */
+/* ─── Estilos para controles móviles ─── */
+.filter-mobile-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
 .filter-mobile-button {
   display: flex;
   align-items: center;
@@ -283,6 +299,13 @@
   min-width: 120px;
   height: 44px;
   position: relative;
+  flex: 1;
+}
+
+.filter-mobile-view-toggle {
+  flex: 1;
+  display: flex;
+  justify-content: center;
 }
 
 .filter-mobile-button:hover {

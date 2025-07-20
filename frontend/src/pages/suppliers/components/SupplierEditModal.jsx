@@ -49,6 +49,26 @@ export default function SupplierEditModal({
     setIsDropdownOpen(!isDropdownOpen);
   };
 
+  // Handlers simples que llaman directamente a las funciones padre
+  const handleSaveClick = async () => {
+    await onSave();
+    // Usar el mismo patrón de cierre que el botón Cancelar
+    handleCloseClick();
+  };
+
+  const handleCloseClick = () => {
+    // Buscar el botón X del modal y hacer clic en él
+    const closeButton = document.querySelector('.modal-close');
+    if (closeButton) {
+      closeButton.click();
+    } else {
+      onClose();
+    }
+  };
+
+  const handleAddIngredientsClick = () => {
+    onAddIngredients();
+  };
 
   return (
     <Modal isOpen={isOpen} title="Editar proveedor" onClose={onClose} fullscreenMobile={true}>
@@ -145,11 +165,11 @@ export default function SupplierEditModal({
               />
             </div>
             <div className="modal-actions">
-              <button type="button" className="btn cancel" onClick={onClose}>
+              <button type="button" className="btn cancel" onClick={handleCloseClick}>
                 Cancelar
               </button>
-              <button type="button" className="btn add" onClick={onSave}>
-                Guardar
+              <button type="button" className="btn edit" onClick={handleSaveClick}>
+                Guardar cambios
               </button>
             </div>
           </form>
@@ -165,10 +185,10 @@ export default function SupplierEditModal({
             />
             
             <div className="modal-actions">
-              <button type="button" className="btn cancel" onClick={onClose}>
+              <button type="button" className="btn cancel" onClick={handleCloseClick}>
                 Cerrar
               </button>
-              <button type="button" className="btn add" onClick={onAddIngredients}>
+              <button type="button" className="btn add" onClick={handleAddIngredientsClick}>
                 Añadir ingredientes
               </button>
             </div>

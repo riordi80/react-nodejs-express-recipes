@@ -15,6 +15,25 @@ export default function AddIngredientModal({
   onSave
 }) {
 
+  // Handler para cerrar correctamente en móvil
+  const handleCloseClick = () => {
+    // Buscar todas las modales y encontrar la que está más arriba (último elemento)
+    const allCloseButtons = document.querySelectorAll('.modal-close');
+    if (allCloseButtons.length > 0) {
+      // Tomar el último botón X (el de la modal más arriba)
+      const lastCloseButton = allCloseButtons[allCloseButtons.length - 1];
+      lastCloseButton.click();
+    } else {
+      onClose();
+    }
+  };
+
+  // Handler para guardar y cerrar
+  const handleSaveAndClose = async () => {
+    await onSave();
+    handleCloseClick();
+  };
+
   const filteredIngredients = availableIngredients.filter(ingredient =>
     ingredient.name.toLowerCase().includes(ingredientSearchText.toLowerCase())
   );
@@ -123,13 +142,13 @@ export default function AddIngredientModal({
         </div>
         
         <div className="modal-actions">
-          <button type="button" className="btn cancel" onClick={onClose}>
+          <button type="button" className="btn cancel" onClick={handleCloseClick}>
             Cancelar
           </button>
           <button 
             type="button"
             className="btn add" 
-            onClick={onSave}
+            onClick={handleSaveAndClose}
             disabled={!canSave}
           >
             Añadir ingredientes

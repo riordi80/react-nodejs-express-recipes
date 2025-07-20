@@ -18,10 +18,12 @@ export default function Allergens() {
     createItem,
     updateItem,
     deleteItem,
+    notify,
   } = usePageState('/allergens');
 
   // Local state for forms and modals
   const [newName, setNewName] = useState('');
+  const [hasInputError, setHasInputError] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [currentAllergen, setCurrentAllergen] = useState(null);
@@ -30,8 +32,15 @@ export default function Allergens() {
   // Create handler
   const handleAdd = async (e) => {
     e.preventDefault();
-    if (!newName.trim()) return;
+    if (!newName.trim()) {
+      setHasInputError(true);
+      notify('Introduzca el nombre del alérgeno', 'error');
+      // Reset input error after 3 seconds to match the message timeout
+      setTimeout(() => setHasInputError(false), 3000);
+      return;
+    }
     
+    setHasInputError(false);
     const success = await createItem({ name: newName.trim() });
     if (success) {
       setNewName('');
@@ -95,9 +104,12 @@ export default function Allergens() {
       <input
         type="text"
         placeholder="Nuevo alérgeno"
-        className="input-field"
+        className={`input-field ${hasInputError ? 'input-error' : ''}`}
         value={newName}
-        onChange={e => setNewName(e.target.value)}
+        onChange={e => {
+          setNewName(e.target.value);
+          if (hasInputError) setHasInputError(false);
+        }}
       />
       <button type="submit" className="btn add">Añadir</button>
     </form>
@@ -119,6 +131,9 @@ export default function Allergens() {
         noDataMessage="No hay alérgenos para mostrar"
         actions={addForm}
         onRowClicked={openEditModal}
+        showSearch={true}
+        filters={[]}
+        enableMobileModal={true}
       />
 
       {/* Edit Modal */}

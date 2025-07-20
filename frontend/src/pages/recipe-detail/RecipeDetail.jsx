@@ -2,12 +2,13 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FiArrowLeft, FiEdit3, FiTrash2, FiSave, FiX } from 'react-icons/fi';
-import BasePage from '../../components/BasePage';
+// BasePage removed - using custom layout
 import Modal from '../../components/modal/Modal';
 import AddIngredientModal from './components/AddIngredientModal';
 import EditIngredientModal from './components/EditIngredientModal';
 import api from '../../api/axios';
 import { translateDifficulty } from '../recipes/Recipes';
+import { formatCurrency, formatDecimal } from '../../utils/formatters';
 import './RecipeDetail.css';
 
 const RecipeDetail = () => {
@@ -85,7 +86,6 @@ const RecipeDetail = () => {
       const response = await api.get('/recipe-categories');
       setAvailableCategories(response.data);
     } catch (err) {
-      console.warn('Error loading available categories:', err);
       // Fallback con categorías hardcodeadas si no existe el endpoint
       setAvailableCategories([
         { category_id: 1, name: 'Entrante' },
@@ -115,7 +115,6 @@ const RecipeDetail = () => {
         const nutritionResponse = await api.get(`/recipes/${id}/nutrition`);
         setNutrition(nutritionResponse.data);
       } catch (nutritionErr) {
-        console.warn('Error loading nutrition:', nutritionErr);
         setNutrition(null); // Fallback a null
       }
       
@@ -124,7 +123,6 @@ const RecipeDetail = () => {
         const allergensResponse = await api.get(`/recipes/${id}/allergens`);
         setAllergens(allergensResponse.data);
       } catch (allergensErr) {
-        console.warn('Error loading allergens:', allergensErr);
         setAllergens([]); // Fallback a array vacío
       }
       
@@ -133,16 +131,21 @@ const RecipeDetail = () => {
         const recipesListResponse = await api.get(`/recipes`);
         const recipeWithCategories = recipesListResponse.data.find(r => r.recipe_id === parseInt(id));
         if (recipeWithCategories && recipeWithCategories.categories) {
-          // Asegurar que categories sea un array
-          const cats = Array.isArray(recipeWithCategories.categories) 
-            ? recipeWithCategories.categories 
-            : [recipeWithCategories.categories];
+          // Las categorías vienen como string concatenado desde el backend
+          // Ejemplo: "Principal, Postre" -> ["Principal", "Postre"]
+          let cats;
+          if (typeof recipeWithCategories.categories === 'string') {
+            cats = recipeWithCategories.categories.split(', ').map(cat => cat.trim());
+          } else if (Array.isArray(recipeWithCategories.categories)) {
+            cats = recipeWithCategories.categories;
+          } else {
+            cats = [recipeWithCategories.categories];
+          }
           setCategories(cats);
         } else {
           setCategories([]);
         }
       } catch (categoriesErr) {
-        console.warn('Error loading categories:', categoriesErr);
         setCategories([]); // Asegurar que sea array vacío en caso de error
       }
       
@@ -162,15 +165,13 @@ const RecipeDetail = () => {
         const response = await api.post('/recipes', recipe);
         const newRecipeId = response.data.id;
         
-        // Guardar categorías seleccionadas si hay
-        if (selectedCategoryIds.length > 0) {
-          try {
-            await api.put(`/recipes/${newRecipeId}/categories`, { 
-              categoryIds: selectedCategoryIds 
-            });
-          } catch (categoryErr) {
-            console.warn('Error saving categories:', categoryErr);
-          }
+        // Guardar categorías seleccionadas
+        try {
+          await api.put(`/recipes/${newRecipeId}/categories`, { 
+            categoryIds: selectedCategoryIds 
+          });
+        } catch (categoryErr) {
+          console.warn('Error saving categories:', categoryErr);
         }
         
         // Recalcular costes para la nueva receta
@@ -186,15 +187,13 @@ const RecipeDetail = () => {
         // Actualizar receta existente
         await api.put(`/recipes/${id}`, recipe);
         
-        // Guardar categorías seleccionadas si hay cambios
-        if (selectedCategoryIds.length > 0) {
-          try {
-            await api.put(`/recipes/${id}/categories`, { 
-              categoryIds: selectedCategoryIds 
-            });
-          } catch (categoryErr) {
-            console.warn('Error saving categories:', categoryErr);
-          }
+        // Guardar categorías seleccionadas
+        try {
+          await api.put(`/recipes/${id}/categories`, { 
+            categoryIds: selectedCategoryIds 
+          });
+        } catch (categoryErr) {
+          console.warn('Error saving categories:', categoryErr);
         }
         
         // Recalcular costes después de actualizar
@@ -222,26 +221,25 @@ const RecipeDetail = () => {
     const totalCost = costPerServing * servings;
     
     // Calcular margen y precio sugerido
-    const currentMargin = netPrice - costPerServing;
-    const currentMarginPercent = netPrice > 0 ? ((netPrice - costPerServing) / netPrice) * 100 : 0;
+    // net_price ya es el precio total de la receta, no por porción
+    const totalNetPrice = netPrice;
+    const pricePerServing = netPrice / servings; // Calcular precio por porción
+    const currentMargin = totalNetPrice - totalCost;
+    const currentMarginPercent = totalNetPrice > 0 ? ((totalNetPrice - totalCost) / totalNetPrice) * 100 : 0;
     const suggestedPrice40 = costPerServing > 0 ? costPerServing / 0.6 : 0; // 40% margen
 
     return {
       totalCost,
       costPerServing,
       netPrice,
+      totalNetPrice,
+      pricePerServing,
       currentMargin,
       currentMarginPercent,
       suggestedPrice40
     };
   };
 
-  const formatCurrency = (value) => {
-    if (value === null || value === undefined || isNaN(value)) return '€0.00';
-    const numValue = parseFloat(value);
-    if (isNaN(numValue)) return '€0.00';
-    return `€${numValue.toFixed(2)}`;
-  };
 
 
   // Manejar selección de categorías
@@ -253,15 +251,19 @@ const RecipeDetail = () => {
     }
   };
 
-  // Inicializar categorías seleccionadas cuando se entra en modo edición
+  // Cambiar modo de edición
   const toggleEdit = () => {
-    if (!isEditing && categories.length > 0) {
-      // Cuando se entra en modo edición, mapear nombres de categorías a IDs
-      const categoryIds = categories.map(categoryName => {
-        const found = availableCategories.find(cat => cat.name === categoryName);
-        return found ? found.category_id : null;
-      }).filter(id => id !== null);
-      setSelectedCategoryIds(categoryIds);
+    if (!isEditing) {
+      // Al entrar en modo edición, mapear categorías actuales a IDs
+      if (categories.length > 0 && availableCategories.length > 0) {
+        const categoryIds = categories.map(categoryName => {
+          const found = availableCategories.find(cat => cat.name === categoryName);
+          return found ? found.category_id : null;
+        }).filter(id => id !== null);
+        setSelectedCategoryIds(categoryIds);
+      } else {
+        setSelectedCategoryIds([]);
+      }
     }
     setIsEditing(!isEditing);
   };
@@ -329,32 +331,39 @@ const RecipeDetail = () => {
     setIngredientToEdit(null);
   };
 
-  const customActions = (
-    <div className="recipe-detail-actions">
-      <button className="btn back-btn" onClick={handleBack}>
-        <FiArrowLeft />
-      </button>
-      {!isEditing ? (
-        <>
-          <button className="btn edit" onClick={toggleEdit}>
-            <FiEdit3 /> Editar
-          </button>
-          {!isNewRecipe && (
-            <button className="btn delete" onClick={openDeleteModal}>
-              <FiTrash2 /> Eliminar
+  // Crear un header personalizado con título a la izquierda y botones a la derecha
+  const customHeader = (
+    <div className="recipe-detail-header">      
+      <h1 className="recipe-detail-title">
+        {isNewRecipe ? 'Nueva Receta' : (recipe ? recipe.name : 'Detalle de Receta')}
+      </h1>
+      
+      <div className="recipe-detail-header-right">
+        <button className="btn secondary recipe-back-btn" onClick={handleBack} title="Volver">
+          <FiArrowLeft />
+        </button>
+        {!isEditing ? (
+          <>
+            <button className="btn edit" onClick={toggleEdit}>
+              <FiEdit3 /> <span className="btn-text">Editar</span>
             </button>
-          )}
-        </>
-      ) : (
-        <>
-          <button className="btn cancel" onClick={() => isNewRecipe ? navigate('/recipes') : setIsEditing(false)}>
-            <FiX /> Cancelar
-          </button>
-          <button className="btn add" onClick={handleSave}>
-            <FiSave /> {isNewRecipe ? 'Crear' : 'Guardar'}
-          </button>
-        </>
-      )}
+            {!isNewRecipe && (
+              <button className="btn delete" onClick={openDeleteModal}>
+                <FiTrash2 /> <span className="btn-text">Eliminar</span>
+              </button>
+            )}
+          </>
+        ) : (
+          <>
+            <button className="btn cancel" onClick={() => isNewRecipe ? navigate('/recipes') : setIsEditing(false)}>
+              <FiX /> <span className="btn-text">Cancelar</span>
+            </button>
+            <button className="btn add" onClick={handleSave}>
+              <FiSave /> <span className="btn-text">{isNewRecipe ? 'Crear' : 'Guardar'}</span>
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
 
@@ -463,6 +472,33 @@ const RecipeDetail = () => {
                 )}
               </div>
             </div>
+            
+            <div className="form-grid-2">
+              <div className="form-field">
+                <label>Precio de Venta Total</label>
+                {isEditing ? (
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="form-input"
+                    value={recipe.net_price || ''}
+                    onChange={(e) => setRecipe({...recipe, net_price: e.target.value})}
+                    placeholder="€"
+                  />
+                ) : (
+                  <div className="form-value">{recipe.net_price ? formatCurrency(recipe.net_price) : 'No especificado'}</div>
+                )}
+              </div>
+              <div className="form-field">
+                <label>Precio por Porción</label>
+                <div className="form-value">
+                  {recipe.net_price && recipe.servings ? 
+                    formatCurrency(parseFloat(recipe.net_price) / parseInt(recipe.servings)) : 
+                    'Calculado automáticamente'
+                  }
+                </div>
+              </div>
+            </div>
 
           </div>
         </div>
@@ -484,7 +520,7 @@ const RecipeDetail = () => {
                 📊 Cantidades para {recipe.servings} {recipe.servings === 1 ? 'porción' : 'porciones'}
               </div>
             )}
-            {isEditing && (
+            {isEditing && ingredients?.length > 0 && (
               <div className="ingredients-header" style={{ marginBottom: '16px' }}>
                 <button 
                   className="btn add ingredients-add-btn" 
@@ -513,13 +549,13 @@ const RecipeDetail = () => {
                       <div className="ingredient-name">{ingredient.name || 'Sin nombre'}</div>
                       <div className="ingredient-quantity">
                         <div className="quantity-total">
-                          <strong>{totalQuantity.toFixed(2)} {ingredient.unit || ''}</strong>
+                          <strong>{formatDecimal(totalQuantity, 2)} {ingredient.unit || ''}</strong>
                         </div>
                         <div className="quantity-per-serving" style={{ fontSize: '12px', color: '#64748b' }}>
                           ({quantityPerServing} {ingredient.unit} por porción)
                         </div>
                         {wastePercent > 0 && (
-                          <span className="waste-info"> (+{(wastePercent * 100).toFixed(1)}% merma)</span>
+                          <span className="waste-info"> (+{formatDecimal(wastePercent * 100, 1)}% merma)</span>
                         )}
                       </div>
                       <div className="ingredient-cost">
@@ -588,7 +624,7 @@ const RecipeDetail = () => {
                         onClick={openAddIngredientModal}
                         style={{ fontSize: '14px', height: '36px', padding: '0 16px' }}
                       >
-                        Añadir Primer Ingrediente
+                        Añadir primer ingrediente
                       </button>
                     </div>
                   )}
@@ -619,10 +655,20 @@ const RecipeDetail = () => {
                     <div className="cost-detail">Calculado automáticamente</div>
                   </div>
                   <div className="cost-card">
-                    <div className="cost-label">Precio de Venta Actual</div>
-                    <div className="cost-value highlight">{formatCurrency(metrics.netPrice)}</div>
+                    <div className="cost-label">Precio de Venta Total</div>
+                    <div className="cost-value highlight">{formatCurrency(metrics.totalNetPrice)}</div>
                     <div className="cost-detail">
-                      Margen: {formatCurrency(metrics.currentMargin)} ({metrics.currentMarginPercent.toFixed(1)}%)
+                      {formatCurrency(metrics.pricePerServing)} por porción
+                    </div>
+                  </div>
+                  <div className="cost-card">
+                    <div className="cost-label">Margen de Beneficio</div>
+                    <div className={`cost-value ${metrics.currentMargin >= 0 ? 'success' : 'danger'}`}>
+                      {formatCurrency(metrics.currentMargin)}
+                    </div>
+                    <div className="cost-detail">
+                      {formatDecimal(metrics.currentMarginPercent, 1)}% sobre precio de venta
+                      {metrics.currentMargin < 0 && ' (PÉRDIDA)'}
                     </div>
                   </div>
                   <div className="cost-card">
@@ -640,7 +686,7 @@ const RecipeDetail = () => {
 
         {/* Nutritional Information */}
         <div className="recipe-section">
-          <h2 className="section-title">🍎 Información Nutricional por porción</h2>
+          <h2 className="section-title">🍎 Información Nutricional</h2>
           <div className="section-content">
             {nutrition ? (
               <div className="nutrition-grid">
@@ -718,14 +764,18 @@ const RecipeDetail = () => {
 
   return (
     <>
-      <BasePage
-        title={isNewRecipe ? 'Nueva Receta' : (recipe ? recipe.name : 'Detalle de Receta')}
-        loading={loading}
-        error={error}
-        actions={customActions}
-        showSearch={false}
-        customContent={recipeContent()}
-      />
+      <div className="common-page-container">
+        <div className="common-page-content">
+          {/* Header personalizado con botones a los lados */}
+          {customHeader}
+          
+          {/* Error display */}
+          {error && <div className="error">{error}</div>}
+          
+          {/* Contenido de la receta */}
+          {recipeContent()}
+        </div>
+      </div>
 
       {/* DELETE MODAL */}
       <Modal isOpen={isDeleteOpen} title="Confirmar eliminación" onClose={() => setIsDeleteOpen(false)}>

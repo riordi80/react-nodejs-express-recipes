@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { FaEdit, FaRegTrashAlt } from 'react-icons/fa';
+import { formatCurrency } from '../../../utils/formatters';
 
 export default function SupplierIngredientsTable({ 
   supplierIngredients, 
@@ -57,7 +58,7 @@ export default function SupplierIngredientsTable({
           {sortedSupplierIngredients.map(item => (
             <tr key={item.ingredient_id}>
               <td>{item.name || item.ingredient_name || 'Ingrediente'}</td>
-              <td>€{item.price}</td>
+              <td>{formatCurrency(item.price)}</td>
               <td>{item.delivery_time || '-'} días</td>
               <td>{item.is_preferred_supplier ? 'Sí' : 'No'}</td>
               <td>

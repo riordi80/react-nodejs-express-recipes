@@ -3,6 +3,7 @@ import React from 'react';
 import { Outlet } from 'react-router-dom';
 import Sidebar from '../sidebar/Sidebar';
 import Topbar from '../topbar/Topbar';
+import Footer from '../footer/Footer';
 import { SidebarProvider } from '../../context/SidebarContext';
 import ScrollToTop from '../../components/scroll-to-top/ScrollToTop';
 
@@ -25,6 +26,9 @@ const MainLayout = () => {
             <Outlet />
           </div>
         </div>
+        
+        {/* Footer */}
+        <Footer />
       </div>
     </SidebarProvider>
   );

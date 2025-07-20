@@ -1,12 +1,12 @@
 // src/pages/ingredients/Ingredients.jsx
-import React, { useEffect, useState, useMemo } from 'react';
-import { FaBan, FaUndo } from 'react-icons/fa';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
+import { FaBan, FaUndo, FaUser, FaLeaf, FaChevronDown } from 'react-icons/fa';
 import BasePage from '../../components/BasePage';
 import Modal from '../../components/modal/Modal';
-import { usePageState } from '../../hooks/usePageState';
+// usePageState removed - now using custom state management
 import api from '../../api/axios';
+import { formatCurrency, formatDecimal, parseEuropeanNumber } from '../../utils/formatters';
 import './Ingredients.css';
-import '../../components/recipes/FilterBar.css';
 
 export default function Ingredients() {
   const [ingredients, setIngredients] = useState([]);
@@ -35,7 +35,11 @@ export default function Ingredients() {
     season: [],
     expiration_date: '',
     is_available: true,
-    comment: ''
+    comment: '',
+    calories_per_100g: '',
+    protein_per_100g: '',
+    carbs_per_100g: '',
+    fat_per_100g: ''
   });
   const [newWastePercent, setNewWastePercent] = useState('');
   const [newSelectedAllergens, setNewSelectedAllergens] = useState([]);
@@ -43,6 +47,38 @@ export default function Ingredients() {
   const [editedItem, setEditedItem] = useState(null);
   const [editedWastePercent, setEditedWastePercent] = useState('');
   const [editedSelectedAllergens, setEditedSelectedAllergens] = useState([]);
+  const [editModalTab, setEditModalTab] = useState('info'); // 'info' o 'nutrition'
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // Definir las pestañas con iconos
+  const tabs = [
+    { id: 'info', label: 'Información General', icon: FaUser },
+    { id: 'nutrition', label: 'Información Nutricional', icon: FaLeaf }
+  ];
+
+  // Efecto para cerrar el dropdown cuando se hace clic fuera
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const handleTabChange = (tabId) => {
+    setEditModalTab(tabId);
+    setIsDropdownOpen(false);
+  };
+
+  const toggleDropdown = () => {
+    setIsDropdownOpen(!isDropdownOpen);
+  };
 
   // Load ingredients with availability filter
   const loadIngredients = async () => {
@@ -105,7 +141,16 @@ export default function Ingredients() {
     try {
       const payload = {
         ...newItem,
-        waste_percent: Number(newWastePercent) / 100,
+        // Convertir valores de formato europeo a americano para el backend  
+        base_price: parseEuropeanNumber(newItem.base_price),
+        // net_price se calcula automáticamente por el trigger de MySQL
+        stock: parseEuropeanNumber(newItem.stock),
+        stock_minimum: parseEuropeanNumber(newItem.stock_minimum),
+        calories_per_100g: parseEuropeanNumber(newItem.calories_per_100g),
+        protein_per_100g: parseEuropeanNumber(newItem.protein_per_100g),
+        carbs_per_100g: parseEuropeanNumber(newItem.carbs_per_100g),
+        fat_per_100g: parseEuropeanNumber(newItem.fat_per_100g),
+        waste_percent: parseEuropeanNumber(newWastePercent) / 100,
         season: Array.isArray(newItem.season) ? newItem.season.join(',') : newItem.season
       };
       const response = await api.post('/ingredients', payload);
@@ -143,8 +188,14 @@ export default function Ingredients() {
     }
   };
 
-  // Edit handlers
-  const openEditModal = async (row) => {
+  // Edit handlers con mejora para móvil
+  const openEditModal = async (row, event) => {
+    // Prevenir eventos duplicados en móvil
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+
     // Formatear fecha para input type="date" (YYYY-MM-DD) sin conversión de zona horaria
     let formattedDate = '';
     if (row.expiration_date) {
@@ -158,9 +209,18 @@ export default function Ingredients() {
     setEditedItem({ 
       ...row, 
       expiration_date: formattedDate,
-      season: Array.isArray(row.season) ? row.season : (row.season ? row.season.split(',').map(s => s.trim()) : [])
+      season: Array.isArray(row.season) ? row.season : (row.season ? row.season.split(',').map(s => s.trim()) : []),
+      // Formatear campos numéricos con coma decimal
+      base_price: row.base_price ? formatDecimal(row.base_price, 2) : '',
+      net_price: row.net_price ? formatDecimal(row.net_price, 2) : '',
+      stock: row.stock ? formatDecimal(row.stock, 2) : '',
+      stock_minimum: row.stock_minimum ? formatDecimal(row.stock_minimum, 2) : '',
+      calories_per_100g: row.calories_per_100g ? formatDecimal(row.calories_per_100g, 1) : '',
+      protein_per_100g: row.protein_per_100g ? formatDecimal(row.protein_per_100g, 1) : '',
+      carbs_per_100g: row.carbs_per_100g ? formatDecimal(row.carbs_per_100g, 1) : '',
+      fat_per_100g: row.fat_per_100g ? formatDecimal(row.fat_per_100g, 1) : ''
     });
-    setEditedWastePercent((row.waste_percent * 100).toFixed(2));
+    setEditedWastePercent(formatDecimal(row.waste_percent * 100, 2));
     
     // Cargar alérgenos del ingrediente
     try {
@@ -174,11 +234,43 @@ export default function Ingredients() {
     setIsEditOpen(true);
   };
 
+  // Handler optimizado para móvil con debounce
+  const handleRowClick = (row) => {
+    let isProcessing = false;
+    
+    return (event) => {
+      // Evitar procesamiento múltiple
+      if (isProcessing) {
+        event.preventDefault();
+        return;
+      }
+      
+      isProcessing = true;
+      
+      // Resetear el flag después de un breve delay
+      setTimeout(() => {
+        isProcessing = false;
+      }, 300);
+      
+      // Procesar el clic
+      openEditModal(row, event);
+    };
+  };
+
   const handleEdit = async () => {
     try {
       const payload = {
         ...editedItem,
-        waste_percent: Number(editedWastePercent) / 100,
+        // Convertir valores de formato europeo a americano para el backend
+        base_price: parseEuropeanNumber(editedItem.base_price),
+        // net_price se calcula automáticamente por el trigger de MySQL
+        stock: parseEuropeanNumber(editedItem.stock),
+        stock_minimum: parseEuropeanNumber(editedItem.stock_minimum),
+        calories_per_100g: parseEuropeanNumber(editedItem.calories_per_100g),
+        protein_per_100g: parseEuropeanNumber(editedItem.protein_per_100g),
+        carbs_per_100g: parseEuropeanNumber(editedItem.carbs_per_100g),
+        fat_per_100g: parseEuropeanNumber(editedItem.fat_per_100g),
+        waste_percent: parseEuropeanNumber(editedWastePercent) / 100,
         season: Array.isArray(editedItem.season) ? editedItem.season.join(',') : editedItem.season
       };
       await api.put(`/ingredients/${editedItem.ingredient_id}`, payload);
@@ -291,11 +383,11 @@ const columns = useMemo(() => [
       </span>
     )
   },
-  { name: 'P. Base', selector: r => r.base_price, sortable: true },
-  { name: 'Merma (%)', selector: row => `${(row.waste_percent * 100).toFixed(2)}%`, sortable: true },
-  { name: 'P. Neto', selector: r => r.net_price, sortable: true },
-  { name: 'Stock', selector: r => r.stock, sortable: true },
-  { name: 'Stock Mín.', selector: r => r.stock_minimum || '-', sortable: true },
+  { name: 'P. Base', selector: r => formatCurrency(r.base_price), sortable: true },
+  { name: 'Merma (%)', selector: row => `${formatDecimal(row.waste_percent * 100, 2)}%`, sortable: true },
+  { name: 'P. Neto', selector: r => formatCurrency(r.net_price), sortable: true },
+  { name: 'Stock', selector: r => r.stock ? formatDecimal(r.stock, 2) : '-', sortable: true },
+  { name: 'Stock Mín.', selector: r => r.stock_minimum ? formatDecimal(r.stock_minimum, 2) : '-', sortable: true },
   { 
     name: 'Temporada',
     selector: row => {
@@ -369,28 +461,22 @@ const columns = useMemo(() => [
 ], []);
 
 
-  // Custom filter component - siguiendo el patrón visual de FilterBar
-  const availabilityFilterComponent = (
-    <div className="filter-bar" style={{ marginBottom: '12px' }}>
-      <input
-        type="text"
-        className="filter-input"
-        placeholder="Buscar ingrediente…"
-        value={filterText}
-        onChange={e => setFilterText(e.target.value)}
-        style={{ flex: 1, width: 'auto' }}
-      />
-      <select 
-        className="filter-select"
-        value={availabilityFilter} 
-        onChange={(e) => setAvailabilityFilter(e.target.value)}
-      >
-        <option value="available">Solo disponibles</option>
-        <option value="all">Todos los ingredientes</option>
-        <option value="unavailable">Solo no disponibles</option>
-      </select>
-    </div>
-  );
+  // Define availability filter options for PageHeader
+  const availabilityFilterOptions = [
+    { value: 'available', label: 'Solo disponibles' },
+    { value: 'all', label: 'Todos los ingredientes' },
+    { value: 'unavailable', label: 'Solo no disponibles' }
+  ];
+
+  const pageFilters = [
+    {
+      key: 'availability',
+      label: 'Estado',
+      value: availabilityFilter,
+      options: availabilityFilterOptions,
+      onChange: setAvailabilityFilter
+    }
+  ];
 
   return (
     <>
@@ -402,15 +488,16 @@ const columns = useMemo(() => [
         error={error}
         message={message}
         messageType={messageType}
-        filterText=""
-        onFilterChange={() => {}}
-        showSearch={false}
+        filterText={filterText}
+        onFilterChange={setFilterText}
+        showSearch={true}
         onAdd={() => setIsCreateOpen(true)}
-        onRowClicked={openEditModal}
+        onRowClicked={(row, event) => handleRowClick(row)(event)}
         addButtonText="Añadir ingrediente"
         searchPlaceholder="Buscar ingrediente..."
         noDataMessage="No hay ingredientes para mostrar"
-        customFilters={availabilityFilterComponent}
+        filters={pageFilters}
+        enableMobileModal={true}
       />
 
       {/* CREATE MODAL */}
@@ -426,16 +513,98 @@ const columns = useMemo(() => [
             </select>
 
             <label>Precio base</label>
-            <input type="number" step="0.01" className="input-field" value={newItem.base_price} onChange={e => setNewItem({ ...newItem, base_price: e.target.value })} required />
+            <input type="text" className="input-field" value={newItem.base_price} onChange={e => {
+              const value = e.target.value;
+              if (/^[\d.,]*$/.test(value)) {
+                setNewItem({ ...newItem, base_price: value });
+              }
+            }} required />
 
             <label>Merma (%)</label>
-            <input type="number" step="0.01" className="input-field" value={newWastePercent} onChange={e => setNewWastePercent(e.target.value)} placeholder="Ej. 5.43" />
+            <input type="text" className="input-field" value={newWastePercent} onChange={e => {
+              const value = e.target.value;
+              if (/^[\d.,]*$/.test(value)) {
+                setNewWastePercent(value);
+              }
+            }} placeholder="Ej: 5,43" />
 
-            <label>Precio neto</label>
-            <input type="number" step="0.01" className="input-field" value={newItem.net_price} onChange={e => setNewItem({ ...newItem, net_price: e.target.value })} />
+            <label>Precio neto (calculado automáticamente)</label>
+            <div className="calculated-field" style={{
+              padding: '8px 12px',
+              backgroundColor: '#f8fafc',
+              border: '1px solid #e2e8f0',
+              borderRadius: '6px',
+              color: '#64748b',
+              fontSize: '14px',
+              fontStyle: 'italic'
+            }}>
+              {(() => {
+                const basePrice = parseEuropeanNumber(newItem.base_price) || 0;
+                const wastePercent = parseEuropeanNumber(newWastePercent) || 0;
+                const netPrice = basePrice * (1 + wastePercent / 100);
+                return netPrice > 0 ? formatCurrency(netPrice) : 'Se calcula al introducir precio base';
+              })()}
+            </div>
 
             <label>Comentario</label>
             <textarea className="input-field" rows="6" value={newItem.comment} onChange={e => setNewItem({ ...newItem, comment: e.target.value })} />
+
+            {/* Información Nutricional por 100g */}
+            <div style={{ margin: '20px 0', borderTop: '1px solid #e2e8f0', paddingTop: '20px' }}>
+              <h4 style={{ fontSize: '16px', fontWeight: '600', color: '#1e293b', marginBottom: '16px' }}>
+                Información Nutricional (por 100g)
+              </h4>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
+                <div>
+                  <label>Calorías (kcal)</label>
+                  <input 
+                    type="number" 
+                    step="0.1" 
+                    className="input-field" 
+                    value={newItem?.calories_per_100g || ''} 
+                    onChange={e => setNewItem({ ...newItem, calories_per_100g: e.target.value })} 
+                    placeholder="Ej: 52,5"
+                  />
+                </div>
+                
+                <div>
+                  <label>Proteínas (g)</label>
+                  <input 
+                    type="number" 
+                    step="0.1" 
+                    className="input-field" 
+                    value={newItem?.protein_per_100g || ''} 
+                    onChange={e => setNewItem({ ...newItem, protein_per_100g: e.target.value })} 
+                    placeholder="Ej: 1,2"
+                  />
+                </div>
+                
+                <div>
+                  <label>Carbohidratos (g)</label>
+                  <input 
+                    type="number" 
+                    step="0.1" 
+                    className="input-field" 
+                    value={newItem?.carbs_per_100g || ''} 
+                    onChange={e => setNewItem({ ...newItem, carbs_per_100g: e.target.value })} 
+                    placeholder="Ej: 10,2"
+                  />
+                </div>
+                
+                <div>
+                  <label>Grasas (g)</label>
+                  <input 
+                    type="number" 
+                    step="0.1" 
+                    className="input-field" 
+                    value={newItem?.fat_per_100g || ''} 
+                    onChange={e => setNewItem({ ...newItem, fat_per_100g: e.target.value })} 
+                    placeholder="Ej: 0,3"
+                  />
+                </div>
+              </div>
+            </div>
 
             <label>
               <input type="checkbox" checked={newItem.is_available} onChange={e => setNewItem({ ...newItem, is_available: e.target.checked })} /> Disponible
@@ -488,75 +657,257 @@ const columns = useMemo(() => [
 
       {/* EDIT MODAL */}
       <Modal isOpen={isEditOpen} title="Editar ingrediente" onClose={() => setIsEditOpen(false)} fullscreenMobile={true}>
-        <form className="modal-body-form">
-          <div className="form-fields-main">
-            <label>Nombre</label>
-            <input type="text" className="input-field" value={editedItem?.name || ''} onChange={e => setEditedItem({ ...editedItem, name: e.target.value })} />
-
-            <label>Unidad</label>
-            <select className="input-field" value={editedItem?.unit || ''} onChange={e => setEditedItem({ ...editedItem, unit: e.target.value })}>
-              {['gr','kg','ml','l','unit','tbsp','tsp'].map(v => <option key={v} value={v}>{v}</option>)}
-            </select>
-
-            <label>Precio base</label>
-            <input type="number" step="0.01" className="input-field" value={editedItem?.base_price || ''} onChange={e => setEditedItem({ ...editedItem, base_price: e.target.value })} />
-
-            <label>Merma (%)</label>
-            <input type="number" step="0.01" className="input-field" value={editedWastePercent} onChange={e => setEditedWastePercent(e.target.value)} placeholder="Ej. 5.43" />
-
-            <label>Precio neto</label>
-            <input type="number" step="0.01" className="input-field" value={editedItem?.net_price || ''} onChange={e => setEditedItem({ ...editedItem, net_price: e.target.value })} />
-
-            <label>Comentario</label>
-            <textarea className="input-field" rows="6" value={editedItem?.comment || ''} onChange={e => setEditedItem({ ...editedItem, comment: e.target.value })} />
-
-            <label>
-              <input type="checkbox" checked={editedItem?.is_available || false} onChange={e => setEditedItem({ ...editedItem, is_available: e.target.checked })} /> Disponible
-            </label>
+        <div className="ingredient-edit-modal">
+          {/* Pestañas para desktop */}
+          <div className="modal-tabs">
+            {tabs.map(tab => {
+              const IconComponent = tab.icon;
+              return (
+                <button 
+                  key={tab.id}
+                  className={`tab-button ${editModalTab === tab.id ? 'active' : ''}`}
+                  onClick={() => handleTabChange(tab.id)}
+                >
+                  <IconComponent className="tab-icon" />
+                  <span className="tab-label">{tab.label}</span>
+                </button>
+              );
+            })}
           </div>
-
-          <div className="form-fields-allergens">
-            <label>Stock</label>
-            <input type="number" step="0.01" className="input-field" value={editedItem?.stock || ''} onChange={e => setEditedItem({ ...editedItem, stock: e.target.value })} />
-
-            <label>Stock mínimo</label>
-            <input type="number" step="0.01" className="input-field" value={editedItem?.stock_minimum || ''} onChange={e => setEditedItem({ ...editedItem, stock_minimum: e.target.value })} placeholder="Cantidad mínima para alerta" />
-
-            <label>Temporada</label>
-            <div className="seasons-chips">
-              {availableSeasons.map(season => (
-                <span
-                  key={season.value}
-                  className={`season-chip ${editedItem?.season?.includes(season.value) ? 'selected' : ''}`}
-                  onClick={() => toggleSeason(season.value, false)}
-                >
-                  {season.label}
-                </span>
-              ))}
-            </div>
-
-            <label>Fecha de caducidad</label>
-            <input type="date" className="input-field" value={editedItem?.expiration_date || ''} onChange={e => setEditedItem({ ...editedItem, expiration_date: e.target.value })} />
-
-            <label>Alérgenos</label>
-            <div className="allergens-chips">
-              {allergens.map(allergen => (
-                <span
-                  key={allergen.allergen_id}
-                  className={`allergen-chip ${editedSelectedAllergens.includes(allergen.allergen_id) ? 'selected' : ''}`}
-                  onClick={() => toggleAllergen(allergen.allergen_id, false)}
-                >
-                  {allergen.name}
-                </span>
-              ))}
+          
+          {/* Dropdown para móvil */}
+          <div className="modal-mobile-dropdown" ref={dropdownRef}>
+            <button className="mobile-dropdown-trigger" onClick={toggleDropdown}>
+              {(() => {
+                const activeTabData = tabs.find(tab => tab.id === editModalTab);
+                const IconComponent = activeTabData?.icon;
+                return (
+                  <>
+                    <div className="mobile-dropdown-icon">
+                      <IconComponent />
+                    </div>
+                    <span className="mobile-dropdown-label">{activeTabData?.label}</span>
+                    <div className={`mobile-dropdown-arrow ${isDropdownOpen ? 'open' : ''}`}>
+                      <FaChevronDown />
+                    </div>
+                  </>
+                );
+              })()}
+            </button>
+            
+            <div className={`mobile-dropdown-menu ${isDropdownOpen ? 'open' : ''}`}>
+              {tabs.map(tab => {
+                const IconComponent = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    className={`mobile-dropdown-item ${editModalTab === tab.id ? 'active' : ''}`}
+                    onClick={() => handleTabChange(tab.id)}
+                  >
+                    <div className="mobile-dropdown-item-icon">
+                      <IconComponent />
+                    </div>
+                    <span className="mobile-dropdown-item-label">{tab.label}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          <div className="modal-actions">
-            <button type="button" className="btn cancel" onClick={() => setIsEditOpen(false)}>Cancelar</button>
-            <button type="button" className="btn add" onClick={handleEdit}>Guardar</button>
-          </div>
-        </form>
+          {/* Contenido de las pestañas */}
+          {editModalTab === 'info' ? (
+            <form className="modal-body-form ingredient-info-form">
+              <div className="form-fields-two-columns">
+                <div className="column-left">
+                  <label>Nombre</label>
+                  <input type="text" className="input-field" value={editedItem?.name || ''} onChange={e => setEditedItem({ ...editedItem, name: e.target.value })} />
+
+                  <label>Unidad</label>
+                  <select className="input-field" value={editedItem?.unit || ''} onChange={e => setEditedItem({ ...editedItem, unit: e.target.value })}>
+                    {['gr','kg','ml','l','unit','tbsp','tsp'].map(v => <option key={v} value={v}>{v}</option>)}
+                  </select>
+
+                  <label>Precio base</label>
+                  <input type="text" className="input-field" value={editedItem?.base_price || ''} onChange={e => {
+                    const value = e.target.value;
+                    // Permitir solo números, comas y puntos
+                    if (/^[\d.,]*$/.test(value)) {
+                      setEditedItem({ ...editedItem, base_price: value });
+                    }
+                  }} />
+
+                  <label>Merma (%)</label>
+                  <input type="text" className="input-field" value={editedWastePercent} onChange={e => {
+                    const value = e.target.value;
+                    if (/^[\d.,]*$/.test(value)) {
+                      setEditedWastePercent(value);
+                    }
+                  }} placeholder="Ej: 5,43" />
+
+                  <label>
+                    <input type="checkbox" checked={editedItem?.is_available || false} onChange={e => setEditedItem({ ...editedItem, is_available: e.target.checked })} /> Disponible
+                  </label>
+                </div>
+
+                <div className="column-right">
+                  <label>Precio neto (calculado automáticamente)</label>
+                  <div className="calculated-field" style={{
+                    padding: '8px 12px',
+                    backgroundColor: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '6px',
+                    color: '#64748b',
+                    fontSize: '14px',
+                    fontStyle: 'italic'
+                  }}>
+                    {(() => {
+                      const basePrice = parseEuropeanNumber(editedItem?.base_price || '') || 0;
+                      const wastePercent = parseEuropeanNumber(editedWastePercent) || 0;
+                      const netPrice = basePrice * (1 + wastePercent / 100);
+                      return netPrice > 0 ? formatCurrency(netPrice) : 'Se calcula al introducir precio base';
+                    })()}
+                  </div>
+
+                  <label>Stock</label>
+                  <input type="text" className="input-field" value={editedItem?.stock || ''} onChange={e => {
+                    const value = e.target.value;
+                    if (/^[\d.,]*$/.test(value)) {
+                      setEditedItem({ ...editedItem, stock: value });
+                    }
+                  }} />
+
+                  <label>Stock mínimo</label>
+                  <input type="text" className="input-field" value={editedItem?.stock_minimum || ''} onChange={e => {
+                    const value = e.target.value;
+                    if (/^[\d.,]*$/.test(value)) {
+                      setEditedItem({ ...editedItem, stock_minimum: value });
+                    }
+                  }} placeholder="Cantidad mínima para alerta" />
+
+                  <label>Fecha de caducidad</label>
+                  <input type="date" className="input-field" value={editedItem?.expiration_date || ''} onChange={e => setEditedItem({ ...editedItem, expiration_date: e.target.value })} />
+                </div>
+              </div>
+              
+              <div className="modal-actions">
+                <button type="button" className="btn cancel" onClick={() => setIsEditOpen(false)}>Cancelar</button>
+                <button type="button" className="btn add" onClick={handleEdit}>Guardar</button>
+              </div>
+            </form>
+          ) : (
+            <form className="modal-body-form ingredient-nutrition-form">
+              <div className="form-fields-two-columns">
+                <div className="column-left">
+                  {/* Información Nutricional por 100g */}
+                  <div style={{ marginBottom: '20px' }}>
+                    <h4 style={{ fontSize: '16px', fontWeight: '600', color: '#1e293b', marginBottom: '16px' }}>
+                      Información Nutricional (por 100g)
+                    </h4>
+                    
+                    <label>Calorías (kcal)</label>
+                    <input 
+                      type="text" 
+                      className="input-field" 
+                      value={editedItem?.calories_per_100g || ''} 
+                      onChange={e => {
+                        const value = e.target.value;
+                        if (/^[\d.,]*$/.test(value)) {
+                          setEditedItem({ ...editedItem, calories_per_100g: value });
+                        }
+                      }} 
+                      placeholder="Ej: 52,5"
+                    />
+                    
+                    <label>Proteínas (g)</label>
+                    <input 
+                      type="text" 
+                      className="input-field" 
+                      value={editedItem?.protein_per_100g || ''} 
+                      onChange={e => {
+                        const value = e.target.value;
+                        if (/^[\d.,]*$/.test(value)) {
+                          setEditedItem({ ...editedItem, protein_per_100g: value });
+                        }
+                      }} 
+                      placeholder="Ej: 1,2"
+                    />
+                    
+                    <label>Carbohidratos (g)</label>
+                    <input 
+                      type="text" 
+                      className="input-field" 
+                      value={editedItem?.carbs_per_100g || ''} 
+                      onChange={e => {
+                        const value = e.target.value;
+                        if (/^[\d.,]*$/.test(value)) {
+                          setEditedItem({ ...editedItem, carbs_per_100g: value });
+                        }
+                      }} 
+                      placeholder="Ej: 10,2"
+                    />
+                    
+                    <label>Grasas (g)</label>
+                    <input 
+                      type="text" 
+                      className="input-field" 
+                      value={editedItem?.fat_per_100g || ''} 
+                      onChange={e => {
+                        const value = e.target.value;
+                        if (/^[\d.,]*$/.test(value)) {
+                          setEditedItem({ ...editedItem, fat_per_100g: value });
+                        }
+                      }} 
+                      placeholder="Ej: 0,3"
+                    />
+
+                    <label>Comentario</label>
+                    <textarea className="input-field" rows="4" value={editedItem?.comment || ''} onChange={e => setEditedItem({ ...editedItem, comment: e.target.value })} />
+                  </div>
+                </div>
+
+                <div className="column-right">
+                  {/* Título equivalente para alinear con la columna izquierda */}
+                  <div style={{ marginBottom: '20px' }}>
+                    <h4 style={{ fontSize: '16px', fontWeight: '600', color: '#1e293b', marginBottom: '16px' }}>
+                      Información Adicional
+                    </h4>
+                    
+                    <label>Temporada</label>
+                    <div className="seasons-chips" style={{ marginBottom: '20px' }}>
+                      {availableSeasons.map(season => (
+                        <span
+                          key={season.value}
+                          className={`season-chip ${editedItem?.season?.includes(season.value) ? 'selected' : ''}`}
+                          onClick={() => toggleSeason(season.value, false)}
+                        >
+                          {season.label}
+                        </span>
+                      ))}
+                    </div>
+
+                    <label>Alérgenos</label>
+                    <div className="allergens-chips">
+                      {allergens.map(allergen => (
+                        <span
+                          key={allergen.allergen_id}
+                          className={`allergen-chip ${editedSelectedAllergens.includes(allergen.allergen_id) ? 'selected' : ''}`}
+                          onClick={() => toggleAllergen(allergen.allergen_id, false)}
+                        >
+                          {allergen.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="modal-actions">
+                <button type="button" className="btn cancel" onClick={() => setIsEditOpen(false)}>Cancelar</button>
+                <button type="button" className="btn add" onClick={handleEdit}>Guardar</button>
+              </div>
+            </form>
+          )}
+        </div>
       </Modal>
 
       {/* DELETE MODAL */}

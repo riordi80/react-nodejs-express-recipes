@@ -26,7 +26,10 @@ export default function FilterBar({
 
   allergenOptions,
   selectedAllergens,
-  onAllergensChange
+  onAllergensChange,
+
+  // Nuevas props para ViewToggle
+  viewToggleComponent
 }) {
   const [open, setOpen] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
@@ -172,7 +175,7 @@ export default function FilterBar({
 
       {/* Versión Móvil - Botón de filtros - SOLO renderizar en móvil */}
       {isMobile && (
-        <div className="filter-bar mobile-only">
+        <div className="filter-bar">
           <input
             type="text"
             className="filter-input"
@@ -181,17 +184,25 @@ export default function FilterBar({
             onChange={e => onSearchTextChange(e.target.value)}
           />
           
-          <button
-            type="button"
-            className={`filter-mobile-button ${activeFiltersCount > 0 ? 'active' : ''}`}
-            onClick={() => setIsFilterModalOpen(true)}
-          >
-            <FaFilter />
-            <span>Filtros</span>
-            {activeFiltersCount > 0 && (
-              <span className="filter-count">{activeFiltersCount}</span>
+          <div className="filter-mobile-controls">
+            <button
+              type="button"
+              className={`filter-mobile-button ${activeFiltersCount > 0 ? 'active' : ''}`}
+              onClick={() => setIsFilterModalOpen(true)}
+            >
+              <FaFilter />
+              <span>Filtros</span>
+              {activeFiltersCount > 0 && (
+                <span className="filter-count">{activeFiltersCount}</span>
+              )}
+            </button>
+            
+            {viewToggleComponent && (
+              <div className="filter-mobile-view-toggle">
+                {viewToggleComponent}
+              </div>
             )}
-          </button>
+          </div>
         </div>
       )}
 
@@ -323,4 +334,7 @@ FilterBar.propTypes = {
   allergenOptions: PropTypes.arrayOf(PropTypes.string).isRequired,
   selectedAllergens: PropTypes.arrayOf(PropTypes.string).isRequired,
   onAllergensChange: PropTypes.func.isRequired,
+
+  // ViewToggle component
+  viewToggleComponent: PropTypes.node,
 };
