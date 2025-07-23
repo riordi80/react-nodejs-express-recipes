@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useWidget } from '../../../context/WidgetContext';
 import { FaArrowsAlt, FaArrowUp, FaArrowDown, FaClipboardList, FaCalendarAlt, FaUtensils, FaTruck } from 'react-icons/fa';
+import Modal from '../../../components/modal/Modal';
 
 const DashboardSection = () => {
   const { widgetConfig, widgetOrder, updateWidgetConfig, updateDisplayConfig, resetWidgetConfig, updateWidgetOrder, loading } = useWidget();
@@ -325,56 +326,55 @@ const DashboardSection = () => {
       </div>
 
       {/* Modal de Reordenamiento */}
-      {showReorderModal && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h3>Reordenar Widgets</h3>
-              <button className="modal-close" onClick={handleCloseReorderModal}>×</button>
-            </div>
-            <div className="modal-body">
-              <p>Usa los botones de flecha para cambiar el orden de los widgets:</p>
-              <div className="reorder-list">
-                {tempOrder.map((widgetId, index) => (
-                  <div key={widgetId} className="reorder-item">
-                    <div className="reorder-item-info">
-                      <span className="reorder-position">{index + 1}.</span>
-                      <span className="reorder-title">{getWidgetTitle(widgetId)}</span>
-                      <span className={`reorder-status ${widgetConfig[widgetId] ? 'active' : 'inactive'}`}>
-                        {widgetConfig[widgetId] ? 'Activo' : 'Inactivo'}
-                      </span>
-                    </div>
-                    <div className="reorder-controls">
-                      <button 
-                        className="reorder-btn"
-                        onClick={() => moveItemUp(index)}
-                        disabled={index === 0}
-                      >
-                        <FaArrowUp />
-                      </button>
-                      <button 
-                        className="reorder-btn"
-                        onClick={() => moveItemDown(index)}
-                        disabled={index === tempOrder.length - 1}
-                      >
-                        <FaArrowDown />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+      <Modal 
+        isOpen={showReorderModal} 
+        title="Reordenar Widgets" 
+        onClose={handleCloseReorderModal}
+        fullscreenMobile={true}
+      >
+        <div style={{ padding: '0 4px' }}>
+          <p style={{ marginBottom: '20px', color: '#64748b' }}>
+            Usa los botones de flecha para cambiar el orden de los widgets:
+          </p>
+          <div className="reorder-list">
+            {tempOrder.map((widgetId, index) => (
+              <div key={widgetId} className="reorder-item">
+                <div className="reorder-item-info">
+                  <span className="reorder-position">{index + 1}.</span>
+                  <span className="reorder-title">{getWidgetTitle(widgetId)}</span>
+                  <span className={`reorder-status ${widgetConfig[widgetId] ? 'active' : 'inactive'}`}>
+                    {widgetConfig[widgetId] ? 'Activo' : 'Inactivo'}
+                  </span>
+                </div>
+                <div className="reorder-controls">
+                  <button 
+                    className="reorder-btn"
+                    onClick={() => moveItemUp(index)}
+                    disabled={index === 0}
+                  >
+                    <FaArrowUp />
+                  </button>
+                  <button 
+                    className="reorder-btn"
+                    onClick={() => moveItemDown(index)}
+                    disabled={index === tempOrder.length - 1}
+                  >
+                    <FaArrowDown />
+                  </button>
+                </div>
               </div>
-            </div>
-            <div className="modal-footer">
-              <button className="settings-button secondary" onClick={handleCloseReorderModal}>
-                Cancelar
-              </button>
-              <button className="settings-button primary" onClick={handleSaveOrder}>
-                Guardar Orden
-              </button>
-            </div>
+            ))}
+          </div>
+          <div className="modal-actions">
+            <button className="btn cancel" onClick={handleCloseReorderModal}>
+              Cancelar
+            </button>
+            <button className="btn add" onClick={handleSaveOrder}>
+              Guardar Orden
+            </button>
           </div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 };

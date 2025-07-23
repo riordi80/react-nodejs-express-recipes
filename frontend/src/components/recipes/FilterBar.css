@@ -11,11 +11,16 @@
 /* ─── Inputs y selects estándar ─── */
 .filter-input,
 .filter-select {
+  min-width: 0;
+  height: 36px;
   padding: 6px 8px;
   border: 1px solid #ccc;
   border-radius: 4px;
+  box-sizing: border-box;
   font-size: inherit;
-  height: 36px; /* altura estándar */
+  font-family: inherit;
+  background: white;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
   width: 180px;    /* ancho fijo para todos los selects */
   flex-shrink: 0;  /* evitar que se compriman */
 }
@@ -41,6 +46,17 @@ select.filter-select {
 .filter-input {
   flex: 1;         /* ocupa todo el espacio disponible */
   min-width: 200px; /* ancho mínimo */
+  line-height: 30px;
+}
+
+.filter-input:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: none;
+}
+
+.filter-input::placeholder {
+  color: #9ca3af;
 }
 
 /* ─── Multi-select custom para alérgenos ─── */
@@ -260,7 +276,6 @@ select.filter-select {
   .filter-select {
     width: 100% !important; /* ancho completo en móviles */
     font-size: 16px; /* ajustar tamaño de fuente */
-    height: 44px; /* altura táctil */
   }
   
   .filter-bar .filter-multiselect {
@@ -281,6 +296,7 @@ select.filter-select {
   align-items: center;
   gap: 8px;
   width: 100%;
+  margin-top: 6px;
 }
 
 .filter-mobile-button {
@@ -297,16 +313,12 @@ select.filter-select {
   font-size: 14px;
   color: #64748b;
   min-width: 120px;
-  height: 44px;
+  height: 43px;
   position: relative;
   flex: 1;
 }
 
-.filter-mobile-view-toggle {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-}
+/* .filter-mobile-view-toggle eliminado - ViewToggle se renderiza en el título */
 
 .filter-mobile-button:hover {
   background: #f1f5f9;
@@ -323,6 +335,19 @@ select.filter-select {
 .filter-mobile-button.active:hover {
   background: #2563eb;
   border-color: #2563eb;
+}
+
+.filter-mobile-button:disabled {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.filter-mobile-button:disabled:hover {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #94a3b8;
 }
 
 .filter-count {
@@ -431,6 +456,19 @@ select.filter-select {
   font-size: 16px;
   border-radius: 8px;
   font-weight: 600;
+}
+
+.filter-modal-actions .btn:disabled {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.filter-modal-actions .btn:disabled:hover {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #94a3b8;
 }
 
 @media (max-width: 480px) {

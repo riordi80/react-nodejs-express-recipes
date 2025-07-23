@@ -15,9 +15,13 @@ export default function Modal({ isOpen, title, children, onClose, fullscreenMobi
       setIsClosing(false);
       setShouldRender(true);
     } else {
-      // Si es fullscreen móvil Y estamos en móvil, no ocultar aquí (se maneja en handleClose)
+      // Si es fullscreen móvil Y estamos en móvil, usar animación de cierre
       if (fullscreenMobile && window.innerWidth <= 768) {
-        // No hacer nada, se maneja en handleClose con animación
+        setIsClosing(true);
+        setTimeout(() => {
+          setShouldRender(false);
+          setIsClosing(false);
+        }, 400);
       } else {
         // Para todo lo demás, ocultar inmediatamente
         setShouldRender(false);
@@ -26,27 +30,13 @@ export default function Modal({ isOpen, title, children, onClose, fullscreenMobi
   }, [isOpen, fullscreenMobile]);
 
   const handleClose = () => {
-    // Para fullscreen en móvil, usar animación
-    if (fullscreenMobile && window.innerWidth <= 768) {
-      setIsClosing(true);
-      setTimeout(() => {
-        setShouldRender(false);
-        onClose();
-        setIsClosing(false);
-      }, 400);
-    } else {
-      // Para todo lo demás, cerrar directamente
-      onClose();
-    }
+    // Simplemente llamar onClose, el useEffect manejará la animación
+    onClose();
   };
 
-  // Función para cerrar al hacer clic en overlay (sin animación en desktop)
+  // Función para cerrar al hacer clic en overlay
   const handleOverlayClick = () => {
-    if (fullscreenMobile && window.innerWidth <= 768) {
-      handleClose();
-    } else {
-      onClose();
-    }
+    onClose();
   };
 
   if (!shouldRender) return null;

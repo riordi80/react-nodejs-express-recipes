@@ -210,8 +210,8 @@ export default function RecipesPage() {
     allergenOptions,
     selectedAllergens,
     onAllergensChange: setSelectedAllergens,
-    // Pasar ViewToggle solo en móvil
-    viewToggleComponent: isMobile ? <ViewToggle view={view} onChange={handleViewChange} /> : null,
+    // No pasar ViewToggle - se moverá al título
+    viewToggleComponent: null,
   };
 
   // Custom filters component
@@ -231,7 +231,6 @@ export default function RecipesPage() {
     // Layout desktop original
     <div className="recipes-filters">
       <FilterBar {...filterBarProps} />
-      <ViewToggle view={view} onChange={handleViewChange} />
       <button
         className="btn add new-recipe-button"
         onClick={() => navigate('/recipes/new')}
@@ -300,6 +299,7 @@ export default function RecipesPage() {
         noDataMessage="No hay recetas para mostrar"
         filters={[]}
         enableMobileModal={false} // FilterBar has its own mobile modal
+        actions={<ViewToggle view={view} onChange={handleViewChange} />}
       />
 
       {/* DELETE MODAL */}

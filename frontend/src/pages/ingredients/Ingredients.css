@@ -149,30 +149,36 @@
 /* Estilos para pestañas de modal - Editar ingrediente */
 .modal-tabs {
   display: flex;
-  border-bottom: 2px solid #e9ecef;
   margin-bottom: 20px;
+  gap: 4px;
 }
 
 .tab-button {
-  padding: 12px 24px;
-  border: none;
-  background: transparent !important;
+  padding: 12px 20px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc !important;
   cursor: pointer;
   font-weight: 500;
-  color: #6c757d;
-  border-bottom: 2px solid transparent;
+  color: #64748b;
+  border-radius: 8px 8px 0 0;
   transition: all 0.2s;
+  position: relative;
+  margin-bottom: -1px;
 }
 
 .tab-button:hover {
-  color: #495057;
-  background: transparent !important;
+  color: #334155;
+  background: #f1f5f9 !important;
+  border-color: #cbd5e1;
 }
 
 .tab-button.active {
-  color: #007bff;
-  border-bottom-color: #007bff;
-  background: transparent !important;
+  color: #1e40af;
+  background: white !important;
+  border-color: #e2e8f0;
+  border-bottom-color: white;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 1;
 }
 
 .modal-tabs .tab-button {
@@ -183,6 +189,15 @@
 
 .modal-tabs .tab-icon {
   font-size: 14px;
+}
+
+/* Contenedor del contenido de las pestañas */
+.tab-content {
+  border: 1px solid #e2e8f0;
+  border-radius: 0 8px 8px 8px;
+  background: white;
+  padding: 24px;
+  margin-top: -1px;
 }
 
 /* Dropdown móvil para pestañas de modal */
@@ -333,34 +348,9 @@
   width: 100%;
 }
 
-.form-fields-two-columns {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
-  width: 100%;
-  box-sizing: border-box;
-}
+/* Layout de dos columnas movido a App.css para consistencia global (DRY) */
 
-.column-left,
-.column-right {
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-}
-
-.column-left label,
-.column-right label {
-  margin-bottom: 6px;
-  font-weight: 500;
-  color: #374151;
-}
-
-.column-left .input-field,
-.column-right .input-field {
-  margin-bottom: 16px;
-  width: 100%;
-  box-sizing: border-box;
-}
+/* Estilos de labels e inputs movidos a App.css para consistencia global (DRY) */
 
 /* Mejoras para eventos táctiles en móvil */
 @media (hover: none) and (pointer: coarse) {
@@ -400,9 +390,5 @@
     display: none !important;
   }
 
-  /* En móvil, cambiar a una sola columna */
-  .form-fields-two-columns {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
+  /* Responsive para form-fields-two-columns movido a App.css para consistencia global (DRY) */
 }

@@ -28,13 +28,15 @@ export default function FilterBar({
   selectedAllergens,
   onAllergensChange,
 
-  // Nuevas props para ViewToggle
-  viewToggleComponent
+  // ViewToggle se renderiza ahora en el título de la página
+  // viewToggleComponent (ya no se usa)
 }) {
   const [open, setOpen] = useState(false);
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
+  const [isApplyingFilters, setIsApplyingFilters] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const ref = useRef(null);
+
 
   // Detectar tamaño de pantalla
   useEffect(() => {
@@ -77,6 +79,16 @@ export default function FilterBar({
     onDifficultyChange('');
     onIngredientChange('');
     onAllergensChange([]);
+    setIsFilterModalOpen(false);
+    // Scroll to top to show all results after clearing filters
+    setTimeout(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 100);
+  };
+
+  // Función específica para aplicar filtros
+  const applyFilters = () => {
+    setIsFilterModalOpen(false);
   };
 
   // Contar filtros activos
@@ -107,7 +119,7 @@ export default function FilterBar({
           value={selectedCategory}
           onChange={e => onCategoryChange(e.target.value)}
         >
-          <option value="">Todas las categorías</option>
+          <option value="">Categorías</option>
           {categoryOptions.map(cat => (
             <option key={cat} value={cat}>{cat}</option>
           ))}
@@ -118,7 +130,7 @@ export default function FilterBar({
           value={selectedPrepTime || ''}
           onChange={e => onPrepTimeChange(e.target.value ? Number(e.target.value) : null)}
         >
-          <option value="">Cualquier tiempo</option>
+          <option value="">Tiempo</option>
           {prepTimeOptions.map(t => (
             <option key={t} value={t}>{t} min</option>
           ))}
@@ -129,7 +141,7 @@ export default function FilterBar({
           value={selectedDifficulty}
           onChange={e => onDifficultyChange(e.target.value)}
         >
-          <option value="">Cualquier dificultad</option>
+          <option value="">Dificultad</option>
           {difficultyOptions.map(d => (
             <option key={d.value || d} value={d.value || d}>{d.label || d}</option>
           ))}
@@ -140,7 +152,7 @@ export default function FilterBar({
           value={selectedIngredient}
           onChange={e => onIngredientChange(e.target.value)}
         >
-          <option value="">Cualquier ingrediente</option>
+          <option value="">Ingrediente</option>
           {ingredientOptions.map(ing => (
             <option key={ing} value={ing}>{ing}</option>
           ))}
@@ -189,19 +201,15 @@ export default function FilterBar({
               type="button"
               className={`filter-mobile-button ${activeFiltersCount > 0 ? 'active' : ''}`}
               onClick={() => setIsFilterModalOpen(true)}
+              disabled={isApplyingFilters}
             >
               <FaFilter />
-              <span>Filtros</span>
-              {activeFiltersCount > 0 && (
+              <span>{isApplyingFilters ? 'Aplicando...' : 'Filtros'}</span>
+              {activeFiltersCount > 0 && !isApplyingFilters && (
                 <span className="filter-count">{activeFiltersCount}</span>
               )}
             </button>
             
-            {viewToggleComponent && (
-              <div className="filter-mobile-view-toggle">
-                {viewToggleComponent}
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -298,7 +306,7 @@ export default function FilterBar({
             <button 
               type="button" 
               className="btn add" 
-              onClick={() => setIsFilterModalOpen(false)}
+              onClick={applyFilters}
             >
               Aplicar filtros
             </button>
@@ -335,6 +343,6 @@ FilterBar.propTypes = {
   selectedAllergens: PropTypes.arrayOf(PropTypes.string).isRequired,
   onAllergensChange: PropTypes.func.isRequired,
 
-  // ViewToggle component
-  viewToggleComponent: PropTypes.node,
+  // ViewToggle se renderiza ahora en el título
+  // viewToggleComponent: PropTypes.node, (ya no se usa)
 };

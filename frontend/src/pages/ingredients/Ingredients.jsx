@@ -1,11 +1,13 @@
 // src/pages/ingredients/Ingredients.jsx
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { FaBan, FaUndo, FaUser, FaLeaf, FaChevronDown } from 'react-icons/fa';
+import { FaBan, FaUndo, FaUser, FaLeaf } from 'react-icons/fa';
 import BasePage from '../../components/BasePage';
 import Modal from '../../components/modal/Modal';
+import TabsModal from '../../components/tabs-modal/TabsModal';
 // usePageState removed - now using custom state management
 import api from '../../api/axios';
 import { formatCurrency, formatDecimal, parseEuropeanNumber } from '../../utils/formatters';
+import { FormField, FormInput, FormTextarea, FormSelect } from '../../components/form/FormField';
 import './Ingredients.css';
 
 export default function Ingredients() {
@@ -48,8 +50,11 @@ export default function Ingredients() {
   const [editedWastePercent, setEditedWastePercent] = useState('');
   const [editedSelectedAllergens, setEditedSelectedAllergens] = useState([]);
   const [editModalTab, setEditModalTab] = useState('info'); // 'info' o 'nutrition'
+  const [createModalTab, setCreateModalTab] = useState('info'); // 'info' o 'nutrition' para modal de crear
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isCreateDropdownOpen, setIsCreateDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const createDropdownRef = useRef(null);
 
   // Definir las pestañas con iconos
   const tabs = [
@@ -57,11 +62,14 @@ export default function Ingredients() {
     { id: 'nutrition', label: 'Información Nutricional', icon: FaLeaf }
   ];
 
-  // Efecto para cerrar el dropdown cuando se hace clic fuera
+  // Efecto para cerrar los dropdowns cuando se hace clic fuera
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsDropdownOpen(false);
+      }
+      if (createDropdownRef.current && !createDropdownRef.current.contains(event.target)) {
+        setIsCreateDropdownOpen(false);
       }
     };
 
@@ -76,8 +84,21 @@ export default function Ingredients() {
     setIsDropdownOpen(false);
   };
 
+  const handleEditTabChange = (tabId) => {
+    setEditModalTab(tabId);
+  };
+
+  const handleCreateTabChange = (tabId) => {
+    setCreateModalTab(tabId);
+    setIsCreateDropdownOpen(false);
+  };
+
   const toggleDropdown = () => {
     setIsDropdownOpen(!isDropdownOpen);
+  };
+
+  const toggleCreateDropdown = () => {
+    setIsCreateDropdownOpen(!isCreateDropdownOpen);
   };
 
   // Load ingredients with availability filter
@@ -188,13 +209,8 @@ export default function Ingredients() {
     }
   };
 
-  // Edit handlers con mejora para móvil
-  const openEditModal = async (row, event) => {
-    // Prevenir eventos duplicados en móvil
-    if (event) {
-      event.preventDefault();
-      event.stopPropagation();
-    }
+  // Edit handlers 
+  const openEditModal = async (row) => {
 
     // Formatear fecha para input type="date" (YYYY-MM-DD) sin conversión de zona horaria
     let formattedDate = '';
@@ -234,28 +250,6 @@ export default function Ingredients() {
     setIsEditOpen(true);
   };
 
-  // Handler optimizado para móvil con debounce
-  const handleRowClick = (row) => {
-    let isProcessing = false;
-    
-    return (event) => {
-      // Evitar procesamiento múltiple
-      if (isProcessing) {
-        event.preventDefault();
-        return;
-      }
-      
-      isProcessing = true;
-      
-      // Resetear el flag después de un breve delay
-      setTimeout(() => {
-        isProcessing = false;
-      }, 300);
-      
-      // Procesar el clic
-      openEditModal(row, event);
-    };
-  };
 
   const handleEdit = async () => {
     try {
@@ -370,18 +364,9 @@ export default function Ingredients() {
 const columns = useMemo(() => [
   { 
     name: 'Nombre', 
-    selector: r => r.name, 
+    selector: r => r.name + (!r.is_available ? ' (Inactivo)' : ''), 
     sortable: true, 
-    grow: 1,
-    cell: row => (
-      <span style={{ 
-        color: row.is_available ? '#000' : '#94a3b8',
-        fontStyle: row.is_available ? 'normal' : 'italic'
-      }}>
-        {row.name}
-        {!row.is_available && <span style={{ marginLeft: '8px', fontSize: '12px' }}>(Inactivo)</span>}
-      </span>
-    )
+    grow: 1
   },
   { name: 'P. Base', selector: r => formatCurrency(r.base_price), sortable: true },
   { name: 'Merma (%)', selector: row => `${formatDecimal(row.waste_percent * 100, 2)}%`, sortable: true },
@@ -492,7 +477,7 @@ const columns = useMemo(() => [
         onFilterChange={setFilterText}
         showSearch={true}
         onAdd={() => setIsCreateOpen(true)}
-        onRowClicked={(row, event) => handleRowClick(row)(event)}
+        onRowClicked={openEditModal}
         addButtonText="Añadir ingrediente"
         searchPlaceholder="Buscar ingrediente..."
         noDataMessage="No hay ingredientes para mostrar"
@@ -502,411 +487,532 @@ const columns = useMemo(() => [
 
       {/* CREATE MODAL */}
       <Modal isOpen={isCreateOpen} title="Nuevo ingrediente" onClose={() => setIsCreateOpen(false)} fullscreenMobile={true}>
-        <form onSubmit={handleCreate} className="modal-body-form">
-          <div className="form-fields-main">
-            <label>Nombre</label>
-            <input type="text" className="input-field" value={newItem.name} onChange={e => setNewItem({ ...newItem, name: e.target.value })} required />
+        <div className="ingredient-edit-modal">
+          <TabsModal
+            tabs={tabs}
+            activeTab={createModalTab}
+            onTabChange={handleCreateTabChange}
+            mobileDropdownRef={createDropdownRef}
+          >
+            {createModalTab === 'info' ? (
+              <form onSubmit={handleCreate} className="modal-body-form ingredient-info-form">
+                <div className="form-fields-two-columns">
+                  <div className="column-left">
+                    <FormField label="Nombre">
+                      <FormInput 
+                        type="text" 
+                        value={newItem.name} 
+                        onChange={e => setNewItem({ ...newItem, name: e.target.value })} 
+                        required 
+                      />
+                    </FormField>
 
-            <label>Unidad</label>
-            <select className="input-field" value={newItem.unit} onChange={e => setNewItem({ ...newItem, unit: e.target.value })}>
-              {['gr','kg','ml','l','unit','tbsp','tsp'].map(v => <option key={v} value={v}>{v}</option>)}
-            </select>
+                    <FormField label="Unidad">
+                      <FormSelect value={newItem.unit} onChange={e => setNewItem({ ...newItem, unit: e.target.value })}>
+                        {['gr','kg','ml','l','unit','tbsp','tsp'].map(v => <option key={v} value={v}>{v}</option>)}
+                      </FormSelect>
+                    </FormField>
 
-            <label>Precio base</label>
-            <input type="text" className="input-field" value={newItem.base_price} onChange={e => {
-              const value = e.target.value;
-              if (/^[\d.,]*$/.test(value)) {
-                setNewItem({ ...newItem, base_price: value });
-              }
-            }} required />
+                    <FormField label="Precio base">
+                      <FormInput 
+                        type="text" 
+                        value={newItem.base_price} 
+                        onChange={e => {
+                          const value = e.target.value;
+                          if (/^[\d.,]*$/.test(value)) {
+                            setNewItem({ ...newItem, base_price: value });
+                          }
+                        }} 
+                        required 
+                      />
+                    </FormField>
 
-            <label>Merma (%)</label>
-            <input type="text" className="input-field" value={newWastePercent} onChange={e => {
-              const value = e.target.value;
-              if (/^[\d.,]*$/.test(value)) {
-                setNewWastePercent(value);
-              }
-            }} placeholder="Ej: 5,43" />
+                    <FormField label="Merma (%)">
+                      <FormInput 
+                        type="text" 
+                        value={newWastePercent} 
+                        onChange={e => {
+                          const value = e.target.value;
+                          if (/^[\d.,]*$/.test(value)) {
+                            setNewWastePercent(value);
+                          }
+                        }} 
+                        placeholder="Ej: 5,43" 
+                      />
+                    </FormField>
 
-            <label>Precio neto (calculado automáticamente)</label>
-            <div className="calculated-field" style={{
-              padding: '8px 12px',
-              backgroundColor: '#f8fafc',
-              border: '1px solid #e2e8f0',
-              borderRadius: '6px',
-              color: '#64748b',
-              fontSize: '14px',
-              fontStyle: 'italic'
-            }}>
-              {(() => {
-                const basePrice = parseEuropeanNumber(newItem.base_price) || 0;
-                const wastePercent = parseEuropeanNumber(newWastePercent) || 0;
-                const netPrice = basePrice * (1 + wastePercent / 100);
-                return netPrice > 0 ? formatCurrency(netPrice) : 'Se calcula al introducir precio base';
-              })()}
-            </div>
+                    <FormField label="">
+                      <label style={{display: 'flex', alignItems: 'center', gap: '8px', margin: '0px 0px 16px 0px'}}>
+                        <input type="checkbox" checked={newItem.is_available} onChange={e => setNewItem({ ...newItem, is_available: e.target.checked })} />
+                        Disponible
+                      </label>
+                    </FormField>
+                  </div>
 
-            <label>Comentario</label>
-            <textarea className="input-field" rows="6" value={newItem.comment} onChange={e => setNewItem({ ...newItem, comment: e.target.value })} />
+                  <div className="column-right">
+                    <FormField label="Precio neto (calculado automáticamente)">
+                      <div style={{
+                        display: 'block',
+                        margin: '0px 0px 16px 0px',
+                        padding: '8px 12px',
+                        backgroundColor: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '6px',
+                        color: '#64748b',
+                        fontSize: '14px',
+                        fontStyle: 'italic'
+                      }}>
+                        {(() => {
+                          const basePrice = parseEuropeanNumber(newItem.base_price) || 0;
+                          const wastePercent = parseEuropeanNumber(newWastePercent) || 0;
+                          const netPrice = basePrice * (1 + wastePercent / 100);
+                          return netPrice > 0 ? formatCurrency(netPrice) : 'Se calcula al introducir precio base';
+                        })()}
+                      </div>
+                    </FormField>
 
-            {/* Información Nutricional por 100g */}
-            <div style={{ margin: '20px 0', borderTop: '1px solid #e2e8f0', paddingTop: '20px' }}>
-              <h4 style={{ fontSize: '16px', fontWeight: '600', color: '#1e293b', marginBottom: '16px' }}>
-                Información Nutricional (por 100g)
-              </h4>
-              
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' }}>
-                <div>
-                  <label>Calorías (kcal)</label>
-                  <input 
-                    type="number" 
-                    step="0.1" 
-                    className="input-field" 
-                    value={newItem?.calories_per_100g || ''} 
-                    onChange={e => setNewItem({ ...newItem, calories_per_100g: e.target.value })} 
-                    placeholder="Ej: 52,5"
-                  />
+                    <FormField label="Stock inicial">
+                      <FormInput 
+                        type="text" 
+                        value={newItem.stock} 
+                        onChange={e => {
+                          const value = e.target.value;
+                          if (/^[\d.,]*$/.test(value)) {
+                            setNewItem({ ...newItem, stock: value });
+                          }
+                        }} 
+                      />
+                    </FormField>
+
+                    <FormField label="Stock mínimo">
+                      <FormInput 
+                        type="text" 
+                        value={newItem.stock_minimum} 
+                        onChange={e => {
+                          const value = e.target.value;
+                          if (/^[\d.,]*$/.test(value)) {
+                            setNewItem({ ...newItem, stock_minimum: value });
+                          }
+                        }} 
+                        placeholder="Cantidad mínima para alerta" 
+                      />
+                    </FormField>
+
+                    <FormField label="Fecha de caducidad">
+                      <FormInput 
+                        type="date" 
+                        value={newItem.expiration_date} 
+                        onChange={e => setNewItem({ ...newItem, expiration_date: e.target.value })} 
+                      />
+                    </FormField>
+                  </div>
                 </div>
                 
-                <div>
-                  <label>Proteínas (g)</label>
-                  <input 
-                    type="number" 
-                    step="0.1" 
-                    className="input-field" 
-                    value={newItem?.protein_per_100g || ''} 
-                    onChange={e => setNewItem({ ...newItem, protein_per_100g: e.target.value })} 
-                    placeholder="Ej: 1,2"
-                  />
+                <div className="modal-actions">
+                  <button type="button" className="btn cancel" onClick={() => setIsCreateOpen(false)}>Cancelar</button>
+                  <button type="submit" className="btn add">Guardar</button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={handleCreate} className="modal-body-form ingredient-nutrition-form">
+                <div className="form-fields-two-columns">
+                  <div className="column-left">
+                    {/* Información Nutricional por 100g */}
+                    <div style={{ marginBottom: '20px' }}>
+                      <h4 style={{ fontSize: '16px', fontWeight: '600', color: '#1e293b', marginBottom: '16px' }}>
+                        Información Nutricional (por 100g)
+                      </h4>
+                      
+                      <FormField label="Calorías (kcal)">
+                        <FormInput 
+                          type="text" 
+                          value={newItem?.calories_per_100g || ''} 
+                          onChange={e => {
+                            const value = e.target.value;
+                            if (/^[\d.,]*$/.test(value)) {
+                              setNewItem({ ...newItem, calories_per_100g: value });
+                            }
+                          }} 
+                          placeholder="Ej: 52,5"
+                        />
+                      </FormField>
+                      
+                      <FormField label="Proteínas (g)">
+                        <FormInput 
+                          type="text" 
+                          value={newItem?.protein_per_100g || ''} 
+                          onChange={e => {
+                            const value = e.target.value;
+                            if (/^[\d.,]*$/.test(value)) {
+                              setNewItem({ ...newItem, protein_per_100g: value });
+                            }
+                          }} 
+                          placeholder="Ej: 1,2"
+                        />
+                      </FormField>
+                      
+                      <FormField label="Carbohidratos (g)">
+                        <FormInput 
+                          type="text" 
+                          value={newItem?.carbs_per_100g || ''} 
+                          onChange={e => {
+                            const value = e.target.value;
+                            if (/^[\d.,]*$/.test(value)) {
+                              setNewItem({ ...newItem, carbs_per_100g: value });
+                            }
+                          }} 
+                          placeholder="Ej: 10,2"
+                        />
+                      </FormField>
+                      
+                      <FormField label="Grasas (g)">
+                        <FormInput 
+                          type="text" 
+                          value={newItem?.fat_per_100g || ''} 
+                          onChange={e => {
+                            const value = e.target.value;
+                            if (/^[\d.,]*$/.test(value)) {
+                              setNewItem({ ...newItem, fat_per_100g: value });
+                            }
+                          }} 
+                          placeholder="Ej: 0,3"
+                        />
+                      </FormField>
+
+                      <FormField label="Comentario">
+                        <FormTextarea 
+                          rows="4" 
+                          value={newItem.comment} 
+                          onChange={e => setNewItem({ ...newItem, comment: e.target.value })} 
+                        />
+                      </FormField>
+                    </div>
+                  </div>
+
+                  <div className="column-right">
+                    {/* Título equivalente para alinear con la columna izquierda */}
+                    <div style={{ marginBottom: '20px' }}>
+                      <h4 style={{ fontSize: '16px', fontWeight: '600', color: '#1e293b', marginBottom: '16px' }}>
+                        Información Adicional
+                      </h4>
+                      
+                      <label style={{
+                        display: 'block',
+                        margin: '0px 0px 6px 0px',
+                        padding: 0,
+                        fontWeight: 500,
+                        color: '#374151',
+                        fontSize: '14px'
+                      }}>Temporada</label>
+                      <div className="seasons-chips" style={{ marginBottom: '20px' }}>
+                        {availableSeasons.map(season => (
+                          <span
+                            key={season.value}
+                            className={`season-chip ${newItem?.season?.includes(season.value) ? 'selected' : ''}`}
+                            onClick={() => toggleSeason(season.value, true)}
+                          >
+                            {season.label}
+                          </span>
+                        ))}
+                      </div>
+
+                      <label style={{
+                        display: 'block',
+                        margin: '0px 0px 6px 0px',
+                        padding: 0,
+                        fontWeight: 500,
+                        color: '#374151',
+                        fontSize: '14px'
+                      }}>Alérgenos</label>
+                      <div className="allergens-chips">
+                        {allergens.map(allergen => (
+                          <span
+                            key={allergen.allergen_id}
+                            className={`allergen-chip ${newSelectedAllergens.includes(allergen.allergen_id) ? 'selected' : ''}`}
+                            onClick={() => toggleAllergen(allergen.allergen_id, true)}
+                          >
+                            {allergen.name}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 
-                <div>
-                  <label>Carbohidratos (g)</label>
-                  <input 
-                    type="number" 
-                    step="0.1" 
-                    className="input-field" 
-                    value={newItem?.carbs_per_100g || ''} 
-                    onChange={e => setNewItem({ ...newItem, carbs_per_100g: e.target.value })} 
-                    placeholder="Ej: 10,2"
-                  />
+                <div className="modal-actions">
+                  <button type="button" className="btn cancel" onClick={() => setIsCreateOpen(false)}>Cancelar</button>
+                  <button type="submit" className="btn add">Guardar</button>
                 </div>
-                
-                <div>
-                  <label>Grasas (g)</label>
-                  <input 
-                    type="number" 
-                    step="0.1" 
-                    className="input-field" 
-                    value={newItem?.fat_per_100g || ''} 
-                    onChange={e => setNewItem({ ...newItem, fat_per_100g: e.target.value })} 
-                    placeholder="Ej: 0,3"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <label>
-              <input type="checkbox" checked={newItem.is_available} onChange={e => setNewItem({ ...newItem, is_available: e.target.checked })} /> Disponible
-            </label>
-          </div>
-
-          <div className="form-fields-allergens">
-            <label>Stock inicial</label>
-            <input type="number" step="0.01" className="input-field" value={newItem.stock} onChange={e => setNewItem({ ...newItem, stock: e.target.value })} />
-
-            <label>Stock mínimo</label>
-            <input type="number" step="0.01" className="input-field" value={newItem.stock_minimum} onChange={e => setNewItem({ ...newItem, stock_minimum: e.target.value })} placeholder="Cantidad mínima para alerta" />
-
-            <label>Temporada</label>
-            <div className="seasons-chips">
-              {availableSeasons.map(season => (
-                <span
-                  key={season.value}
-                  className={`season-chip ${newItem.season.includes(season.value) ? 'selected' : ''}`}
-                  onClick={() => toggleSeason(season.value, true)}
-                >
-                  {season.label}
-                </span>
-              ))}
-            </div>
-
-            <label>Fecha de caducidad</label>
-            <input type="date" className="input-field" value={newItem.expiration_date} onChange={e => setNewItem({ ...newItem, expiration_date: e.target.value })} />
-
-            <label>Alérgenos</label>
-            <div className="allergens-chips">
-              {allergens.map(allergen => (
-                <span
-                  key={allergen.allergen_id}
-                  className={`allergen-chip ${newSelectedAllergens.includes(allergen.allergen_id) ? 'selected' : ''}`}
-                  onClick={() => toggleAllergen(allergen.allergen_id, true)}
-                >
-                  {allergen.name}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          <div className="modal-actions">
-            <button type="button" className="btn cancel" onClick={() => setIsCreateOpen(false)}>Cancelar</button>
-            <button type="submit" className="btn add">Guardar</button>
-          </div>
-        </form>
+              </form>
+            )}
+          </TabsModal>
+        </div>
       </Modal>
 
       {/* EDIT MODAL */}
       <Modal isOpen={isEditOpen} title="Editar ingrediente" onClose={() => setIsEditOpen(false)} fullscreenMobile={true}>
         <div className="ingredient-edit-modal">
-          {/* Pestañas para desktop */}
-          <div className="modal-tabs">
-            {tabs.map(tab => {
-              const IconComponent = tab.icon;
-              return (
-                <button 
-                  key={tab.id}
-                  className={`tab-button ${editModalTab === tab.id ? 'active' : ''}`}
-                  onClick={() => handleTabChange(tab.id)}
-                >
-                  <IconComponent className="tab-icon" />
-                  <span className="tab-label">{tab.label}</span>
-                </button>
-              );
-            })}
-          </div>
-          
-          {/* Dropdown para móvil */}
-          <div className="modal-mobile-dropdown" ref={dropdownRef}>
-            <button className="mobile-dropdown-trigger" onClick={toggleDropdown}>
-              {(() => {
-                const activeTabData = tabs.find(tab => tab.id === editModalTab);
-                const IconComponent = activeTabData?.icon;
-                return (
-                  <>
-                    <div className="mobile-dropdown-icon">
-                      <IconComponent />
-                    </div>
-                    <span className="mobile-dropdown-label">{activeTabData?.label}</span>
-                    <div className={`mobile-dropdown-arrow ${isDropdownOpen ? 'open' : ''}`}>
-                      <FaChevronDown />
-                    </div>
-                  </>
-                );
-              })()}
-            </button>
-            
-            <div className={`mobile-dropdown-menu ${isDropdownOpen ? 'open' : ''}`}>
-              {tabs.map(tab => {
-                const IconComponent = tab.icon;
-                return (
-                  <button
-                    key={tab.id}
-                    className={`mobile-dropdown-item ${editModalTab === tab.id ? 'active' : ''}`}
-                    onClick={() => handleTabChange(tab.id)}
-                  >
-                    <div className="mobile-dropdown-item-icon">
-                      <IconComponent />
-                    </div>
-                    <span className="mobile-dropdown-item-label">{tab.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <TabsModal
+            tabs={tabs}
+            activeTab={editModalTab}
+            onTabChange={handleEditTabChange}
+            mobileDropdownRef={dropdownRef}
+          >
+            {editModalTab === 'info' ? (
+              <form className="modal-body-form ingredient-info-form">
+                <div className="form-fields-two-columns">
+                  <div className="column-left">
+                    <FormField label="Nombre">
+                      <FormInput 
+                        type="text" 
+                        value={editedItem?.name || ''} 
+                        onChange={e => setEditedItem({ ...editedItem, name: e.target.value })} 
+                      />
+                    </FormField>
 
-          {/* Contenido de las pestañas */}
-          {editModalTab === 'info' ? (
-            <form className="modal-body-form ingredient-info-form">
-              <div className="form-fields-two-columns">
-                <div className="column-left">
-                  <label>Nombre</label>
-                  <input type="text" className="input-field" value={editedItem?.name || ''} onChange={e => setEditedItem({ ...editedItem, name: e.target.value })} />
+                    <FormField label="Unidad">
+                      <FormSelect value={editedItem?.unit || ''} onChange={e => setEditedItem({ ...editedItem, unit: e.target.value })}>
+                        {['gr','kg','ml','l','unit','tbsp','tsp'].map(v => <option key={v} value={v}>{v}</option>)}
+                      </FormSelect>
+                    </FormField>
 
-                  <label>Unidad</label>
-                  <select className="input-field" value={editedItem?.unit || ''} onChange={e => setEditedItem({ ...editedItem, unit: e.target.value })}>
-                    {['gr','kg','ml','l','unit','tbsp','tsp'].map(v => <option key={v} value={v}>{v}</option>)}
-                  </select>
+                    <FormField label="Precio base">
+                      <FormInput 
+                        type="text" 
+                        value={editedItem?.base_price || ''} 
+                        onChange={e => {
+                          const value = e.target.value;
+                          // Permitir solo números, comas y puntos
+                          if (/^[\d.,]*$/.test(value)) {
+                            setEditedItem({ ...editedItem, base_price: value });
+                          }
+                        }} 
+                      />
+                    </FormField>
 
-                  <label>Precio base</label>
-                  <input type="text" className="input-field" value={editedItem?.base_price || ''} onChange={e => {
-                    const value = e.target.value;
-                    // Permitir solo números, comas y puntos
-                    if (/^[\d.,]*$/.test(value)) {
-                      setEditedItem({ ...editedItem, base_price: value });
-                    }
-                  }} />
+                    <FormField label="Merma (%)">
+                      <FormInput 
+                        type="text" 
+                        value={editedWastePercent} 
+                        onChange={e => {
+                          const value = e.target.value;
+                          if (/^[\d.,]*$/.test(value)) {
+                            setEditedWastePercent(value);
+                          }
+                        }} 
+                        placeholder="Ej: 5,43" 
+                      />
+                    </FormField>
 
-                  <label>Merma (%)</label>
-                  <input type="text" className="input-field" value={editedWastePercent} onChange={e => {
-                    const value = e.target.value;
-                    if (/^[\d.,]*$/.test(value)) {
-                      setEditedWastePercent(value);
-                    }
-                  }} placeholder="Ej: 5,43" />
-
-                  <label>
-                    <input type="checkbox" checked={editedItem?.is_available || false} onChange={e => setEditedItem({ ...editedItem, is_available: e.target.checked })} /> Disponible
-                  </label>
-                </div>
-
-                <div className="column-right">
-                  <label>Precio neto (calculado automáticamente)</label>
-                  <div className="calculated-field" style={{
-                    padding: '8px 12px',
-                    backgroundColor: '#f8fafc',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '6px',
-                    color: '#64748b',
-                    fontSize: '14px',
-                    fontStyle: 'italic'
-                  }}>
-                    {(() => {
-                      const basePrice = parseEuropeanNumber(editedItem?.base_price || '') || 0;
-                      const wastePercent = parseEuropeanNumber(editedWastePercent) || 0;
-                      const netPrice = basePrice * (1 + wastePercent / 100);
-                      return netPrice > 0 ? formatCurrency(netPrice) : 'Se calcula al introducir precio base';
-                    })()}
+                    <FormField label="">
+                      <label style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        margin: 0,
+                        fontSize: '14px',
+                        fontWeight: '500',
+                        color: '#374151'
+                      }}>
+                        <input 
+                          type="checkbox" 
+                          checked={editedItem?.is_available || false} 
+                          onChange={e => setEditedItem({ ...editedItem, is_available: e.target.checked })} 
+                          style={{ margin: 0 }}
+                        /> 
+                        Disponible
+                      </label>
+                    </FormField>
                   </div>
 
-                  <label>Stock</label>
-                  <input type="text" className="input-field" value={editedItem?.stock || ''} onChange={e => {
-                    const value = e.target.value;
-                    if (/^[\d.,]*$/.test(value)) {
-                      setEditedItem({ ...editedItem, stock: value });
-                    }
-                  }} />
+                  <div className="column-right">
+                    <FormField label="Precio neto (calculado automáticamente)">
+                      <div style={{
+                        padding: '8px 12px',
+                        backgroundColor: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '4px',
+                        color: '#64748b',
+                        fontSize: '14px',
+                        fontStyle: 'italic',
+                        margin: '0px 0px 16px 0px'
+                      }}>
+                        {(() => {
+                          const basePrice = parseEuropeanNumber(editedItem?.base_price || '') || 0;
+                          const wastePercent = parseEuropeanNumber(editedWastePercent) || 0;
+                          const netPrice = basePrice * (1 + wastePercent / 100);
+                          return netPrice > 0 ? formatCurrency(netPrice) : 'Se calcula al introducir precio base';
+                        })()}
+                      </div>
+                    </FormField>
 
-                  <label>Stock mínimo</label>
-                  <input type="text" className="input-field" value={editedItem?.stock_minimum || ''} onChange={e => {
-                    const value = e.target.value;
-                    if (/^[\d.,]*$/.test(value)) {
-                      setEditedItem({ ...editedItem, stock_minimum: value });
-                    }
-                  }} placeholder="Cantidad mínima para alerta" />
+                    <FormField label="Stock">
+                      <FormInput 
+                        type="text" 
+                        value={editedItem?.stock || ''} 
+                        onChange={e => {
+                          const value = e.target.value;
+                          if (/^[\d.,]*$/.test(value)) {
+                            setEditedItem({ ...editedItem, stock: value });
+                          }
+                        }} 
+                      />
+                    </FormField>
 
-                  <label>Fecha de caducidad</label>
-                  <input type="date" className="input-field" value={editedItem?.expiration_date || ''} onChange={e => setEditedItem({ ...editedItem, expiration_date: e.target.value })} />
-                </div>
-              </div>
-              
-              <div className="modal-actions">
-                <button type="button" className="btn cancel" onClick={() => setIsEditOpen(false)}>Cancelar</button>
-                <button type="button" className="btn add" onClick={handleEdit}>Guardar</button>
-              </div>
-            </form>
-          ) : (
-            <form className="modal-body-form ingredient-nutrition-form">
-              <div className="form-fields-two-columns">
-                <div className="column-left">
-                  {/* Información Nutricional por 100g */}
-                  <div style={{ marginBottom: '20px' }}>
-                    <h4 style={{ fontSize: '16px', fontWeight: '600', color: '#1e293b', marginBottom: '16px' }}>
-                      Información Nutricional (por 100g)
-                    </h4>
-                    
-                    <label>Calorías (kcal)</label>
-                    <input 
-                      type="text" 
-                      className="input-field" 
-                      value={editedItem?.calories_per_100g || ''} 
-                      onChange={e => {
-                        const value = e.target.value;
-                        if (/^[\d.,]*$/.test(value)) {
-                          setEditedItem({ ...editedItem, calories_per_100g: value });
-                        }
-                      }} 
-                      placeholder="Ej: 52,5"
-                    />
-                    
-                    <label>Proteínas (g)</label>
-                    <input 
-                      type="text" 
-                      className="input-field" 
-                      value={editedItem?.protein_per_100g || ''} 
-                      onChange={e => {
-                        const value = e.target.value;
-                        if (/^[\d.,]*$/.test(value)) {
-                          setEditedItem({ ...editedItem, protein_per_100g: value });
-                        }
-                      }} 
-                      placeholder="Ej: 1,2"
-                    />
-                    
-                    <label>Carbohidratos (g)</label>
-                    <input 
-                      type="text" 
-                      className="input-field" 
-                      value={editedItem?.carbs_per_100g || ''} 
-                      onChange={e => {
-                        const value = e.target.value;
-                        if (/^[\d.,]*$/.test(value)) {
-                          setEditedItem({ ...editedItem, carbs_per_100g: value });
-                        }
-                      }} 
-                      placeholder="Ej: 10,2"
-                    />
-                    
-                    <label>Grasas (g)</label>
-                    <input 
-                      type="text" 
-                      className="input-field" 
-                      value={editedItem?.fat_per_100g || ''} 
-                      onChange={e => {
-                        const value = e.target.value;
-                        if (/^[\d.,]*$/.test(value)) {
-                          setEditedItem({ ...editedItem, fat_per_100g: value });
-                        }
-                      }} 
-                      placeholder="Ej: 0,3"
-                    />
+                    <FormField label="Stock mínimo">
+                      <FormInput 
+                        type="text" 
+                        value={editedItem?.stock_minimum || ''} 
+                        onChange={e => {
+                          const value = e.target.value;
+                          if (/^[\d.,]*$/.test(value)) {
+                            setEditedItem({ ...editedItem, stock_minimum: value });
+                          }
+                        }} 
+                        placeholder="Cantidad mínima para alerta" 
+                      />
+                    </FormField>
 
-                    <label>Comentario</label>
-                    <textarea className="input-field" rows="4" value={editedItem?.comment || ''} onChange={e => setEditedItem({ ...editedItem, comment: e.target.value })} />
+                    <FormField label="Fecha de caducidad">
+                      <FormInput 
+                        type="date" 
+                        value={editedItem?.expiration_date || ''} 
+                        onChange={e => setEditedItem({ ...editedItem, expiration_date: e.target.value })} 
+                      />
+                    </FormField>
                   </div>
                 </div>
+                
+                <div className="modal-actions">
+                  <button type="button" className="btn cancel" onClick={() => setIsEditOpen(false)}>Cancelar</button>
+                  <button type="button" className="btn edit" onClick={handleEdit}>Guardar</button>
+                </div>
+              </form>
+            ) : (
+              <form className="modal-body-form ingredient-nutrition-form">
+                <div className="form-fields-two-columns">
+                  <div className="column-left">
+                    {/* Información Nutricional por 100g */}
+                    <div style={{ marginBottom: '20px' }}>
+                      <h4 style={{ fontSize: '16px', fontWeight: '600', color: '#1e293b', marginBottom: '16px' }}>
+                        Información Nutricional (por 100g)
+                      </h4>
+                      
+                      <FormField label="Calorías (kcal)">
+                        <FormInput 
+                          type="text" 
+                          value={editedItem?.calories_per_100g || ''} 
+                          onChange={e => {
+                            const value = e.target.value;
+                            if (/^[\d.,]*$/.test(value)) {
+                              setEditedItem({ ...editedItem, calories_per_100g: value });
+                            }
+                          }} 
+                          placeholder="Ej: 52,5"
+                        />
+                      </FormField>
+                      
+                      <FormField label="Proteínas (g)">
+                        <FormInput 
+                          type="text" 
+                          value={editedItem?.protein_per_100g || ''} 
+                          onChange={e => {
+                            const value = e.target.value;
+                            if (/^[\d.,]*$/.test(value)) {
+                              setEditedItem({ ...editedItem, protein_per_100g: value });
+                            }
+                          }} 
+                          placeholder="Ej: 1,2"
+                        />
+                      </FormField>
+                      
+                      <FormField label="Carbohidratos (g)">
+                        <FormInput 
+                          type="text" 
+                          value={editedItem?.carbs_per_100g || ''} 
+                          onChange={e => {
+                            const value = e.target.value;
+                            if (/^[\d.,]*$/.test(value)) {
+                              setEditedItem({ ...editedItem, carbs_per_100g: value });
+                            }
+                          }} 
+                          placeholder="Ej: 10,2"
+                        />
+                      </FormField>
+                      
+                      <FormField label="Grasas (g)">
+                        <FormInput 
+                          type="text" 
+                          value={editedItem?.fat_per_100g || ''} 
+                          onChange={e => {
+                            const value = e.target.value;
+                            if (/^[\d.,]*$/.test(value)) {
+                              setEditedItem({ ...editedItem, fat_per_100g: value });
+                            }
+                          }} 
+                          placeholder="Ej: 0,3"
+                        />
+                      </FormField>
 
-                <div className="column-right">
-                  {/* Título equivalente para alinear con la columna izquierda */}
-                  <div style={{ marginBottom: '20px' }}>
-                    <h4 style={{ fontSize: '16px', fontWeight: '600', color: '#1e293b', marginBottom: '16px' }}>
-                      Información Adicional
-                    </h4>
-                    
-                    <label>Temporada</label>
-                    <div className="seasons-chips" style={{ marginBottom: '20px' }}>
-                      {availableSeasons.map(season => (
-                        <span
-                          key={season.value}
-                          className={`season-chip ${editedItem?.season?.includes(season.value) ? 'selected' : ''}`}
-                          onClick={() => toggleSeason(season.value, false)}
-                        >
-                          {season.label}
-                        </span>
-                      ))}
+                      <FormField label="Comentario">
+                        <FormTextarea 
+                          rows="4" 
+                          value={editedItem?.comment || ''} 
+                          onChange={e => setEditedItem({ ...editedItem, comment: e.target.value })} 
+                        />
+                      </FormField>
                     </div>
+                  </div>
 
-                    <label>Alérgenos</label>
-                    <div className="allergens-chips">
-                      {allergens.map(allergen => (
-                        <span
-                          key={allergen.allergen_id}
-                          className={`allergen-chip ${editedSelectedAllergens.includes(allergen.allergen_id) ? 'selected' : ''}`}
-                          onClick={() => toggleAllergen(allergen.allergen_id, false)}
-                        >
-                          {allergen.name}
-                        </span>
-                      ))}
+                  <div className="column-right">
+                    {/* Título equivalente para alinear con la columna izquierda */}
+                    <div style={{ marginBottom: '20px' }}>
+                      <h4 style={{ fontSize: '16px', fontWeight: '600', color: '#1e293b', marginBottom: '16px' }}>
+                        Información Adicional
+                      </h4>
+                      
+                      <FormField label="Temporada">
+                        <div style={{ margin: 0 }}>
+                          <div className="seasons-chips" style={{ marginBottom: '4px' }}>
+                            {availableSeasons.map(season => (
+                              <span
+                                key={season.value}
+                                className={`season-chip ${editedItem?.season?.includes(season.value) ? 'selected' : ''}`}
+                                onClick={() => toggleSeason(season.value, false)}
+                              >
+                                {season.label}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </FormField>
+
+                      <FormField label="Alérgenos">
+                        <div style={{ margin: 0 }}>
+                          <div className="allergens-chips">
+                            {allergens.map(allergen => (
+                              <span
+                                key={allergen.allergen_id}
+                                className={`allergen-chip ${editedSelectedAllergens.includes(allergen.allergen_id) ? 'selected' : ''}`}
+                                onClick={() => toggleAllergen(allergen.allergen_id, false)}
+                              >
+                                {allergen.name}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </FormField>
                     </div>
                   </div>
                 </div>
-              </div>
-              
-              <div className="modal-actions">
-                <button type="button" className="btn cancel" onClick={() => setIsEditOpen(false)}>Cancelar</button>
-                <button type="button" className="btn add" onClick={handleEdit}>Guardar</button>
-              </div>
-            </form>
-          )}
+                
+                <div className="modal-actions">
+                  <button type="button" className="btn cancel" onClick={() => setIsEditOpen(false)}>Cancelar</button>
+                  <button type="button" className="btn edit" onClick={handleEdit}>Guardar</button>
+                </div>
+              </form>
+            )}
+          </TabsModal>
         </div>
       </Modal>
 

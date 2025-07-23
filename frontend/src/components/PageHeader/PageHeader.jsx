@@ -80,20 +80,6 @@ export default function PageHeader({
         </div>
         
         <div className="page-header-mobile-modal-body">
-          {/* Search in mobile modal */}
-          {showSearch && onSearchChange && (
-            <div className="page-header-mobile-search">
-              <label>Búsqueda</label>
-              <input
-                type="text"
-                className="page-header-input"
-                placeholder={searchPlaceholder}
-                value={searchValue}
-                onChange={(e) => onSearchChange(e.target.value)}
-              />
-            </div>
-          )}
-          
           {/* Simple filters in mobile modal */}
           {filters.map(filter => (
             <div key={filter.key} className="page-header-mobile-filter">
@@ -112,10 +98,21 @@ export default function PageHeader({
         
         <div className="page-header-mobile-modal-footer">
           <button 
-            className="btn primary"
-            onClick={() => setIsMobileFiltersOpen(false)}
+            type="button" 
+            className="btn cancel" 
+            onClick={() => {
+              // Clear all filters
+              filters.forEach(filter => {
+                if (Array.isArray(filter.value)) {
+                  filter.onChange([]);
+                } else {
+                  filter.onChange('');
+                }
+              });
+              setIsMobileFiltersOpen(false);
+            }}
           >
-            Aplicar filtros
+            Limpiar filtros
           </button>
         </div>
       </div>
@@ -126,7 +123,15 @@ export default function PageHeader({
     <div className={`page-header page-header-${layout}`}>
       {/* Title */}
       <div className="page-header-title-section">
-        <h1 className="page-header-title">{title}</h1>
+        <div className="page-header-title-row">
+          <h1 className="page-header-title">{title}</h1>
+          {/* Actions in title row (for mobile ViewToggle) */}
+          {actions && (
+            <div className="page-header-title-actions">
+              {actions}
+            </div>
+          )}
+        </div>
         
         {/* Messages */}
         {message && (
@@ -168,12 +173,7 @@ export default function PageHeader({
           {/* Simple filters */}
           {filters.map(renderFilter)}
           
-          {/* Additional actions */}
-          {actions && (
-            <div className="page-header-actions">
-              {actions}
-            </div>
-          )}
+          {/* Additional actions - Removed to avoid duplicate ViewToggle */}
           
           {/* Add button */}
           {onAdd && (
@@ -186,8 +186,8 @@ export default function PageHeader({
 
         {/* Mobile layout */}
         <div className="page-header-mobile">
-          {/* Search (always visible on mobile if enabled and no complex filters) */}
-          {showSearch && onSearchChange && (filters.length === 0 && !customFilters) && (
+          {/* Search (always visible on mobile if enabled - consistent with Recipes page) */}
+          {showSearch && onSearchChange && (
             <input
               type="text"
               className="page-header-input page-header-search"
@@ -201,23 +201,18 @@ export default function PageHeader({
             {/* Filter button (only if we have filters and mobile modal is enabled) */}
             {(filters.length > 0 || customFilters) && enableMobileModal && (
               <button 
-                className="btn secondary page-header-filter-btn"
+                className={`page-header-filter-btn ${activeFiltersCount > 0 ? 'active' : ''}`}
                 onClick={() => setIsMobileFiltersOpen(true)}
               >
-                <FaFilter className="btn-icon" />
-                Filtros
+                <FaFilter />
+                <span>Filtros</span>
                 {activeFiltersCount > 0 && (
                   <span className="page-header-filter-badge">{activeFiltersCount}</span>
                 )}
               </button>
             )}
             
-            {/* Additional actions */}
-            {actions && (
-              <div className="page-header-actions">
-                {actions}
-              </div>
-            )}
+            {/* Additional actions - Removed to avoid duplicate ViewToggle */}
             
             {/* Add button */}
             {onAdd && (

@@ -9,6 +9,7 @@ import EditSupplierIngredientModal from './components/EditSupplierIngredientModa
 import { usePageState } from '../../hooks/usePageState';
 import api from '../../api/axios';
 import './Suppliers.css';
+import { FormField, FormInput, FormTextarea } from '../../components/form/FormField';
 
 export default function Suppliers() {
   const {
@@ -332,56 +333,52 @@ export default function Suppliers() {
         {/* CREATE MODAL */}
         <Modal isOpen={isCreateOpen} title="Crear proveedor" onClose={() => setIsCreateOpen(false)} fullscreenMobile={true}>
           <form className="modal-single-column">
-            <div className="form-row">
-              <label>Nombre *</label>
-              <input 
+            <FormField label="Nombre *">
+              <div style={hasCreateError ? { outline: '2px solid #ef4444', borderRadius: '4px' } : {}}>
+                <FormInput 
+                  type="text" 
+                  value={newItem.name} 
+                  onChange={e => {
+                    setNewItem({ ...newItem, name: e.target.value });
+                    if (hasCreateError) setHasCreateError(false);
+                  }} 
+                  required 
+                />
+              </div>
+            </FormField>
+            
+            <FormField label="Teléfono">
+              <FormInput 
                 type="text" 
-                className={`input-field ${hasCreateError ? 'input-error' : ''}`}
-                value={newItem.name} 
-                onChange={e => {
-                  setNewItem({ ...newItem, name: e.target.value });
-                  if (hasCreateError) setHasCreateError(false);
-                }} 
-                required 
-              />
-            </div>
-            <div className="form-row">
-              <label>Teléfono</label>
-              <input 
-                type="text" 
-                className="input-field" 
                 value={newItem.phone} 
                 onChange={e => setNewItem({ ...newItem, phone: e.target.value })} 
               />
-            </div>
-            <div className="form-row">
-              <label>Email</label>
-              <input 
+            </FormField>
+            
+            <FormField label="Email">
+              <FormInput 
                 type="email" 
-                className="input-field" 
                 value={newItem.email} 
                 onChange={e => setNewItem({ ...newItem, email: e.target.value })} 
               />
-            </div>
-            <div className="form-row">
-              <label>Sitio web</label>
-              <input 
+            </FormField>
+            
+            <FormField label="Sitio web">
+              <FormInput 
                 type="url" 
-                className="input-field" 
                 value={newItem.website_url} 
                 onChange={e => setNewItem({ ...newItem, website_url: e.target.value })} 
                 placeholder="https://ejemplo.com"
               />
-            </div>
-            <div className="form-row">
-              <label>Dirección</label>
-              <textarea 
-                className="input-field" 
+            </FormField>
+            
+            <FormField label="Dirección">
+              <FormTextarea 
                 rows="3" 
                 value={newItem.address} 
                 onChange={e => setNewItem({ ...newItem, address: e.target.value })} 
               />
-            </div>
+            </FormField>
             <div className="modal-actions">
               <button type="button" className="btn cancel" onClick={handleCloseCreateModal}>Cancelar</button>
               <button type="button" className="btn add" onClick={handleCreate}>Crear proveedor</button>

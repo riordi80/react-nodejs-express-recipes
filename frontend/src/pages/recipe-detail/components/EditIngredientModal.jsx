@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../../../components/modal/Modal';
+import { FormField, FormInput } from '../../../components/form/FormField';
 import api from '../../../api/axios';
 import { formatCurrency, formatDecimal } from '../../../utils/formatters';
 
@@ -106,25 +107,18 @@ export default function EditIngredientModal({
           </div>
         </div>
 
-        <div className="form-field" style={{ marginBottom: '20px' }}>
-          <label>
-            Cantidad por porción *
-            <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 'normal' }}>
-              {' '}(en {ingredient.unit})
-            </span>
-          </label>
-          <input
+        <FormField label={`Cantidad por porción * (en ${ingredient.unit})`}>
+          <FormInput
             type="number"
             step="0.01"
             min="0"
-            className="form-input"
             value={quantity}
             onChange={(e) => setQuantity(e.target.value)}
             placeholder="Ej: 100"
             disabled={loading}
             autoFocus
           />
-        </div>
+        </FormField>
 
         {/* Información Nutricional */}
         {ingredient && (ingredient.calories_per_100g || ingredient.protein_per_100g || ingredient.carbs_per_100g || ingredient.fat_per_100g) && (

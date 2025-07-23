@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
+import Modal from '../../../components/modal/Modal';
 import api from '../../../api/axios';
 import { FaClock, FaFolder, FaExclamationTriangle } from 'react-icons/fa';
 
@@ -539,14 +540,12 @@ const DataSection = () => {
       )}
 
       {/* Modal de Lista de Backups */}
-      {showBackupsList && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: '800px' }}>
-            <div className="modal-header">
-              <h3><FaFolder style={{ color: '#64748b' }} /> Backups Almacenados</h3>
-              <button className="modal-close" onClick={() => setShowBackupsList(false)}>×</button>
-            </div>
-            <div className="modal-body">
+      <Modal 
+        isOpen={showBackupsList} 
+        title={<><FaFolder style={{ color: '#64748b' }} /> Backups Almacenados</>} 
+        onClose={() => setShowBackupsList(false)}
+        fullscreenMobile={true}
+      >
               {backupStats.total_backups > 0 && (
                 <div className="backup-stats" style={{ 
                   background: '#f8fafc', 
@@ -609,18 +608,15 @@ const DataSection = () => {
                   ))}
                 </div>
               )}
-            </div>
-            <div className="modal-footer">
+            <div className="modal-actions">
               <button 
-                className="settings-button secondary" 
+                className="btn cancel" 
                 onClick={() => setShowBackupsList(false)}
               >
                 Cerrar
               </button>
             </div>
-          </div>
-        </div>
-      )}
+      </Modal>
     </div>
   );
 };

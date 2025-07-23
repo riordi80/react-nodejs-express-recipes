@@ -170,37 +170,33 @@
   box-sizing: border-box;
 }
 
-/* Contenedor de los campos principales - específico para suppliers */
-.suppliers-container .form-fields-main {
-  display: flex;
-  flex-direction: column;
+/* FORZAR ESTILOS CON TODOS LOS SELECTORES POSIBLES */
+.supplier-edit-modal .column-left label,
+.supplier-edit-modal .column-right label,
+.supplier-edit-modal label,
+.suppliers-container label {
+  margin-top: 0 !important;
+  margin-bottom: 6px !important;
+  font-weight: 500 !important;
+  color: #374151 !important;
 }
 
+.supplier-edit-modal .column-left .input-field,
+.supplier-edit-modal .column-right .input-field,
+.supplier-edit-modal .column-left textarea,
+.supplier-edit-modal .column-right textarea {
+  margin-bottom: 16px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* Anular cualquier estilo previo que pueda estar interfiriendo */
 .suppliers-container .modal-body-form label {
-  margin-top: 10px;
-  margin-bottom: 4px;
-  font-weight: 500;
+  margin-top: 0 !important;
+  margin-bottom: 6px !important;
 }
 
-/* Primera etiqueta sin margen superior */
-.suppliers-container .modal-body-form label:first-child {
-  margin-top: 0;
-}
-
-.suppliers-container .modal-body-form .input-field,
-.suppliers-container .modal-body-form textarea {
-  width: 100%;
-  box-sizing: border-box;
-  padding: 8px 12px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 14px;
-}
-
-.suppliers-container .modal-body-form textarea {
-  resize: vertical;
-  min-height: 80px;
-}
+/* Estilos de textarea movidos a estilos globales */
 
 /* Flex para los botones del modal */
 .suppliers-container .modal-actions {
@@ -226,29 +222,14 @@
   min-width: 600px;
 }
 
-/* Layout para la pestaña de información del proveedor */
+/* Layout para la pestaña de información del proveedor - usa estilos globales de App.css */
 .supplier-info-form {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+  display: block !important;
   width: 100%;
   box-sizing: border-box;
 }
 
-.supplier-info-form .form-fields-main {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-/* Asegurar que todos los campos usen el ancho completo */
-.supplier-info-form .input-field,
-.supplier-info-form textarea,
-.supplier-info-form select {
-  width: 100%;
-  box-sizing: border-box;
-}
+/* Estilos de textarea movidos a estilos globales en App.css */
 
 /* Botones de la modal de proveedores - cada uno 50% del ancho */
 .supplier-edit-modal .modal-actions {
@@ -653,4 +634,6 @@
   .modal-tabs {
     display: none !important;
   }
+
+  /* El responsive para form-fields-two-columns está definido globalmente en App.css */
 }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
+import Modal from '../../../components/modal/Modal';
 import api from '../../../api/axios';
 
 const UsersSection = () => {
@@ -295,15 +296,13 @@ const UsersSection = () => {
       </div>
 
       {/* Modal para crear usuario */}
-      {showCreateModal && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h3>Crear Nuevo Usuario</h3>
-              <button className="modal-close" onClick={() => setShowCreateModal(false)}>×</button>
-            </div>
-            <form onSubmit={handleCreateUser}>
-              <div className="modal-body">
+      <Modal 
+        isOpen={showCreateModal} 
+        title="Crear Nuevo Usuario" 
+        onClose={() => setShowCreateModal(false)}
+        fullscreenMobile={true}
+      >
+        <form onSubmit={handleCreateUser}>
                 <div className="form-group">
                   <label>Nombre</label>
                   <input
@@ -375,30 +374,25 @@ const UsersSection = () => {
                     Usuario activo
                   </label>
                 </div>
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="settings-button secondary" onClick={() => setShowCreateModal(false)}>
-                  Cancelar
-                </button>
-                <button type="submit" className="settings-button primary">
-                  Crear Usuario
-                </button>
-              </div>
+                <div className="modal-actions">
+                  <button type="button" className="btn cancel" onClick={() => setShowCreateModal(false)}>
+                    Cancelar
+                  </button>
+                  <button type="submit" className="btn add">
+                    Crear Usuario
+                  </button>
+                </div>
             </form>
-          </div>
-        </div>
-      )}
+      </Modal>
 
       {/* Modal para editar usuario */}
-      {showEditModal && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h3>Editar Usuario</h3>
-              <button className="modal-close" onClick={() => setShowEditModal(false)}>×</button>
-            </div>
-            <form onSubmit={handleEditUser}>
-              <div className="modal-body">
+      <Modal 
+        isOpen={showEditModal} 
+        title="Editar Usuario" 
+        onClose={() => setShowEditModal(false)}
+        fullscreenMobile={true}
+      >
+        <form onSubmit={handleEditUser}>
                 <div className="form-group">
                   <label>Nombre</label>
                   <input
@@ -458,48 +452,39 @@ const UsersSection = () => {
                     Usuario activo
                   </label>
                 </div>
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="settings-button secondary" onClick={() => setShowEditModal(false)}>
-                  Cancelar
-                </button>
-                <button type="submit" className="settings-button primary">
-                  Actualizar Usuario
-                </button>
-              </div>
+                <div className="modal-actions">
+                  <button type="button" className="btn cancel" onClick={() => setShowEditModal(false)}>
+                    Cancelar
+                  </button>
+                  <button type="submit" className="btn edit">
+                    Actualizar Usuario
+                  </button>
+                </div>
             </form>
-          </div>
-        </div>
-      )}
+      </Modal>
 
       {/* Modal para eliminar usuario */}
-      {showDeleteModal && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h3>Eliminar Usuario</h3>
-              <button className="modal-close" onClick={() => setShowDeleteModal(false)}>×</button>
-            </div>
-            <div className="modal-body">
-              <p>¿Estás seguro de que deseas eliminar al usuario?</p>
-              <div className="user-details">
-                <strong>{selectedUser?.first_name} {selectedUser?.last_name}</strong>
-                <br />
-                <span>{selectedUser?.email}</span>
-              </div>
-              <p className="warning">Esta acción no se puede deshacer.</p>
-            </div>
-            <div className="modal-footer">
-              <button className="settings-button secondary" onClick={() => setShowDeleteModal(false)}>
-                Cancelar
-              </button>
-              <button className="settings-button danger" onClick={handleDeleteUser}>
-                Eliminar Usuario
-              </button>
-            </div>
-          </div>
+      <Modal 
+        isOpen={showDeleteModal} 
+        title="Eliminar Usuario" 
+        onClose={() => setShowDeleteModal(false)}
+      >
+        <p>¿Estás seguro de que deseas eliminar al usuario?</p>
+        <div className="user-details">
+          <strong>{selectedUser?.first_name} {selectedUser?.last_name}</strong>
+          <br />
+          <span>{selectedUser?.email}</span>
         </div>
-      )}
+        <p className="warning">Esta acción no se puede deshacer.</p>
+        <div className="modal-actions">
+          <button className="btn cancel" onClick={() => setShowDeleteModal(false)}>
+            Cancelar
+          </button>
+          <button className="btn delete" onClick={handleDeleteUser}>
+            Eliminar Usuario
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 };

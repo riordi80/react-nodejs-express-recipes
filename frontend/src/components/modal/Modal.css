@@ -9,8 +9,10 @@
   background-color: rgba(0,0,0,0.5);
   display: flex;
   justify-content: center;
-  align-items: center;
+  align-items: flex-start;
+  padding-top: 50px; /* Margen superior en desktop */
   z-index: 1000;
+  box-sizing: border-box;
 }
 
 /* Ventana modal */
@@ -28,6 +30,11 @@
 
 /* Hacer el modal más pequeño en móviles */
 @media (max-width: 768px) {
+  .modal-overlay {
+    align-items: center; /* Centrado vertical en móvil */
+    padding-top: 0; /* Sin margen superior en móvil */
+  }
+  
   .modal-window {
     max-width: 95%;
     max-height: 95vh;
@@ -263,3 +270,4 @@
 .modal-body .btn.delete:hover {
   background-color: #dc2626;
 }
+

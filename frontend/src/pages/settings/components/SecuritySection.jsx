@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
+import Modal from '../../../components/modal/Modal';
 import api from '../../../api/axios';
 
 const SecuritySection = () => {
@@ -112,8 +113,10 @@ const SecuritySection = () => {
     }
   };
 
-  const fetchAuditLogs = async () => {
+  const fetchAuditLogs = async (filterOverride = null) => {
     if (!isAdmin) return;
+    
+    const currentFilter = filterOverride || logsFilter;
     
     try {
       setLogsLoading(true);
@@ -122,12 +125,12 @@ const SecuritySection = () => {
         api.get('/audit/logs', {
           params: {
             limit: 100,
-            action: logsFilter.action || null,
-            table_name: logsFilter.table_name || null
+            action: currentFilter.action || null,
+            table_name: currentFilter.table_name || null
           }
         }),
         api.get('/audit/summary', {
-          params: { days: logsFilter.days }
+          params: { days: currentFilter.days }
         })
       ]);
       
@@ -160,14 +163,15 @@ const SecuritySection = () => {
 
   const handleFilterChange = (e) => {
     const { name, value } = e.target;
-    setLogsFilter(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
-  const applyFilters = () => {
-    fetchAuditLogs();
+    setLogsFilter(prev => {
+      const newFilter = {
+        ...prev,
+        [name]: value
+      };
+      // Aplicar filtros automáticamente después de actualizar el estado
+      setTimeout(() => fetchAuditLogs(newFilter), 0);
+      return newFilter;
+    });
   };
 
   const getActionColor = (action) => {
@@ -339,15 +343,13 @@ const SecuritySection = () => {
       </div>
 
       {/* Modal de Logs de Seguridad */}
-      {showLogsModal && (
-        <div className="modal-overlay">
-          <div className="modal-content audit-logs-modal">
-            <div className="modal-header">
-              <h3>Logs de Seguridad</h3>
-              <button className="modal-close" onClick={() => setShowLogsModal(false)}>×</button>
-            </div>
-            
-            <div className="modal-body">
+      <Modal 
+        isOpen={showLogsModal} 
+        title="Logs de Seguridad" 
+        onClose={() => setShowLogsModal(false)}
+        fullscreenMobile={true}
+      >
+        <div className="audit-logs-modal">
               {/* Filtros */}
               <div className="audit-filters">
                 <div className="filter-group">
@@ -396,14 +398,6 @@ const SecuritySection = () => {
                     <option value="90">Últimos 3 meses</option>
                   </select>
                 </div>
-                
-                <button 
-                  className="settings-button primary"
-                  onClick={applyFilters}
-                  disabled={logsLoading}
-                >
-                  Aplicar Filtros
-                </button>
               </div>
 
               {/* Resumen */}
@@ -491,19 +485,17 @@ const SecuritySection = () => {
                   <div className="no-logs">No hay logs para mostrar</div>
                 )}
               </div>
+              
+              <div className="modal-actions">
+                <button 
+                  className="btn cancel" 
+                  onClick={() => setShowLogsModal(false)}
+                >
+                  Cerrar
+                </button>
+              </div>
             </div>
-            
-            <div className="modal-footer">
-              <button 
-                className="settings-button secondary" 
-                onClick={() => setShowLogsModal(false)}
-              >
-                Cerrar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      </Modal>
     </div>
   );
 };

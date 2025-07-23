@@ -24,10 +24,18 @@ export default function Allergens() {
   // Local state for forms and modals
   const [newName, setNewName] = useState('');
   const [hasInputError, setHasInputError] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [currentAllergen, setCurrentAllergen] = useState(null);
   const [editedName, setEditedName] = useState('');
+
+  // Modal handlers
+  const openCreateModal = () => {
+    setNewName('');
+    setHasInputError(false);
+    setIsCreateOpen(true);
+  };
 
   // Create handler
   const handleAdd = async (e) => {
@@ -44,6 +52,7 @@ export default function Allergens() {
     const success = await createItem({ name: newName.trim() });
     if (success) {
       setNewName('');
+      setIsCreateOpen(false);
     }
   };
 
@@ -98,22 +107,6 @@ export default function Allergens() {
     }
   ], []);
 
-  // Custom add form component
-  const addForm = (
-    <form className="add-form" onSubmit={handleAdd}>
-      <input
-        type="text"
-        placeholder="Nuevo alérgeno"
-        className={`input-field ${hasInputError ? 'input-error' : ''}`}
-        value={newName}
-        onChange={e => {
-          setNewName(e.target.value);
-          if (hasInputError) setHasInputError(false);
-        }}
-      />
-      <button type="submit" className="btn add">Añadir</button>
-    </form>
-  );
 
   return (
     <>
@@ -127,14 +120,40 @@ export default function Allergens() {
         messageType={messageType}
         filterText={filterText}
         onFilterChange={setFilterText}
+        onAdd={openCreateModal}
+        addButtonText="Añadir alérgeno"
         searchPlaceholder="Buscar alérgeno..."
         noDataMessage="No hay alérgenos para mostrar"
-        actions={addForm}
         onRowClicked={openEditModal}
         showSearch={true}
         filters={[]}
         enableMobileModal={true}
       />
+
+      {/* Create Modal */}
+      <Modal
+        isOpen={isCreateOpen}
+        title="Nuevo alérgeno"
+        onClose={() => setIsCreateOpen(false)}
+      >
+        <form onSubmit={handleAdd}>
+          <input
+            type="text"
+            placeholder="Nombre del alérgeno"
+            className={`input-field ${hasInputError ? 'input-error' : ''}`}
+            value={newName}
+            onChange={e => {
+              setNewName(e.target.value);
+              if (hasInputError) setHasInputError(false);
+            }}
+            autoFocus
+          />
+          <div className="modal-actions">
+            <button type="button" className="btn cancel" onClick={() => setIsCreateOpen(false)}>Cancelar</button>
+            <button type="submit" className="btn add">Añadir</button>
+          </div>
+        </form>
+      </Modal>
 
       {/* Edit Modal */}
       <Modal
@@ -153,7 +172,7 @@ export default function Allergens() {
           <button className="btn cancel" onClick={() => setIsEditOpen(false)}>
             Cancelar
           </button>
-          <button className="btn add" onClick={confirmEdit}>
+          <button className="btn edit" onClick={confirmEdit}>
             Guardar
           </button>
         </div>

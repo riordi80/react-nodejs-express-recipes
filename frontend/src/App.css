@@ -35,6 +35,74 @@ body {
   margin-bottom: 10px;
 }
 
+/* === MODAL STYLES GLOBALES === */
+/* Estos estilos se aplican a todas las modales para consistencia visual */
+
+/* Layout de dos columnas para todas las modales */
+.form-fields-two-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.column-left,
+.column-right {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+/* === ESTILOS GLOBALES DE MODALES === */
+/* Aplicar consistentemente a TODAS las modales para mantener DRY */
+
+/* Labels en todas las modales - forzar aplicación con máxima especificidad */
+.column-left label,
+.column-right label,
+.supplier-edit-modal .column-left label,
+.supplier-edit-modal .column-right label,
+.ingredient-edit-modal .column-left label,
+.ingredient-edit-modal .column-right label {
+  margin-top: 0 !important;
+  margin-bottom: 6px !important;
+  font-weight: 500 !important;
+  color: #374151 !important;
+}
+
+/* Inputs y textareas en todas las modales - forzar aplicación con máxima especificidad */
+.column-left .input-field,
+.column-right .input-field,
+.column-left textarea,
+.column-right textarea,
+.supplier-edit-modal .column-left .input-field,
+.supplier-edit-modal .column-right .input-field,
+.supplier-edit-modal .column-left textarea,
+.supplier-edit-modal .column-right textarea,
+.ingredient-edit-modal .column-left .input-field,
+.ingredient-edit-modal .column-right .input-field,
+.ingredient-edit-modal .column-left textarea,
+.ingredient-edit-modal .column-right textarea {
+  margin-bottom: 16px !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* Estilos específicos para textareas en todas las modales */
+.column-left textarea,
+.column-right textarea {
+  resize: vertical !important;
+  min-height: 80px !important;
+}
+
+/* Responsive para modales - una columna en móvil */
+@media (max-width: 768px) {
+  .form-fields-two-columns {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
 /* === COMMON PAGE STYLES === */
 .common-page-container {
   display: flex;
