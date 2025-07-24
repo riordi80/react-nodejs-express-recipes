@@ -10,7 +10,15 @@
 }
 
 .recipe-detail-header-left {
-  flex-shrink: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+/* ===== MENSAJE PERSONALIZADO ===== */
+.recipe-detail-message {
+  width: 100% !important;
+  margin: 12px 0 !important;
+  display: block !important;
 }
 
 .recipe-detail-header .recipe-detail-title,
@@ -214,85 +222,44 @@
   overflow: hidden;
 }
 
-.section-title {
-  background: #f8fafc;
-  color: #1e293b;
-  font-size: 18px;
-  font-weight: 600;
-  margin: 0;
-  padding: 20px 24px;
-  border-bottom: 1px solid #e2e8f0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
+/* Secciones - Los estilos comunes están en App.css (padding específico para RecipeDetail) */
 .section-content {
   padding: 24px;
 }
 
-/* Grids de formulario */
-.form-grid-2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  margin-bottom: 20px;
-}
-
-.form-grid-3 {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 20px;
-  margin-bottom: 20px;
-}
-
+/* Grids de formulario - Los estilos comunes están en App.css */
 .form-field {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  position: relative;
 }
 
-.form-field label {
-  font-weight: 500;
-  color: #374151;
-  font-size: 14px;
-}
+/* Inputs y valores de formulario - Los estilos comunes están en App.css */
 
-/* Inputs y valores de formulario */
-.form-input {
-  padding: 12px 16px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  font-size: 14px;
-  transition: border-color 0.2s, box-shadow 0.2s;
+/* Mensajes de error */
+.field-error {
+  color: #ef4444;
+  font-size: 12px;
+  font-style: italic;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 2px;
   background: white;
+  padding: 2px 4px;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+  white-space: nowrap;
 }
 
-.form-input:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
+/* Textarea específico para RecipeDetail (resize: none) */
 .form-textarea {
-  padding: 12px 16px;
-  border: 1px solid #d1d5db;
-  border-radius: 8px;
-  font-size: 14px;
   resize: none;
-  font-family: inherit;
-  transition: border-color 0.2s, box-shadow 0.2s;
-  background: white;
-  width: 100%;
-  min-height: 200px;
 }
 
-.form-textarea:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
+/* Form value específico para RecipeDetail */
 .form-value {
   padding: 12px 16px;
   background: #f8fafc;
@@ -328,11 +295,7 @@
   align-items: stretch;
 }
 
-.cost-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-}
+/* Cost grid - Los estilos comunes están en App.css */
 
 .nutrition-grid {
   display: grid;
@@ -383,45 +346,7 @@
 
 
 
-.cost-card {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 20px;
-  text-align: center;
-  transition: all 0.2s;
-}
-
-.cost-card:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-}
-
-.cost-label {
-  font-size: 12px;
-  color: #64748b;
-  text-transform: uppercase;
-  font-weight: 500;
-  margin-bottom: 8px;
-}
-
-.cost-value {
-  font-size: 24px;
-  font-weight: 700;
-  color: #1e293b;
-}
-
-.cost-value.primary { color: #3b82f6; }
-.cost-value.success { color: #10b981; }
-.cost-value.highlight { color: #f59e0b; }
-.cost-value.danger { color: #ef4444; }
-
-.cost-detail {
-  font-size: 11px;
-  color: #64748b;
-  margin-top: 4px;
-  line-height: 1.3;
-}
+/* Cost cards - Los estilos comunes están en App.css */
 
 
 .nutrition-item {
@@ -519,15 +444,73 @@
   padding-right: 4px;
 }
 
-/* Estados vacíos */
+/* Estados vacíos - Los estilos comunes están en App.css (estilo específico para RecipeDetail) */
 .empty-state {
   color: #9ca3af;
   font-style: italic;
-  text-align: center;
-  padding: 24px;
   background: #f9fafb;
   border-radius: 8px;
   border: 1px dashed #d1d5db;
+}
+
+/* Tooltip styles */
+.tooltip-container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tooltip-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  background: #6b7280;
+  color: white;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: help;
+  transition: background-color 0.2s;
+}
+
+.tooltip-icon:hover {
+  background: #374151;
+}
+
+.tooltip-text {
+  visibility: hidden;
+  opacity: 0;
+  position: absolute;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1f2937;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 1000;
+  transition: opacity 0.3s, visibility 0.3s;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.tooltip-text::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: #1f2937;
+}
+
+.tooltip-container:hover .tooltip-text {
+  visibility: visible;
+  opacity: 1;
 }
 
 /* Cuando empty-state está dentro de un grid, debe ocupar todas las columnas */
@@ -736,9 +719,7 @@
     grid-template-columns: repeat(2, 1fr);
   }
   
-  .cost-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
+  /* Cost grid responsive - Los estilos comunes están en App.css */
   
   .nutrition-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -750,9 +731,7 @@
     grid-template-columns: 1fr;
   }
   
-  .cost-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
+  /* Cost grid responsive - Los estilos comunes están en App.css */
   
   .nutrition-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -802,17 +781,14 @@
     padding: 20px;
   }
   
-  .form-grid-2,
-  .form-grid-3 {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
+  /* Form grids responsive - Los estilos comunes están en App.css */
   
   .ingredients-list,
-  .cost-grid,
   .nutrition-grid {
     grid-template-columns: 1fr;
   }
+  
+  /* Cost grid responsive - Los estilos comunes están en App.css */
   
   .ingredient-item {
     text-align: center;

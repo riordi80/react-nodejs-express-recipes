@@ -74,6 +74,7 @@ export default function Modal({ isOpen, title, children, onClose, fullscreenMobi
             &times;
           </button>
         </header>
+        
         <div className="modal-body">
           {children}
         </div>

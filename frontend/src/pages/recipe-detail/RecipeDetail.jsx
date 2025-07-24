@@ -25,7 +25,10 @@ const RecipeDetail = () => {
   const [nutrition, setNutrition] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [message, setMessage] = useState(null);
+  const [messageType, setMessageType] = useState('success');
   const [isEditing, setIsEditing] = useState(isNewRecipe); // Nueva receta empieza en modo edición
+  const [validationErrors, setValidationErrors] = useState({});
   
   // Delete modal state
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -40,6 +43,14 @@ const RecipeDetail = () => {
   // Edit ingredient modal state
   const [isEditIngredientOpen, setIsEditIngredientOpen] = useState(false);
   const [ingredientToEdit, setIngredientToEdit] = useState(null);
+
+  // Notification function
+  const notify = (msg, type = 'success') => {
+    setMessage(msg);
+    setMessageType(type);
+    setTimeout(() => setMessage(null), 3000);
+  };
+
 
   useEffect(() => {
     if (isNewRecipe) {
@@ -160,6 +171,51 @@ const RecipeDetail = () => {
 
   const handleSave = async () => {
     try {
+      // Validar campos obligatorios y crear mensaje específico
+      const errors = {};
+      
+      if (!recipe.name || recipe.name.trim() === '') {
+        errors.name = 'El nombre de la receta es obligatorio';
+      }
+      
+      if (!recipe.servings || parseInt(recipe.servings) <= 0) {
+        errors.servings = 'El número de comensales es obligatorio y debe ser mayor a 0';
+      }
+      
+      if (!recipe.production_servings || parseInt(recipe.production_servings) <= 0) {
+        errors.production_servings = 'Las raciones mínimas son obligatorias y deben ser mayor a 0';
+      }
+      
+      if (!recipe.net_price || parseFloat(recipe.net_price) <= 0) {
+        errors.net_price = 'El precio de venta es obligatorio y debe ser mayor a 0';
+      }
+      
+      if (Object.keys(errors).length > 0) {
+        setValidationErrors(errors);
+        
+        // Crear mensaje específico con los campos que faltan
+        const missingFields = [];
+        if (errors.name) missingFields.push('Nombre de la receta');
+        if (errors.servings) missingFields.push('Comensales');
+        if (errors.production_servings) missingFields.push('Raciones mínimas para producción');
+        if (errors.net_price) missingFields.push('Precio de venta total');
+        
+        const message = missingFields.length === 1 
+          ? `Falta completar el campo: ${missingFields[0]}`
+          : `Faltan completar los campos: ${missingFields.join(', ')}`;
+          
+        notify(message, 'error');
+        return;
+      }
+      
+      // Validación: Los comensales no pueden ser menores que las raciones mínimas
+      const servings = parseInt(recipe.servings) || 0;
+      const productionServings = parseInt(recipe.production_servings) || 0;
+      
+      if (servings < productionServings) {
+        notify(`Los comensales (${servings}) no pueden ser menores que las raciones mínimas para producción (${productionServings})`, 'error');
+        return;
+      }
       if (isNewRecipe) {
         // Crear nueva receta
         const response = await api.post('/recipes', recipe);
@@ -215,18 +271,35 @@ const RecipeDetail = () => {
   const calculateCostMetrics = () => {
     if (!recipe) return null;
 
-    const costPerServing = parseFloat(recipe.cost_per_serving) || 0;
     const netPrice = parseFloat(recipe.net_price) || 0;
     const servings = parseInt(recipe.servings) || 1;
-    const totalCost = costPerServing * servings;
+    const productionServings = parseInt(recipe.production_servings) || 1;
+    
+    // Calcular coste total directamente para el número de servings
+    let totalCost = 0;
+    let costPerServing = 0;
+    
+    if (ingredients && ingredients.length > 0) {
+      totalCost = ingredients.reduce((total, ingredient) => {
+        const quantity = parseFloat(ingredient.quantity_per_serving) || 0;
+        const price = parseFloat(ingredient.base_price) || 0;
+        const wastePercent = parseFloat(ingredient.waste_percent) || 0;
+        const wasteMultiplier = 1 + wastePercent;
+        // Coste para todos los servings
+        return total + (quantity * price * wasteMultiplier * servings);
+      }, 0);
+      
+      // Calcular coste por porción a partir del total
+      costPerServing = servings > 0 ? totalCost / servings : 0;
+    }
     
     // Calcular margen y precio sugerido
     // net_price ya es el precio total de la receta, no por porción
     const totalNetPrice = netPrice;
-    const pricePerServing = netPrice / servings; // Calcular precio por porción
+    const pricePerServing = netPrice / servings; // Calcular precio por porción para mostrar
     const currentMargin = totalNetPrice - totalCost;
     const currentMarginPercent = totalNetPrice > 0 ? ((totalNetPrice - totalCost) / totalNetPrice) * 100 : 0;
-    const suggestedPrice40 = costPerServing > 0 ? costPerServing / 0.6 : 0; // 40% margen
+    const suggestedPrice40 = costPerServing > 0 ? costPerServing / 0.6 : 0; // 40% margen sobre coste por porción
 
     return {
       totalCost,
@@ -236,7 +309,9 @@ const RecipeDetail = () => {
       pricePerServing,
       currentMargin,
       currentMarginPercent,
-      suggestedPrice40
+      suggestedPrice40,
+      productionServings,
+      servings
     };
   };
 
@@ -384,13 +459,18 @@ const RecipeDetail = () => {
           <div className="section-content">
             <div className="form-grid-2">
               <div className="form-field">
-                <label>Nombre de la receta</label>
+                <label className="required-label">Nombre de la receta</label>
                 {isEditing ? (
                   <input
                     type="text"
                     className="form-input"
                     value={recipe.name || ''}
-                    onChange={(e) => setRecipe({...recipe, name: e.target.value})}
+                    onChange={(e) => {
+                      setRecipe({...recipe, name: e.target.value});
+                      if (validationErrors.name) {
+                        setValidationErrors({...validationErrors, name: null});
+                      }
+                    }}
                   />
                 ) : (
                   <div className="form-value">{recipe.name}</div>
@@ -459,30 +539,88 @@ const RecipeDetail = () => {
                 )}
               </div>
               <div className="form-field">
-                <label>Porciones</label>
+                <div className="tooltip-container">
+                  <label className="required-label">Raciones mínimas para producción</label>
+                  <div className="tooltip-icon">
+                    ?
+                    <div className="tooltip-text">
+                      Las raciones mínimas indican el número mínimo para producir eficientemente esta receta
+                    </div>
+                  </div>
+                </div>
                 {isEditing ? (
                   <input
                     type="number"
                     className="form-input"
-                    value={recipe.servings || ''}
-                    onChange={(e) => setRecipe({...recipe, servings: e.target.value})}
+                    value={recipe.production_servings || ''}
+                    onChange={(e) => {
+                      setRecipe({...recipe, production_servings: e.target.value});
+                      if (validationErrors.production_servings) {
+                        setValidationErrors({...validationErrors, production_servings: null});
+                      }
+                    }}
+                    placeholder="Mínimo para producir"
                   />
+                ) : (
+                  <div className="form-value">{recipe.production_servings || 'No especificado'}</div>
+                )}
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        {/* Event Planning Section */}
+        <div className="recipe-section">
+          <h2 className="section-title">📊 Planificación de Eventos</h2>
+          <div className="section-content">
+            <div className="form-grid-3">
+              <div className="form-field">
+                <label className="required-label">Comensales</label>
+                {isEditing ? (
+                  <div>
+                    <input
+                      type="number"
+                      className="form-input"
+                      value={recipe.servings || ''}
+                      min={recipe.production_servings || 1}
+                      onChange={(e) => {
+                        setRecipe({...recipe, servings: e.target.value});
+                        if (validationErrors.servings) {
+                          setValidationErrors({...validationErrors, servings: null});
+                        }
+                      }}
+                      placeholder="Para cuántas personas"
+                    />
+                    {recipe.production_servings && parseInt(recipe.servings) < parseInt(recipe.production_servings) && (
+                      <div style={{ 
+                        fontSize: '12px', 
+                        color: '#ef4444', 
+                        marginTop: '4px',
+                        fontStyle: 'italic'
+                      }}>
+                        Debe ser mínimo {recipe.production_servings} comensales
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div className="form-value">{recipe.servings || 'No especificado'}</div>
                 )}
               </div>
-            </div>
-            
-            <div className="form-grid-2">
               <div className="form-field">
-                <label>Precio de Venta Total</label>
+                <label className="required-label">Precio de venta total</label>
                 {isEditing ? (
                   <input
                     type="number"
                     step="0.01"
                     className="form-input"
                     value={recipe.net_price || ''}
-                    onChange={(e) => setRecipe({...recipe, net_price: e.target.value})}
+                    onChange={(e) => {
+                      setRecipe({...recipe, net_price: e.target.value});
+                      if (validationErrors.net_price) {
+                        setValidationErrors({...validationErrors, net_price: null});
+                      }
+                    }}
                     placeholder="€"
                   />
                 ) : (
@@ -490,7 +628,15 @@ const RecipeDetail = () => {
                 )}
               </div>
               <div className="form-field">
-                <label>Precio por Porción</label>
+                <div className="tooltip-container">
+                  <label>Precio por comensal</label>
+                  <div className="tooltip-icon">
+                    ?
+                    <div className="tooltip-text">
+                      Cálculo automático dividiendo el precio de venta total entre el número de comensales
+                    </div>
+                  </div>
+                </div>
                 <div className="form-value">
                   {recipe.net_price && recipe.servings ? 
                     formatCurrency(parseFloat(recipe.net_price) / parseInt(recipe.servings)) : 
@@ -517,7 +663,7 @@ const RecipeDetail = () => {
                 color: '#0369a1',
                 fontWeight: '500'
               }}>
-                📊 Cantidades para {recipe.servings} {recipe.servings === 1 ? 'porción' : 'porciones'}
+                📊 Cantidades para {recipe.servings} {recipe.servings === 1 ? 'comensal' : 'comensales'}
               </div>
             )}
             {isEditing && ingredients?.length > 0 && (
@@ -647,10 +793,10 @@ const RecipeDetail = () => {
                   <div className="cost-card">
                     <div className="cost-label">Coste Total Ingredientes</div>
                     <div className="cost-value primary">{formatCurrency(metrics.totalCost)}</div>
-                    <div className="cost-detail">Para {recipe.servings} porciones</div>
+                    <div className="cost-detail">Para {metrics.servings} comensales</div>
                   </div>
                   <div className="cost-card">
-                    <div className="cost-label">Coste por Porción</div>
+                    <div className="cost-label">Coste por Comensal</div>
                     <div className="cost-value">{formatCurrency(metrics.costPerServing)}</div>
                     <div className="cost-detail">Calculado automáticamente</div>
                   </div>
@@ -768,6 +914,13 @@ const RecipeDetail = () => {
         <div className="common-page-content">
           {/* Header personalizado con botones a los lados */}
           {customHeader}
+          
+          {/* Message display - debajo de todo el header */}
+          {message && (
+            <div className={`page-header-message page-header-message-${messageType} recipe-detail-message`}>
+              {message}
+            </div>
+          )}
           
           {/* Error display */}
           {error && <div className="error">{error}</div>}

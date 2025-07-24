@@ -467,8 +467,8 @@
 }
 
 .ingredient-details {
-  display: grid;
-  grid-template-columns: 2fr 1fr 1fr;
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
   gap: 12px;
   margin-top: 12px;
   padding-top: 12px;
@@ -597,7 +597,15 @@
   }
   
   .ingredient-details {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px;
+  }
+}
+
+/* Media query específico para móviles pequeños */
+@media (max-width: 480px) {
+  .ingredient-details {
+    grid-template-columns: 1fr !important;
     gap: 8px;
   }
   

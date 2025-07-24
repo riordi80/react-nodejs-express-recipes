@@ -499,12 +499,12 @@ router.get('/:id/nutrition', authenticateToken, authorizeRoles('admin','chef'), 
     }
     
     const recipe = recipeResult[0];
-    const servings = parseInt(recipe.servings) || 1;
     
     // Obtener ingredientes con datos nutricionales
     const [ingredients] = await pool.query(`
       SELECT 
         ri.quantity_per_serving,
+        i.unit,
         i.calories_per_100g,
         i.protein_per_100g,
         i.carbs_per_100g,
@@ -514,6 +514,20 @@ router.get('/:id/nutrition', authenticateToken, authorizeRoles('admin','chef'), 
       WHERE ri.recipe_id = ?
     `, [id]);
     
+    // Función para convertir cantidad a gramos
+    const convertToGrams = (quantity, unit) => {
+      const conversions = {
+        'gr': 1,
+        'kg': 1000,
+        'ml': 1,    // Asumimos densidad 1 g/ml para líquidos
+        'l': 1000,  // 1 litro = 1000g (densidad 1)
+        'unit': 0,  // Las unidades no tienen conversión nutricional directa
+        'tbsp': 15, // 1 cucharada ≈ 15g
+        'tsp': 5    // 1 cucharadita ≈ 5g
+      };
+      return quantity * (conversions[unit] || 1);
+    };
+
     // Calcular totales nutricionales
     let totalCalories = 0;
     let totalProtein = 0;
@@ -522,16 +536,20 @@ router.get('/:id/nutrition', authenticateToken, authorizeRoles('admin','chef'), 
     
     ingredients.forEach(ingredient => {
       const quantity = parseFloat(ingredient.quantity_per_serving) || 0;
+      const unit = ingredient.unit;
       const calories = parseFloat(ingredient.calories_per_100g) || 0;
       const protein = parseFloat(ingredient.protein_per_100g) || 0;
       const carbs = parseFloat(ingredient.carbs_per_100g) || 0;
       const fat = parseFloat(ingredient.fat_per_100g) || 0;
       
-      // Calcular aporte nutricional: (valor_por_100g * cantidad_en_receta) / 100 / porciones
-      const caloriesContribution = (calories * quantity * servings) / 100;
-      const proteinContribution = (protein * quantity * servings) / 100;
-      const carbsContribution = (carbs * quantity * servings) / 100;
-      const fatContribution = (fat * quantity * servings) / 100;
+      // Convertir cantidad a gramos
+      const quantityInGrams = convertToGrams(quantity, unit);
+      
+      // Calcular aporte nutricional por porción: (valor_por_100g * cantidad_en_gramos) / 100
+      const caloriesContribution = (calories * quantityInGrams) / 100;
+      const proteinContribution = (protein * quantityInGrams) / 100;
+      const carbsContribution = (carbs * quantityInGrams) / 100;
+      const fatContribution = (fat * quantityInGrams) / 100;
       
       totalCalories += caloriesContribution;
       totalProtein += proteinContribution;
@@ -539,12 +557,12 @@ router.get('/:id/nutrition', authenticateToken, authorizeRoles('admin','chef'), 
       totalFat += fatContribution;
     });
     
-    // Calcular valores por porción
+    // Los valores ya están calculados por porción, no necesitan división adicional
     const nutritionPerServing = {
-      calories: Math.round(totalCalories / servings),
-      protein: Math.round((totalProtein / servings) * 10) / 10, // 1 decimal
-      carbs: Math.round((totalCarbs / servings) * 10) / 10,
-      fat: Math.round((totalFat / servings) * 10) / 10
+      calories: Math.round(totalCalories),
+      protein: Math.round(totalProtein * 10) / 10, // 1 decimal
+      carbs: Math.round(totalCarbs * 10) / 10,
+      fat: Math.round(totalFat * 10) / 10
     };
     
     res.json(nutritionPerServing);

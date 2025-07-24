@@ -80,7 +80,8 @@ router.delete('/:id', authenticateToken, authorizeRoles('admin'), async (req, re
 router.get('/:id/ingredients', authenticateToken, authorizeRoles('admin', 'supplier_manager'), async (req, res) => {
   const { id } = req.params;
   const [rows] = await pool.query(`
-    SELECT si.ingredient_id, i.name, si.price, si.delivery_time, si.is_preferred_supplier
+    SELECT si.ingredient_id, i.name, si.price, si.delivery_time, si.is_preferred_supplier, 
+           si.package_size, si.package_unit, si.minimum_order_quantity
     FROM SUPPLIER_INGREDIENTS si
     JOIN INGREDIENTS i ON si.ingredient_id = i.ingredient_id
     WHERE si.supplier_id = ?
@@ -132,9 +133,18 @@ router.post('/:id/ingredients', authenticateToken, authorizeRoles('admin', 'supp
       ingredientsArray.map(async (ingredient) => {
         await pool.query(
           `INSERT INTO SUPPLIER_INGREDIENTS 
-           (supplier_id, ingredient_id, price, delivery_time, is_preferred_supplier) 
-           VALUES (?, ?, ?, ?, ?)`,
-          [id, ingredient.ingredient_id, ingredient.price, ingredient.delivery_time || null, ingredient.is_preferred_supplier || false]
+           (supplier_id, ingredient_id, price, delivery_time, is_preferred_supplier, package_size, package_unit, minimum_order_quantity) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            id, 
+            ingredient.ingredient_id, 
+            ingredient.price, 
+            ingredient.delivery_time || null, 
+            ingredient.is_preferred_supplier || false,
+            ingredient.package_size || 1.0,
+            ingredient.package_unit || 'unidad',
+            ingredient.minimum_order_quantity || 1.0
+          ]
         );
       })
     );
@@ -150,7 +160,7 @@ router.post('/:id/ingredients', authenticateToken, authorizeRoles('admin', 'supp
 // PUT /suppliers/:id/ingredients/:ingredient_id
 router.put('/:id/ingredients/:ingredient_id', authenticateToken, authorizeRoles('admin', 'supplier_manager'), async (req, res) => {
   const { id, ingredient_id } = req.params;
-  const { price, delivery_time, is_preferred_supplier } = req.body;
+  const { price, delivery_time, is_preferred_supplier, package_size, package_unit, minimum_order_quantity } = req.body;
 
   try {
     // Verificar que la relación existe
@@ -166,9 +176,9 @@ router.put('/:id/ingredients/:ingredient_id', authenticateToken, authorizeRoles(
     // Actualizar la relación
     await pool.query(
       `UPDATE SUPPLIER_INGREDIENTS 
-       SET price = ?, delivery_time = ?, is_preferred_supplier = ? 
+       SET price = ?, delivery_time = ?, is_preferred_supplier = ?, package_size = ?, package_unit = ?, minimum_order_quantity = ?
        WHERE supplier_id = ? AND ingredient_id = ?`,
-      [price, delivery_time, is_preferred_supplier, id, ingredient_id]
+      [price, delivery_time, is_preferred_supplier, package_size || 1.0, package_unit || 'unidad', minimum_order_quantity || 1.0, id, ingredient_id]
     );
 
     await logAudit(req.user.user_id, 'update', 'SUPPLIER_INGREDIENTS', null, `Relación proveedor ${id} - ingrediente ${ingredient_id} actualizada`);

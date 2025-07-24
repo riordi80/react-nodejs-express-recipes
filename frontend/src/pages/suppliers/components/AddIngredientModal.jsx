@@ -1,5 +1,6 @@
 import React from 'react';
 import Modal from '../../../components/modal/Modal';
+import { parseEuropeanNumber } from '../../../utils/formatters';
 
 export default function AddIngredientModal({
   isOpen,
@@ -48,7 +49,13 @@ export default function AddIngredientModal({
       setSelectedIngredients([...selectedIngredients, ingredientId]);
       setIngredientDetails({
         ...ingredientDetails,
-        [ingredientId]: { price: '', deliveryTime: '' }
+        [ingredientId]: { 
+          price: '', 
+          deliveryTime: '',
+          packageSize: '1,0',
+          packageUnit: 'unidad',
+          minimumOrderQuantity: '1,0'
+        }
       });
     }
   };
@@ -64,7 +71,12 @@ export default function AddIngredientModal({
   };
 
   const canSave = selectedIngredients.length > 0 && 
-    selectedIngredients.every(id => ingredientDetails[id]?.price);
+    selectedIngredients.every(id => 
+      ingredientDetails[id]?.price && 
+      ingredientDetails[id]?.packageSize && 
+      ingredientDetails[id]?.packageUnit && 
+      ingredientDetails[id]?.minimumOrderQuantity
+    );
 
   return (
     <Modal 
@@ -110,7 +122,7 @@ export default function AddIngredientModal({
                       <label>Precio (€)*</label>
                       <input
                         type="number"
-                        step="0.01"
+                        step="0,01"
                         className="detail-input"
                         value={ingredientDetails[ingredient.ingredient_id]?.price || ''}
                         onChange={(e) => updateIngredientDetail(
@@ -119,6 +131,7 @@ export default function AddIngredientModal({
                           e.target.value
                         )}
                         required
+                        lang="es"
                       />
                     </div>
                     <div className="detail-field">
@@ -132,6 +145,63 @@ export default function AddIngredientModal({
                           'deliveryTime', 
                           e.target.value
                         )}
+                      />
+                    </div>
+                    <div className="detail-field">
+                      <label>Tamaño del paquete*</label>
+                      <input
+                        type="number"
+                        step="0,01"
+                        className="detail-input"
+                        value={ingredientDetails[ingredient.ingredient_id]?.packageSize || '1,0'}
+                        onChange={(e) => updateIngredientDetail(
+                          ingredient.ingredient_id, 
+                          'packageSize', 
+                          e.target.value
+                        )}
+                        required
+                        lang="es"
+                      />
+                    </div>
+                    <div className="detail-field">
+                      <label>Unidad del paquete*</label>
+                      <select
+                        className="detail-input"
+                        value={ingredientDetails[ingredient.ingredient_id]?.packageUnit || 'unidad'}
+                        onChange={(e) => updateIngredientDetail(
+                          ingredient.ingredient_id, 
+                          'packageUnit', 
+                          e.target.value
+                        )}
+                        required
+                      >
+                        <option value="unidad">Unidad</option>
+                        <option value="botella">Botella</option>
+                        <option value="saco">Saco</option>
+                        <option value="caja">Caja</option>
+                        <option value="paquete">Paquete</option>
+                        <option value="lata">Lata</option>
+                        <option value="bote">Bote</option>
+                        <option value="envase">Envase</option>
+                        <option value="bolsa">Bolsa</option>
+                        <option value="kilo">Kilo</option>
+                        <option value="litro">Litro</option>
+                      </select>
+                    </div>
+                    <div className="detail-field">
+                      <label>Cantidad mínima de pedido*</label>
+                      <input
+                        type="number"
+                        step="0,01"
+                        className="detail-input"
+                        value={ingredientDetails[ingredient.ingredient_id]?.minimumOrderQuantity || '1,0'}
+                        onChange={(e) => updateIngredientDetail(
+                          ingredient.ingredient_id, 
+                          'minimumOrderQuantity', 
+                          e.target.value
+                        )}
+                        required
+                        lang="es"
                       />
                     </div>
                   </div>

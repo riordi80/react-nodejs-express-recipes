@@ -16,9 +16,13 @@ const EventDetail = () => {
   
   const [event, setEvent] = useState(null);
   const [eventRecipes, setEventRecipes] = useState([]);
+  const [shoppingList, setShoppingList] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [message, setMessage] = useState(null);
+  const [messageType, setMessageType] = useState('success');
   const [isEditing, setIsEditing] = useState(isNewEvent);
+  const [validationErrors, setValidationErrors] = useState({});
   
   // Delete modal state
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -58,11 +62,19 @@ const EventDetail = () => {
     { value: 'beverage', label: 'Bebida' }
   ];
 
+  // Notification function
+  const notify = (msg, type = 'success') => {
+    setMessage(msg);
+    setMessageType(type);
+    setTimeout(() => setMessage(null), 3000);
+  };
+
   useEffect(() => {
     if (isNewEvent) {
       initializeNewEvent();
     } else {
       loadEventData();
+      loadShoppingList(); // Cargar shopping list para eventos existentes
     }
     loadAvailableRecipes();
   }, [id, isNewEvent]);
@@ -98,6 +110,17 @@ const EventDetail = () => {
     }
   };
 
+  // Cargar lista de compras del evento
+  const loadShoppingList = async () => {
+    try {
+      const response = await api.get(`/events/${id}/shopping-list`);
+      setShoppingList(response.data);
+    } catch (err) {
+      console.error('Error loading shopping list:', err);
+      setShoppingList(null); // Fallback si no hay lista de compras
+    }
+  };
+
   // Cargar recetas disponibles para añadir
   const loadAvailableRecipes = async () => {
     try {
@@ -111,6 +134,38 @@ const EventDetail = () => {
 
   const handleSave = async () => {
     try {
+      // Validar campos obligatorios y crear mensaje específico
+      const errors = {};
+      
+      if (!event.name || event.name.trim() === '') {
+        errors.name = 'El nombre del evento es obligatorio';
+      }
+      
+      if (!event.event_date) {
+        errors.event_date = 'La fecha del evento es obligatoria';
+      }
+      
+      if (!event.guests_count || parseInt(event.guests_count) <= 0) {
+        errors.guests_count = 'El número de invitados es obligatorio y debe ser mayor a 0';
+      }
+      
+      if (Object.keys(errors).length > 0) {
+        setValidationErrors(errors);
+        
+        // Crear mensaje específico con los campos que faltan
+        const missingFields = [];
+        if (errors.name) missingFields.push('Nombre del evento');
+        if (errors.event_date) missingFields.push('Fecha del evento');
+        if (errors.guests_count) missingFields.push('Número de invitados');
+        
+        const message = missingFields.length === 1 
+          ? `Falta completar el campo: ${missingFields[0]}`
+          : `Faltan completar los campos: ${missingFields.join(', ')}`;
+          
+        notify(message, 'error');
+        return;
+      }
+
       // Preparar datos para enviar, asegurando formato correcto de fecha
       const eventData = {
         ...event,
@@ -127,6 +182,8 @@ const EventDetail = () => {
         setIsEditing(false);
         await loadEventData();
       }
+      setValidationErrors({}); // Limpiar errores si todo va bien
+      notify('Evento guardado correctamente', 'success');
     } catch (error) {
       console.error('Error saving event:', error);
       setError(error.response?.data?.message || 'Error al guardar el evento');
@@ -165,6 +222,7 @@ const EventDetail = () => {
     try {
       await api.delete(`/events/${id}/recipes/${recipeToDelete.recipe_id}`);
       await loadEventData();
+      await loadShoppingList(); // Actualizar shopping list tras eliminar receta
       setIsDeleteRecipeOpen(false);
       setRecipeToDelete(null);
     } catch (error) {
@@ -223,6 +281,7 @@ const EventDetail = () => {
       setRecipeNotes({});
       setRecipeSearchText('');
       await loadEventData();
+      await loadShoppingList(); // Actualizar shopping list tras añadir recetas
     } catch (error) {
       console.error('Error adding recipes:', error);
       setError('Error al añadir recetas al menú');
@@ -247,6 +306,7 @@ const EventDetail = () => {
       setIsEditRecipeOpen(false);
       setRecipeToEdit(null);
       await loadEventData();
+      await loadShoppingList(); // Actualizar shopping list tras editar receta
     } catch (error) {
       console.error('Error updating recipe:', error);
       setError('Error al actualizar receta del menú');
@@ -269,6 +329,39 @@ const EventDetail = () => {
   const getCourseTypeLabel = (courseType) => {
     const typeObj = courseTypes.find(t => t.value === courseType);
     return typeObj ? typeObj.label : courseType;
+  };
+
+  // Calcular métricas de coste del evento
+  const calculateEventCostMetrics = () => {
+    if (!event || !eventRecipes.length) return null;
+
+    const guestsCount = parseInt(event.guests_count) || 1;
+    const budget = parseFloat(event.budget) || 0;
+    
+    // Coste total de ingredientes (desde shopping list)
+    const totalIngredientsCost = shoppingList?.total_cost || 0;
+    
+    // Coste por invitado (desde ingredientes)
+    const costPerGuest = guestsCount > 0 ? totalIngredientsCost / guestsCount : 0;
+    
+    // Precio por invitado (desde el presupuesto)
+    const pricePerGuest = budget > 0 && guestsCount > 0 ? budget / guestsCount : 0;
+    
+    // Desviación presupuestaria (diferencia entre presupuesto y coste real)
+    const budgetDeviation = budget - totalIngredientsCost;
+    const budgetDeviationPercent = budget > 0 ? ((budgetDeviation / budget) * 100) : 0;
+
+    return {
+      guestsCount,
+      budget,
+      costPerGuest,
+      pricePerGuest,
+      budgetDeviation,
+      budgetDeviationPercent,
+      totalIngredientsCost,
+      hasShoppingList: !!shoppingList,
+      recipesCount: eventRecipes.length
+    };
   };
 
   // Filtrar recetas disponibles por texto de búsqueda y excluir las ya añadidas
@@ -332,12 +425,17 @@ const EventDetail = () => {
           <div className="section-content">
             <div className="form-grid-2">
               <div className="form-field">
-                <label>Nombre del evento</label>
+                <label className="required-label">Nombre del evento</label>
                 {isEditing ? (
                   <FormInput
                     type="text"
                     value={event.name || ''}
-                    onChange={(e) => setEvent({...event, name: e.target.value})}
+                    onChange={(e) => {
+                      setEvent({...event, name: e.target.value});
+                      if (validationErrors.name) {
+                        setValidationErrors({...validationErrors, name: null});
+                      }
+                    }}
                   />
                 ) : (
                   <div className="form-value">{event.name}</div>
@@ -370,12 +468,17 @@ const EventDetail = () => {
               </div>
 
               <div className="form-field">
-                <label>Fecha del evento</label>
+                <label className="required-label">Fecha del evento</label>
                 {isEditing ? (
                   <FormInput
                     type="date"
-                    value={event.event_date || ''}
-                    onChange={(e) => setEvent({...event, event_date: e.target.value})}
+                    value={event.event_date ? event.event_date.split('T')[0] : ''}
+                    onChange={(e) => {
+                      setEvent({...event, event_date: e.target.value});
+                      if (validationErrors.event_date) {
+                        setValidationErrors({...validationErrors, event_date: null});
+                      }
+                    }}
                   />
                 ) : (
                   <div className="form-value">
@@ -398,15 +501,22 @@ const EventDetail = () => {
                   </div>
                 )}
               </div>
+            </div>
 
+            <div className="form-grid-3">
               <div className="form-field">
-                <label>Número de invitados</label>
+                <label className="required-label">Número de invitados</label>
                 {isEditing ? (
                   <FormInput
                     type="number"
                     min="1"
                     value={event.guests_count || 1}
-                    onChange={(e) => setEvent({...event, guests_count: parseInt(e.target.value) || 1})}
+                    onChange={(e) => {
+                      setEvent({...event, guests_count: parseInt(e.target.value) || 1});
+                      if (validationErrors.guests_count) {
+                        setValidationErrors({...validationErrors, guests_count: null});
+                      }
+                    }}
                   />
                 ) : (
                   <div className="form-value">
@@ -570,6 +680,80 @@ const EventDetail = () => {
             )}
           </div>
         </div>
+
+        {/* Cost Analysis Section */}
+        <div className="event-section">
+          <h2 className="section-title">💰 Análisis de Costes del Evento</h2>
+          <div className="section-content">
+            {(() => {
+              const metrics = calculateEventCostMetrics();
+              if (!metrics) {
+                return (
+                  <div className="empty-state">
+                    <p>Añade recetas al menú para ver el análisis de costes</p>
+                  </div>
+                );
+              }
+              
+              return (
+                <div className="cost-grid">
+                  <div className="cost-card">
+                    <div className="cost-label">Coste Total del Menú</div>
+                    <div className="cost-value primary">{formatCurrency(metrics.totalIngredientsCost)}</div>
+                    <div className="cost-detail">
+                      {metrics.recipesCount} {metrics.recipesCount === 1 ? 'receta' : 'recetas'} en el menú
+                    </div>
+                  </div>
+                  
+                  <div className="cost-card">
+                    <div className="cost-label">Coste por Invitado</div>
+                    <div className="cost-value">{formatCurrency(metrics.costPerGuest)}</div>
+                    <div className="cost-detail">
+                      Coste real para {metrics.guestsCount} {metrics.guestsCount === 1 ? 'invitado' : 'invitados'}
+                    </div>
+                  </div>
+                  
+                  <div className="cost-card">
+                    <div className="cost-label">Presupuesto Asignado</div>
+                    <div className="cost-value highlight">
+                      {metrics.budget > 0 ? formatCurrency(metrics.budget) : 'Sin presupuesto'}
+                    </div>
+                    <div className="cost-detail">
+                      {metrics.budget > 0 ? 'Presupuesto total del evento' : 'No definido'}
+                    </div>
+                  </div>
+                  
+                  {metrics.budget > 0 && (
+                    <div className="cost-card">
+                      <div className="cost-label">Precio por Invitado</div>
+                      <div className="cost-value success">{formatCurrency(metrics.pricePerGuest)}</div>
+                      <div className="cost-detail">
+                        Presupuesto dividido entre invitados
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div className="cost-card">
+                    <div className="cost-label">Desviación Presupuestaria</div>
+                    <div className={`cost-value ${metrics.budgetDeviation >= 0 ? 'success' : 'danger'}`}>
+                      {metrics.budget > 0 ? formatCurrency(metrics.budgetDeviation) : 'N/A'}
+                    </div>
+                    <div className="cost-detail">
+                      {metrics.budget > 0 ? (
+                        <>
+                          {metrics.budgetDeviation >= 0 ? 'Dentro del presupuesto ' : 'Excede el presupuesto '}
+                          ({metrics.budgetDeviationPercent >= 0 ? '+' : ''}{metrics.budgetDeviationPercent.toFixed(1)}%)
+                        </>
+                      ) : (
+                        'Define un presupuesto para el análisis'
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
       </div>
     );
   };
@@ -580,6 +764,13 @@ const EventDetail = () => {
         <div className="common-page-content">
           {/* Header personalizado con botones a los lados */}
           {customHeader}
+          
+          {/* Message display - debajo de todo el header */}
+          {message && (
+            <div className={`page-header-message page-header-message-${messageType} event-detail-message`}>
+              {message}
+            </div>
+          )}
           
           {/* Error display */}
           {error && (

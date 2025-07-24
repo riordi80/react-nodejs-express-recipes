@@ -14,6 +14,7 @@ import Events from '../pages/events/Events';
 import Settings from '../pages/settings/Settings';
 import RecipeDetail from '../pages/recipe-detail/RecipeDetail';
 import EventDetail from '../pages/event-detail/EventDetail';
+import SupplierOrders from '../pages/supplier-orders/SupplierOrders';
 
 const AppRoutes = () => {
   const { isAuthenticated, checkingAuth } = useAuth();
@@ -42,6 +43,7 @@ const AppRoutes = () => {
           <Route path="recipes" element={<Recipes />} />
           <Route path="recipes/:id" element={<RecipeDetail />} />
           <Route path="suppliers" element={<Suppliers />} />
+          <Route path="supplier-orders" element={<SupplierOrders />} />
           <Route path="events" element={<Events />} />
           <Route path="events/:id" element={<EventDetail />} />
           <Route path="settings" element={<Settings />} />

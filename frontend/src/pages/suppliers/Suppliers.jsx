@@ -8,6 +8,7 @@ import AddIngredientModal from './components/AddIngredientModal';
 import EditSupplierIngredientModal from './components/EditSupplierIngredientModal';
 import { usePageState } from '../../hooks/usePageState';
 import api from '../../api/axios';
+import { parseEuropeanNumber } from '../../utils/formatters';
 import './Suppliers.css';
 import { FormField, FormInput, FormTextarea } from '../../components/form/FormField';
 
@@ -191,9 +192,12 @@ export default function Suppliers() {
       const payload = selectedIngredients.map(ingredientId => ({
         supplier_id: editedItem.supplier_id,
         ingredient_id: ingredientId,
-        price: ingredientDetails[ingredientId].price,
+        price: parseEuropeanNumber(ingredientDetails[ingredientId].price),
         delivery_time: ingredientDetails[ingredientId].deliveryTime || null,
-        is_preferred_supplier: false
+        is_preferred_supplier: false,
+        package_size: parseEuropeanNumber(ingredientDetails[ingredientId].packageSize),
+        package_unit: ingredientDetails[ingredientId].packageUnit,
+        minimum_order_quantity: parseEuropeanNumber(ingredientDetails[ingredientId].minimumOrderQuantity)
       }));
 
       await api.post(`/suppliers/${editedItem.supplier_id}/ingredients`, { ingredients: payload });
