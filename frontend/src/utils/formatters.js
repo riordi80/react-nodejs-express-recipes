@@ -7,15 +7,15 @@
  * - Coloca el símbolo de euro al final sin espacio
  * - Ejemplo: 1234.56 -> "1.234,56€"
  */
-export const formatCurrency = (value) => {
-  if (value === null || value === undefined || isNaN(value)) return '0,00€';
+export const formatCurrency = (value, decimals = 2) => {
+  if (value === null || value === undefined || isNaN(value)) return '0,' + '0'.repeat(decimals) + '€';
   
   const numValue = parseFloat(value);
-  if (isNaN(numValue)) return '0,00€';
+  if (isNaN(numValue)) return '0,' + '0'.repeat(decimals) + '€';
   
   const formatted = numValue.toLocaleString('es-ES', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals
   });
   
   return `${formatted}€`;
@@ -90,4 +90,67 @@ export const parseEuropeanNumber = (value) => {
   // Devolver el número parseado
   const parsed = parseFloat(americanFormat);
   return isNaN(parsed) ? '' : parsed;
+};
+
+/**
+ * Formatea un precio mostrando hasta 4 decimales, pero eliminando ceros innecesarios
+ * - Ejemplo: 1.2000 -> "1,20€"
+ * - Ejemplo: 1.2340 -> "1,2340€"
+ * - Ejemplo: 1.0000 -> "1,00€"
+ */
+export const formatPrice = (value) => {
+  if (value === null || value === undefined || isNaN(value)) return '0,00€';
+  
+  const numValue = parseFloat(value);
+  if (isNaN(numValue)) return '0,00€';
+  
+  // Determinar cuántos decimales realmente necesitamos (máximo 4, mínimo 2)
+  const str = numValue.toFixed(4);
+  const decimalPart = str.split('.')[1];
+  
+  let decimalsToShow = 2; // mínimo 2 decimales
+  for (let i = 3; i >= 2; i--) {
+    if (decimalPart[i] !== '0') {
+      decimalsToShow = i + 1;
+      break;
+    }
+  }
+  
+  const formatted = numValue.toLocaleString('es-ES', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: decimalsToShow
+  });
+  
+  return `${formatted}€`;
+};
+
+/**
+ * Formatea un número decimal mostrando hasta 4 decimales, pero eliminando ceros innecesarios
+ * Sin símbolo de moneda
+ * - Ejemplo: 1.2000 -> "1,20"
+ * - Ejemplo: 1.2340 -> "1,234"
+ */
+export const formatDecimalPrice = (value) => {
+  if (value === null || value === undefined || isNaN(value)) return '0,00';
+  
+  const numValue = parseFloat(value);
+  if (isNaN(numValue)) return '0,00';
+  
+  // Determinar cuántos decimales realmente necesitamos (máximo 4, mínimo 2)
+  const str = numValue.toFixed(4);
+  const decimalPart = str.split('.')[1];
+  
+  let decimalsToShow = 2; // mínimo 2 decimales
+  for (let i = 3; i >= 2; i--) {
+    if (decimalPart[i] !== '0') {
+      decimalsToShow = i + 1;
+      break;
+    }
+  }
+  
+  return numValue.toLocaleString('es-ES', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: decimalsToShow,
+    useGrouping: false
+  });
 };

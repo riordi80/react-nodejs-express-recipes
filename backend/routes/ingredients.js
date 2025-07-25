@@ -217,4 +217,199 @@ router.put('/:id/activate', authenticateToken, authorizeRoles('admin'), async (r
   }
 });
 
+// GET /ingredients/:id/suppliers - Obtener proveedores de un ingrediente
+router.get('/:id/suppliers', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const [suppliers] = await pool.query(`
+      SELECT 
+        si.supplier_id,
+        s.name as supplier_name,
+        si.price,
+        si.delivery_time,
+        si.is_preferred_supplier,
+        si.package_size,
+        si.package_unit,
+        si.minimum_order_quantity
+      FROM SUPPLIER_INGREDIENTS si
+      JOIN SUPPLIERS s ON si.supplier_id = s.supplier_id
+      WHERE si.ingredient_id = ?
+      ORDER BY si.is_preferred_supplier DESC, s.name
+    `, [id]);
+
+    res.json(suppliers);
+  } catch (error) {
+    console.error('Error al obtener proveedores del ingrediente:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// POST /ingredients/:id/suppliers - Añadir proveedor a un ingrediente
+router.post('/:id/suppliers', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
+  const { id } = req.params;
+  const { 
+    supplier_id, 
+    price = 0, 
+    delivery_time = null, 
+    is_preferred_supplier = false,
+    package_size = 1,
+    package_unit = 'unidad',
+    minimum_order_quantity = 1
+  } = req.body;
+
+  if (!supplier_id) {
+    return res.status(400).json({ message: 'ID del proveedor es obligatorio' });
+  }
+
+  try {
+    // Verificar que el ingrediente existe
+    const [ingredient] = await pool.query('SELECT name FROM INGREDIENTS WHERE ingredient_id = ?', [id]);
+    if (ingredient.length === 0) {
+      return res.status(404).json({ message: 'Ingrediente no encontrado' });
+    }
+
+    // Verificar que el proveedor existe
+    const [supplier] = await pool.query('SELECT name FROM SUPPLIERS WHERE supplier_id = ?', [supplier_id]);
+    if (supplier.length === 0) {
+      return res.status(404).json({ message: 'Proveedor no encontrado' });
+    }
+
+    // Verificar que la relación no existe ya
+    const [existing] = await pool.query(
+      'SELECT * FROM SUPPLIER_INGREDIENTS WHERE ingredient_id = ? AND supplier_id = ?',
+      [id, supplier_id]
+    );
+    if (existing.length > 0) {
+      return res.status(400).json({ message: 'Este proveedor ya está asignado al ingrediente' });
+    }
+
+    // Añadir la relación
+    await pool.query(`
+      INSERT INTO SUPPLIER_INGREDIENTS (
+        ingredient_id, supplier_id, price, delivery_time, 
+        is_preferred_supplier, package_size, package_unit, minimum_order_quantity
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `, [id, supplier_id, price, delivery_time, is_preferred_supplier, package_size, package_unit, minimum_order_quantity]);
+
+    await logAudit(req.user.user_id, 'create', 'SUPPLIER_INGREDIENTS', null, 
+      `Proveedor "${supplier[0].name}" añadido al ingrediente "${ingredient[0].name}"`);
+
+    res.status(201).json({ message: 'Proveedor añadido correctamente' });
+  } catch (error) {
+    console.error('Error al añadir proveedor al ingrediente:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// PUT /ingredients/:id/suppliers/:supplier_id - Actualizar relación ingrediente-proveedor
+router.put('/:id/suppliers/:supplier_id', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
+  const { id, supplier_id } = req.params;
+  const { 
+    price, 
+    delivery_time, 
+    is_preferred_supplier,
+    package_size,
+    package_unit,
+    minimum_order_quantity
+  } = req.body;
+
+  try {
+    // Verificar que la relación existe
+    const [existing] = await pool.query(
+      'SELECT * FROM SUPPLIER_INGREDIENTS WHERE ingredient_id = ? AND supplier_id = ?',
+      [id, supplier_id]
+    );
+    if (existing.length === 0) {
+      return res.status(404).json({ message: 'Relación ingrediente-proveedor no encontrada' });
+    }
+
+    // Si se está marcando como preferido, desmarcar otros proveedores preferidos del mismo ingrediente
+    if (is_preferred_supplier === true) {
+      await pool.query(
+        'UPDATE SUPPLIER_INGREDIENTS SET is_preferred_supplier = FALSE WHERE ingredient_id = ? AND supplier_id != ?',
+        [id, supplier_id]
+      );
+    }
+
+    // Construir la consulta de actualización dinámicamente
+    const updates = [];
+    const values = [];
+    
+    if (price !== undefined) {
+      updates.push('price = ?');
+      values.push(price);
+    }
+    if (delivery_time !== undefined) {
+      updates.push('delivery_time = ?');
+      values.push(delivery_time);
+    }
+    if (is_preferred_supplier !== undefined) {
+      updates.push('is_preferred_supplier = ?');
+      values.push(is_preferred_supplier);
+    }
+    if (package_size !== undefined) {
+      updates.push('package_size = ?');
+      values.push(package_size);
+    }
+    if (package_unit !== undefined) {
+      updates.push('package_unit = ?');
+      values.push(package_unit);
+    }
+    if (minimum_order_quantity !== undefined) {
+      updates.push('minimum_order_quantity = ?');
+      values.push(minimum_order_quantity);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ message: 'No hay campos para actualizar' });
+    }
+
+    values.push(id, supplier_id);
+
+    await pool.query(
+      `UPDATE SUPPLIER_INGREDIENTS SET ${updates.join(', ')} WHERE ingredient_id = ? AND supplier_id = ?`,
+      values
+    );
+
+    await logAudit(req.user.user_id, 'update', 'SUPPLIER_INGREDIENTS', null, 
+      `Relación ingrediente-proveedor actualizada: ingrediente ${id}, proveedor ${supplier_id}`);
+
+    res.json({ message: 'Relación actualizada correctamente' });
+  } catch (error) {
+    console.error('Error al actualizar relación ingrediente-proveedor:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// DELETE /ingredients/:id/suppliers/:supplier_id - Eliminar proveedor de un ingrediente
+router.delete('/:id/suppliers/:supplier_id', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
+  const { id, supplier_id } = req.params;
+
+  try {
+    // Verificar que la relación existe
+    const [existing] = await pool.query(
+      'SELECT * FROM SUPPLIER_INGREDIENTS WHERE ingredient_id = ? AND supplier_id = ?',
+      [id, supplier_id]
+    );
+    if (existing.length === 0) {
+      return res.status(404).json({ message: 'Relación ingrediente-proveedor no encontrada' });
+    }
+
+    // Eliminar la relación
+    await pool.query(
+      'DELETE FROM SUPPLIER_INGREDIENTS WHERE ingredient_id = ? AND supplier_id = ?',
+      [id, supplier_id]
+    );
+
+    await logAudit(req.user.user_id, 'delete', 'SUPPLIER_INGREDIENTS', null, 
+      `Proveedor eliminado del ingrediente: ingrediente ${id}, proveedor ${supplier_id}`);
+
+    res.json({ message: 'Proveedor eliminado correctamente' });
+  } catch (error) {
+    console.error('Error al eliminar proveedor del ingrediente:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
 module.exports = router;

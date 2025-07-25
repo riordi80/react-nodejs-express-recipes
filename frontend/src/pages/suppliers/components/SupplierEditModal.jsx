@@ -17,7 +17,8 @@ export default function SupplierEditModal({
   onSave,
   onAddIngredients,
   onEditIngredient,
-  onDeleteIngredient
+  onDeleteIngredient,
+  onTogglePreferred
 }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -149,6 +150,7 @@ export default function SupplierEditModal({
               sortConfig={sortConfig}
               onEditIngredient={onEditIngredient}
               onDeleteIngredient={onDeleteIngredient}
+              onTogglePreferred={onTogglePreferred}
             />
             
             <div className="modal-actions">

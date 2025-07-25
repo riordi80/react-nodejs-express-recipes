@@ -194,7 +194,7 @@ export default function Suppliers() {
         ingredient_id: ingredientId,
         price: parseEuropeanNumber(ingredientDetails[ingredientId].price),
         delivery_time: ingredientDetails[ingredientId].deliveryTime || null,
-        is_preferred_supplier: false,
+        is_preferred_supplier: ingredientDetails[ingredientId].isPreferred || false,
         package_size: parseEuropeanNumber(ingredientDetails[ingredientId].packageSize),
         package_unit: ingredientDetails[ingredientId].packageUnit,
         minimum_order_quantity: parseEuropeanNumber(ingredientDetails[ingredientId].minimumOrderQuantity)
@@ -226,7 +226,10 @@ export default function Suppliers() {
       const payload = {
         price: editingSupplierIngredient.price,
         delivery_time: editingSupplierIngredient.delivery_time || null,
-        is_preferred_supplier: editingSupplierIngredient.is_preferred_supplier
+        is_preferred_supplier: editingSupplierIngredient.is_preferred_supplier,
+        package_size: editingSupplierIngredient.package_size || 1,
+        package_unit: editingSupplierIngredient.package_unit || 'unidad',
+        minimum_order_quantity: editingSupplierIngredient.minimum_order_quantity || 1
       };
       await api.put(`/suppliers/${editedItem.supplier_id}/ingredients/${editingSupplierIngredient.ingredient_id}`, payload);
       
@@ -237,6 +240,27 @@ export default function Suppliers() {
       setIsEditSupplierIngredientOpen(false);
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  // Toggle preferred supplier handler
+  const handleTogglePreferred = async (item) => {
+    try {
+      const payload = {
+        price: item.price,
+        delivery_time: item.delivery_time || null,
+        is_preferred_supplier: !item.is_preferred_supplier,
+        package_size: item.package_size || 1,
+        package_unit: item.package_unit || 'unidad',
+        minimum_order_quantity: item.minimum_order_quantity || 1
+      };
+      await api.put(`/suppliers/${editedItem.supplier_id}/ingredients/${item.ingredient_id}`, payload);
+      
+      // Recargar ingredientes del proveedor
+      const { data } = await api.get(`/suppliers/${editedItem.supplier_id}/ingredients`);
+      setSupplierIngredients(data);
+    } catch (err) {
+      console.error('Error al cambiar proveedor preferido:', err);
     }
   };
 
@@ -404,6 +428,7 @@ export default function Suppliers() {
           onAddIngredients={openAddIngredientModal}
           onEditIngredient={openEditSupplierIngredientModal}
           onDeleteIngredient={openDeleteSupplierIngredientModal}
+          onTogglePreferred={handleTogglePreferred}
         />
 
         {/* DELETE MODAL */}

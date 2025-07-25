@@ -54,7 +54,8 @@ export default function AddIngredientModal({
           deliveryTime: '',
           packageSize: '1,0',
           packageUnit: 'unidad',
-          minimumOrderQuantity: '1,0'
+          minimumOrderQuantity: '1,0',
+          isPreferred: false
         }
       });
     }
@@ -203,6 +204,38 @@ export default function AddIngredientModal({
                         required
                         lang="es"
                       />
+                    </div>
+                    <div className="detail-field">
+                      <label style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        margin: 0,
+                        fontSize: '14px',
+                        fontWeight: '500',
+                        color: '#374151'
+                      }}>
+                        <input 
+                          type="checkbox" 
+                          checked={ingredientDetails[ingredient.ingredient_id]?.isPreferred || false}
+                          onChange={(e) => updateIngredientDetail(
+                            ingredient.ingredient_id, 
+                            'isPreferred', 
+                            e.target.checked
+                          )}
+                          style={{ margin: 0 }}
+                        /> 
+                        Proveedor preferido
+                      </label>
+                      <small style={{ 
+                        color: '#64748b', 
+                        fontSize: '12px', 
+                        marginTop: '4px', 
+                        fontStyle: 'italic',
+                        display: 'block'
+                      }}>
+                        Este proveedor será usado por defecto en las listas de compras
+                      </small>
                     </div>
                   </div>
                 )}

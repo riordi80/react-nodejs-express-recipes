@@ -1,12 +1,13 @@
 import React, { useMemo } from 'react';
-import { FaEdit, FaRegTrashAlt } from 'react-icons/fa';
+import { FaRegTrashAlt, FaStar, FaRegStar } from 'react-icons/fa';
 import { formatCurrency } from '../../../utils/formatters';
 
 export default function SupplierIngredientsTable({ 
   supplierIngredients, 
   sortConfig, 
   onEditIngredient, 
-  onDeleteIngredient 
+  onDeleteIngredient,
+  onTogglePreferred
 }) {
   
   const sortedSupplierIngredients = useMemo(() => {
@@ -49,30 +50,52 @@ export default function SupplierIngredientsTable({
           <tr>
             <th>Ingrediente</th>
             <th>Precio</th>
-            <th>Tiempo entrega</th>
-            <th>Preferido</th>
-            <th style={{ width: '80px' }}>Acciones</th>
+            <th style={{ textAlign: 'center' }}>Preferido</th>
+            <th style={{ width: '60px' }}></th>
           </tr>
         </thead>
         <tbody>
           {sortedSupplierIngredients.map(item => (
-            <tr key={item.ingredient_id}>
+            <tr 
+              key={item.ingredient_id}
+              onClick={() => onEditIngredient(item)}
+              style={{ cursor: 'pointer' }}
+              className="clickable-row"
+            >
               <td>{item.name || item.ingredient_name || 'Ingrediente'}</td>
               <td>{formatCurrency(item.price)}</td>
-              <td>{item.delivery_time || '-'} días</td>
-              <td>{item.is_preferred_supplier ? 'Sí' : 'No'}</td>
+              <td style={{ textAlign: 'center' }}>
+                <span 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onTogglePreferred(item);
+                  }}
+                  style={{ 
+                    cursor: 'pointer',
+                    display: 'inline-block',
+                    padding: '4px',
+                    transition: 'transform 0.1s'
+                  }}
+                  title={item.is_preferred_supplier ? 'Quitar como preferido' : 'Marcar como preferido'}
+                  onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.9)'}
+                  onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                  onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                >
+                  {item.is_preferred_supplier ? (
+                    <FaStar style={{ color: '#fbbf24' }} />
+                  ) : (
+                    <FaRegStar style={{ color: '#9ca3af' }} />
+                  )}
+                </span>
+              </td>
               <td>
                 <div className="table-actions">
                   <button 
-                    className="icon-btn edit-icon" 
-                    onClick={() => onEditIngredient(item)}
-                    title="Editar"
-                  >
-                    <FaEdit />
-                  </button>
-                  <button 
                     className="icon-btn delete-icon" 
-                    onClick={() => onDeleteIngredient(item)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteIngredient(item);
+                    }}
                     title="Eliminar"
                   >
                     <FaRegTrashAlt />

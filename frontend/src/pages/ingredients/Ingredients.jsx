@@ -1,12 +1,12 @@
 // src/pages/ingredients/Ingredients.jsx
 import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { FaBan, FaUndo, FaUser, FaLeaf } from 'react-icons/fa';
+import { FaBan, FaUndo, FaUser, FaLeaf, FaTruck } from 'react-icons/fa';
 import BasePage from '../../components/BasePage';
 import Modal from '../../components/modal/Modal';
 import TabsModal from '../../components/tabs-modal/TabsModal';
 // usePageState removed - now using custom state management
 import api from '../../api/axios';
-import { formatCurrency, formatDecimal, parseEuropeanNumber } from '../../utils/formatters';
+import { formatCurrency, formatDecimal, parseEuropeanNumber, formatPrice, formatDecimalPrice } from '../../utils/formatters';
 import { FormField, FormInput, FormTextarea, FormSelect } from '../../components/form/FormField';
 import './Ingredients.css';
 
@@ -49,17 +49,26 @@ export default function Ingredients() {
   const [editedItem, setEditedItem] = useState(null);
   const [editedWastePercent, setEditedWastePercent] = useState('');
   const [editedSelectedAllergens, setEditedSelectedAllergens] = useState([]);
-  const [editModalTab, setEditModalTab] = useState('info'); // 'info' o 'nutrition'
-  const [createModalTab, setCreateModalTab] = useState('info'); // 'info' o 'nutrition' para modal de crear
+  const [editModalTab, setEditModalTab] = useState('info'); // 'info', 'nutrition' o 'suppliers'  
+  const [createModalTab, setCreateModalTab] = useState('info'); // 'info', 'nutrition' o 'suppliers' para modal de crear
+  
+  // Estados para gestión de proveedores
+  const [ingredientSuppliers, setIngredientSuppliers] = useState([]);
+  const [allSuppliers, setAllSuppliers] = useState([]);
+  const [loadingSuppliersData, setLoadingSuppliersData] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isCreateDropdownOpen, setIsCreateDropdownOpen] = useState(false);
+  const [supplierFilterText, setSupplierFilterText] = useState('');
+  const [editingSuppliers, setEditingSuppliers] = useState({}); // Para almacenar los datos editables de cada proveedor
+  const [expandedSuppliers, setExpandedSuppliers] = useState({}); // Para controlar qué proveedores están expandidos
   const dropdownRef = useRef(null);
   const createDropdownRef = useRef(null);
 
   // Definir las pestañas con iconos
   const tabs = [
     { id: 'info', label: 'Información General', icon: FaUser },
-    { id: 'nutrition', label: 'Información Nutricional', icon: FaLeaf }
+    { id: 'nutrition', label: 'Información Nutricional', icon: FaLeaf },
+    { id: 'suppliers', label: 'Proveedores', icon: FaTruck }
   ];
 
   // Efecto para cerrar los dropdowns cuando se hace clic fuera
@@ -138,6 +147,14 @@ export default function Ingredients() {
     );
   }, [ingredients, filterText]);
 
+  // Filter suppliers by search text
+  const filteredSuppliers = useMemo(() => {
+    if (!supplierFilterText) return allSuppliers;
+    return allSuppliers.filter(supplier => 
+      supplier.name.toLowerCase().includes(supplierFilterText.toLowerCase())
+    );
+  }, [allSuppliers, supplierFilterText]);
+
   // Load allergens data
   useEffect(() => {
     const fetchAllergens = async () => {
@@ -149,6 +166,19 @@ export default function Ingredients() {
       }
     };
     fetchAllergens();
+  }, []);
+
+  // Load suppliers data
+  useEffect(() => {
+    const fetchSuppliers = async () => {
+      try {
+        const { data } = await api.get('/suppliers');
+        setAllSuppliers(data);
+      } catch (error) {
+        console.error('Error loading suppliers:', error);
+      }
+    };
+    fetchSuppliers();
   }, []);
 
   // Load ingredients when filter changes
@@ -227,7 +257,7 @@ export default function Ingredients() {
       expiration_date: formattedDate,
       season: Array.isArray(row.season) ? row.season : (row.season ? row.season.split(',').map(s => s.trim()) : []),
       // Formatear campos numéricos con coma decimal
-      base_price: row.base_price ? formatDecimal(row.base_price, 2) : '',
+      base_price: row.base_price ? formatDecimalPrice(row.base_price) : '',
       net_price: row.net_price ? formatDecimal(row.net_price, 2) : '',
       stock: row.stock ? formatDecimal(row.stock, 2) : '',
       stock_minimum: row.stock_minimum ? formatDecimal(row.stock_minimum, 2) : '',
@@ -246,18 +276,200 @@ export default function Ingredients() {
       console.error('Error cargando alérgenos:', error);
       setEditedSelectedAllergens([]);
     }
+
+    // Cargar proveedores del ingrediente
+    try {
+      const { data } = await api.get(`/ingredients/${row.ingredient_id}/suppliers`);
+      setIngredientSuppliers(data);
+      
+      // Inicializar datos editables para cada proveedor
+      const editableData = {};
+      data.forEach(supplier => {
+        editableData[supplier.supplier_id] = {
+          price: supplier.price ? formatDecimalPrice(supplier.price) : '',
+          delivery_time: supplier.delivery_time || '',
+          package_size: supplier.package_size ? formatDecimalPrice(supplier.package_size) : '1',
+          package_unit: supplier.package_unit || 'unidad',
+          minimum_order_quantity: supplier.minimum_order_quantity ? formatDecimalPrice(supplier.minimum_order_quantity) : '1',
+          is_preferred_supplier: supplier.is_preferred_supplier || false
+        };
+      });
+      setEditingSuppliers(editableData);
+    } catch (error) {
+      console.error('Error cargando proveedores:', error);
+      setIngredientSuppliers([]);
+      setEditingSuppliers({});
+    }
     
     setIsEditOpen(true);
   };
 
 
+  // Funciones para gestionar proveedores del ingrediente
+  const addSupplierToIngredient = async (supplierId) => {
+    if (!editedItem) return;
+    
+    setLoadingSuppliersData(true);
+    try {
+      await api.post(`/ingredients/${editedItem.ingredient_id}/suppliers`, {
+        supplier_id: supplierId,
+        price: 0,
+        delivery_time: null,
+        is_preferred_supplier: false,
+        package_size: 1,
+        package_unit: 'unidad',
+        minimum_order_quantity: 1
+      });
+      
+      // Recargar proveedores del ingrediente
+      const { data } = await api.get(`/ingredients/${editedItem.ingredient_id}/suppliers`);
+      setIngredientSuppliers(data);
+      
+      // Inicializar datos editables para el nuevo proveedor
+      const newSupplier = data.find(s => s.supplier_id === supplierId);
+      if (newSupplier) {
+        setEditingSuppliers(prev => ({
+          ...prev,
+          [supplierId]: {
+            price: newSupplier.price ? formatDecimalPrice(newSupplier.price) : '',
+            delivery_time: newSupplier.delivery_time || '',
+            package_size: newSupplier.package_size ? formatDecimalPrice(newSupplier.package_size) : '1',
+            package_unit: newSupplier.package_unit || 'unidad',
+            minimum_order_quantity: newSupplier.minimum_order_quantity ? formatDecimalPrice(newSupplier.minimum_order_quantity) : '1',
+            is_preferred_supplier: newSupplier.is_preferred_supplier || false
+          }
+        }));
+      }
+      
+      notify('Proveedor añadido correctamente', 'success');
+    } catch (error) {
+      console.error('Error añadiendo proveedor:', error);
+      notify(error.response?.data?.message || 'Error al añadir proveedor', 'error');
+    } finally {
+      setLoadingSuppliersData(false);
+    }
+  };
+
+  const removeSupplierFromIngredient = async (supplierId) => {
+    if (!editedItem) return;
+    
+    setLoadingSuppliersData(true);
+    try {
+      await api.delete(`/ingredients/${editedItem.ingredient_id}/suppliers/${supplierId}`);
+      
+      // Recargar proveedores del ingrediente
+      const { data } = await api.get(`/ingredients/${editedItem.ingredient_id}/suppliers`);
+      setIngredientSuppliers(data);
+      
+      // Limpiar datos editables del proveedor eliminado
+      setEditingSuppliers(prev => {
+        const newState = { ...prev };
+        delete newState[supplierId];
+        return newState;
+      });
+      
+      notify('Proveedor eliminado correctamente', 'success');
+    } catch (error) {
+      console.error('Error eliminando proveedor:', error);
+      notify(error.response?.data?.message || 'Error al eliminar proveedor', 'error');
+    } finally {
+      setLoadingSuppliersData(false);
+    }
+  };
+
+  const updateSupplierPreference = async (supplierId, isPreferred) => {
+    if (!editedItem) return;
+    
+    setLoadingSuppliersData(true);
+    try {
+      await api.put(`/ingredients/${editedItem.ingredient_id}/suppliers/${supplierId}`, {
+        is_preferred_supplier: isPreferred
+      });
+      
+      // Recargar proveedores del ingrediente
+      const { data } = await api.get(`/ingredients/${editedItem.ingredient_id}/suppliers`);
+      setIngredientSuppliers(data);
+      notify('Preferencia de proveedor actualizada', 'success');
+    } catch (error) {
+      console.error('Error actualizando preferencia:', error);
+      notify(error.response?.data?.message || 'Error al actualizar preferencia', 'error');
+    } finally {
+      setLoadingSuppliersData(false);
+    }
+  };
+
+  // Función para actualizar los datos completos del proveedor
+  const updateSupplierData = async (supplierId) => {
+    if (!editedItem || !editingSuppliers[supplierId]) return;
+    
+    setLoadingSuppliersData(true);
+    try {
+      const supplierData = editingSuppliers[supplierId];
+      await api.put(`/ingredients/${editedItem.ingredient_id}/suppliers/${supplierId}`, {
+        price: parseEuropeanNumber(supplierData.price) || 0,
+        delivery_time: supplierData.delivery_time ? parseInt(supplierData.delivery_time) : null,
+        package_size: parseEuropeanNumber(supplierData.package_size) || 1,
+        package_unit: supplierData.package_unit || 'unidad',
+        minimum_order_quantity: parseEuropeanNumber(supplierData.minimum_order_quantity) || 1,
+        is_preferred_supplier: supplierData.is_preferred_supplier
+      });
+      
+      // Recargar proveedores del ingrediente
+      const { data } = await api.get(`/ingredients/${editedItem.ingredient_id}/suppliers`);
+      setIngredientSuppliers(data);
+      
+      // Actualizar datos editables
+      const editableData = { ...editingSuppliers };
+      data.forEach(supplier => {
+        if (supplier.supplier_id === supplierId) {
+          editableData[supplier.supplier_id] = {
+            price: supplier.price ? formatDecimalPrice(supplier.price) : '',
+            delivery_time: supplier.delivery_time || '',
+            package_size: supplier.package_size ? formatDecimalPrice(supplier.package_size) : '1',
+            package_unit: supplier.package_unit || 'unidad',
+            minimum_order_quantity: supplier.minimum_order_quantity ? formatDecimalPrice(supplier.minimum_order_quantity) : '1',
+            is_preferred_supplier: supplier.is_preferred_supplier || false
+          };
+        }
+      });
+      setEditingSuppliers(editableData);
+      
+      notify('Datos del proveedor actualizados correctamente', 'success');
+    } catch (error) {
+      console.error('Error actualizando datos del proveedor:', error);
+      notify(error.response?.data?.message || 'Error al actualizar datos del proveedor', 'error');
+    } finally {
+      setLoadingSuppliersData(false);
+    }
+  };
+
+  // Función para actualizar un campo específico del proveedor en el estado local
+  const updateSupplierField = (supplierId, field, value) => {
+    setEditingSuppliers(prev => ({
+      ...prev,
+      [supplierId]: {
+        ...prev[supplierId],
+        [field]: value
+      }
+    }));
+  };
+
+  // Función para alternar la expansión de un proveedor
+  const toggleSupplierExpansion = (supplierId) => {
+    setExpandedSuppliers(prev => ({
+      ...prev,
+      [supplierId]: !prev[supplierId]
+    }));
+  };
+
   const handleEdit = async () => {
     try {
+      const { net_price, ...itemWithoutNetPrice } = editedItem;
       const payload = {
-        ...editedItem,
+        ...itemWithoutNetPrice,
         // Convertir valores de formato europeo a americano para el backend
         base_price: parseEuropeanNumber(editedItem.base_price),
-        // net_price se calcula automáticamente por el trigger de MySQL
+        // net_price se excluye porque se calcula automáticamente por el trigger de MySQL
         stock: parseEuropeanNumber(editedItem.stock),
         stock_minimum: parseEuropeanNumber(editedItem.stock_minimum),
         calories_per_100g: parseEuropeanNumber(editedItem.calories_per_100g),
@@ -278,6 +490,9 @@ export default function Ingredients() {
       setEditedItem(null);
       setEditedWastePercent('');
       setEditedSelectedAllergens([]);
+      setSupplierFilterText(''); // Limpiar filtro de proveedores
+      setEditingSuppliers({}); // Limpiar datos editables de proveedores
+      setExpandedSuppliers({}); // Limpiar estado de expansión
       await loadIngredients();
       notify('Ingrediente actualizado correctamente', 'success');
     } catch (error) {
@@ -368,9 +583,9 @@ const columns = useMemo(() => [
     sortable: true, 
     grow: 1
   },
-  { name: 'P. Base', selector: r => formatCurrency(r.base_price), sortable: true },
+  { name: 'P. Base', selector: r => `${formatPrice(r.base_price)}/${r.unit}`, sortable: true },
   { name: 'Merma (%)', selector: row => `${formatDecimal(row.waste_percent * 100, 2)}%`, sortable: true },
-  { name: 'P. Neto', selector: r => formatCurrency(r.net_price), sortable: true },
+  { name: 'P. Neto', selector: r => formatPrice(r.net_price), sortable: true },
   { name: 'Stock', selector: r => r.stock ? formatDecimal(r.stock, 2) : '-', sortable: true },
   { name: 'Stock Mín.', selector: r => r.stock_minimum ? formatDecimal(r.stock_minimum, 2) : '-', sortable: true },
   { 
@@ -415,7 +630,7 @@ const columns = useMemo(() => [
     )
   },
   {
-    name: 'Acciones',
+    name: 'Disponibilidad',
     cell: row => (
       <div className="table-actions">
         {row.is_available ? (
@@ -613,7 +828,7 @@ const columns = useMemo(() => [
                   <button type="submit" className="btn add">Guardar</button>
                 </div>
               </form>
-            ) : (
+            ) : createModalTab === 'nutrition' ? (
               <form onSubmit={handleCreate} className="modal-body-form ingredient-nutrition-form">
                 <div className="form-fields-two-columns">
                   <div className="column-left">
@@ -744,13 +959,41 @@ const columns = useMemo(() => [
                   <button type="submit" className="btn add">Guardar</button>
                 </div>
               </form>
-            )}
+            ) : createModalTab === 'suppliers' ? (
+              <div className="modal-body-form ingredient-suppliers-form">
+                <div style={{ marginBottom: '20px' }}>
+                  <h4 style={{ fontSize: '16px', fontWeight: '600', color: '#1e293b', marginBottom: '16px' }}>
+                    Proveedores (disponible después de crear)
+                  </h4>
+                  <div style={{
+                    textAlign: 'center',
+                    padding: '40px 20px',
+                    color: '#64748b',
+                    backgroundColor: '#f8fafc',
+                    border: '2px dashed #cbd5e1',
+                    borderRadius: '8px'
+                  }}>
+                    <p style={{ margin: '0 0 8px 0', fontSize: '14px' }}>
+                      Los proveedores se podrán asignar después de crear el ingrediente
+                    </p>
+                    <p style={{ margin: 0, fontSize: '12px', opacity: 0.8 }}>
+                      Guarda el ingrediente y luego edítalo para gestionar proveedores
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="modal-actions">
+                  <button type="button" className="btn cancel" onClick={() => setIsCreateOpen(false)}>Cancelar</button>
+                  <button type="submit" className="btn add">Guardar</button>
+                </div>
+              </div>
+            ) : null}
           </TabsModal>
         </div>
       </Modal>
 
       {/* EDIT MODAL */}
-      <Modal isOpen={isEditOpen} title="Editar ingrediente" onClose={() => setIsEditOpen(false)} fullscreenMobile={true}>
+      <Modal isOpen={isEditOpen} title="Editar ingrediente" onClose={() => { setIsEditOpen(false); setSupplierFilterText(''); setEditingSuppliers({}); setExpandedSuppliers({}); }} fullscreenMobile={true}>
         <div className="ingredient-edit-modal">
           <TabsModal
             tabs={tabs}
@@ -888,7 +1131,7 @@ const columns = useMemo(() => [
                   <button type="button" className="btn edit" onClick={handleEdit}>Guardar</button>
                 </div>
               </form>
-            ) : (
+            ) : editModalTab === 'nutrition' ? (
               <form className="modal-body-form ingredient-nutrition-form">
                 <div className="form-fields-two-columns">
                   <div className="column-left">
@@ -1011,7 +1254,246 @@ const columns = useMemo(() => [
                   <button type="button" className="btn edit" onClick={handleEdit}>Guardar</button>
                 </div>
               </form>
-            )}
+            ) : editModalTab === 'suppliers' ? (
+              <div className="modal-body-form ingredient-suppliers-form">
+                <div style={{ marginBottom: '20px' }}>
+                  <h4 style={{ fontSize: '16px', fontWeight: '600', color: '#1e293b', marginBottom: '16px' }}>
+                    Proveedores del Ingrediente
+                  </h4>
+                  
+                  {loadingSuppliersData ? (
+                    <div style={{ textAlign: 'center', padding: '20px', color: '#64748b' }}>
+                      Cargando...
+                    </div>
+                  ) : (
+                    <>
+                      {ingredientSuppliers.length > 0 ? (
+                        <div className="suppliers-list">
+                          {ingredientSuppliers.map(supplier => {
+                            const supplierData = editingSuppliers[supplier.supplier_id] || {};
+                            const isExpanded = expandedSuppliers[supplier.supplier_id];
+                            return (
+                              <div key={supplier.supplier_id} className={`supplier-item ${supplier.is_preferred_supplier ? 'preferred' : ''}`}>
+                                {/* Header con nombre, resumen e información básica */}
+                                <div className="supplier-header" onClick={() => toggleSupplierExpansion(supplier.supplier_id)}>
+                                  <div className="supplier-info">
+                                    <div className="supplier-name">
+                                      {supplier.supplier_name}
+                                      {supplier.is_preferred_supplier && (
+                                        <span className="preferred-badge">PREFERIDO</span>
+                                      )}
+                                    </div>
+                                    <div className="supplier-summary">
+                                      {supplier.price ? `Precio: ${formatCurrency(supplier.price)}` : 'Sin precio configurado'} 
+                                      {supplier.delivery_time && ` • Entrega: ${supplier.delivery_time} días`}
+                                      {supplier.package_size && ` • Paquete: ${formatDecimalPrice(supplier.package_size)} ${supplier.package_unit}`}
+                                    </div>
+                                  </div>
+                                  <div className="supplier-actions" onClick={(e) => e.stopPropagation()}>
+                                    <button
+                                      type="button"
+                                      className={`supplier-preferred-btn ${supplier.is_preferred_supplier ? 'active' : ''}`}
+                                      onClick={() => updateSupplierPreference(supplier.supplier_id, !supplier.is_preferred_supplier)}
+                                      disabled={loadingSuppliersData}
+                                    >
+                                      {supplier.is_preferred_supplier ? '★ Preferido' : 'Hacer preferido'}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="supplier-remove-btn"
+                                      onClick={() => removeSupplierFromIngredient(supplier.supplier_id)}
+                                      disabled={loadingSuppliersData}
+                                    >
+                                      Eliminar
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Contenido expandible con campos editables */}
+                                <div className={`supplier-expanded-content ${!isExpanded ? 'collapsed' : ''}`}>
+                                  <div className="supplier-fields">
+                                    <div className="supplier-field">
+                                      <label>Precio (€)</label>
+                                      <input
+                                        type="text"
+                                        value={supplierData.price || ''}
+                                        onChange={(e) => {
+                                          const value = e.target.value;
+                                          if (/^[\d.,]*$/.test(value)) {
+                                            updateSupplierField(supplier.supplier_id, 'price', value);
+                                          }
+                                        }}
+                                        placeholder="0,00"
+                                        disabled={loadingSuppliersData}
+                                      />
+                                    </div>
+                                    
+                                    <div className="supplier-field">
+                                      <label>Entrega (días)</label>
+                                      <input
+                                        type="number"
+                                        value={supplierData.delivery_time || ''}
+                                        onChange={(e) => updateSupplierField(supplier.supplier_id, 'delivery_time', e.target.value)}
+                                        placeholder="0"
+                                        min="0"
+                                        disabled={loadingSuppliersData}
+                                      />
+                                    </div>
+
+                                    <div className="supplier-field">
+                                      <label>Tamaño del paquete</label>
+                                      <input
+                                        type="text"
+                                        value={supplierData.package_size || ''}
+                                        onChange={(e) => {
+                                          const value = e.target.value;
+                                          if (/^[\d.,]*$/.test(value)) {
+                                            updateSupplierField(supplier.supplier_id, 'package_size', value);
+                                          }
+                                        }}
+                                        placeholder="1,00"
+                                        disabled={loadingSuppliersData}
+                                      />
+                                    </div>
+
+                                    <div className="supplier-field">
+                                      <label>Unidad del paquete</label>
+                                      <select
+                                        value={supplierData.package_unit || 'unidad'}
+                                        onChange={(e) => updateSupplierField(supplier.supplier_id, 'package_unit', e.target.value)}
+                                        disabled={loadingSuppliersData}
+                                      >
+                                        <option value="unidad">Unidad</option>
+                                        <option value="caja">Caja</option>
+                                        <option value="saco">Saco</option>
+                                        <option value="botella">Botella</option>
+                                        <option value="lata">Lata</option>
+                                        <option value="paquete">Paquete</option>
+                                        <option value="bolsa">Bolsa</option>
+                                        <option value="bote">Bote</option>
+                                        <option value="envase">Envase</option>
+                                        <option value="kg">Kilogramo</option>
+                                        <option value="litro">Litro</option>
+                                      </select>
+                                    </div>
+
+                                    <div className="supplier-field">
+                                      <label>Cantidad mínima de pedido</label>
+                                      <input
+                                        type="text"
+                                        value={supplierData.minimum_order_quantity || ''}
+                                        onChange={(e) => {
+                                          const value = e.target.value;
+                                          if (/^[\d.,]*$/.test(value)) {
+                                            updateSupplierField(supplier.supplier_id, 'minimum_order_quantity', value);
+                                          }
+                                        }}
+                                        placeholder="1,00"
+                                        disabled={loadingSuppliersData}
+                                      />
+                                    </div>
+                                  </div>
+
+                                  {/* Botón de guardar */}
+                                  <div style={{ textAlign: 'right', marginTop: '16px' }}>
+                                    <button
+                                      type="button"
+                                      className="supplier-save-btn"
+                                      onClick={() => updateSupplierData(supplier.supplier_id)}
+                                      disabled={loadingSuppliersData}
+                                    >
+                                      {loadingSuppliersData ? 'Guardando...' : 'Guardar cambios'}
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div style={{
+                          textAlign: 'center',
+                          padding: '40px 20px',
+                          color: '#64748b',
+                          backgroundColor: '#f8fafc',
+                          border: '2px dashed #cbd5e1',
+                          borderRadius: '8px',
+                          marginBottom: '24px'
+                        }}>
+                          <p style={{ margin: '0 0 8px 0', fontSize: '14px' }}>
+                            Este ingrediente no tiene proveedores asignados
+                          </p>
+                          <p style={{ margin: 0, fontSize: '12px', opacity: 0.8 }}>
+                            Añade proveedores usando el selector de abajo
+                          </p>
+                        </div>
+                      )}
+                      
+                      <div className="add-suppliers-section">
+                        <h5 style={{ fontSize: '14px', fontWeight: '600', color: '#1e293b', marginBottom: '12px' }}>
+                          Añadir Proveedor
+                        </h5>
+                        
+                        {/* Input de filtro */}
+                        <FormField label="Buscar proveedor">
+                          <FormInput
+                            type="text"
+                            placeholder="Escribe para filtrar proveedores..."
+                            value={supplierFilterText}
+                            onChange={(e) => setSupplierFilterText(e.target.value)}
+                          />
+                        </FormField>
+                        
+                        <div className="add-suppliers-grid">
+                          {filteredSuppliers
+                            .filter(supplier => !ingredientSuppliers.some(is => is.supplier_id === supplier.supplier_id))
+                            .map(supplier => (
+                              <button
+                                key={supplier.supplier_id}
+                                type="button"
+                                onClick={() => addSupplierToIngredient(supplier.supplier_id)}
+                                style={{
+                                  fontSize: '12px',
+                                  padding: '6px 12px',
+                                  border: '1px solid #3b82f6',
+                                  borderRadius: '6px',
+                                  backgroundColor: '#eff6ff',
+                                  color: '#3b82f6',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.2s'
+                                }}
+                                onMouseOver={(e) => {
+                                  e.target.style.backgroundColor = '#3b82f6';
+                                  e.target.style.color = 'white';
+                                }}
+                                onMouseOut={(e) => {
+                                  e.target.style.backgroundColor = '#eff6ff';
+                                  e.target.style.color = '#3b82f6';
+                                }}
+                              >
+                                + {supplier.name}
+                              </button>
+                            ))}
+                        </div>
+                        {filteredSuppliers.filter(supplier => !ingredientSuppliers.some(is => is.supplier_id === supplier.supplier_id)).length === 0 && (
+                          <p style={{ fontSize: '12px', color: '#64748b', fontStyle: 'italic', margin: '8px 0 0 0' }}>
+                            {supplierFilterText 
+                              ? `No se encontraron proveedores que coincidan con "${supplierFilterText}"`
+                              : 'Todos los proveedores disponibles ya están asignados'
+                            }
+                          </p>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+                
+                <div className="modal-actions">
+                  <button type="button" className="btn cancel" onClick={() => { setIsEditOpen(false); setSupplierFilterText(''); setEditingSuppliers({}); setExpandedSuppliers({}); }}>Cancelar</button>
+                  <button type="button" className="btn edit" onClick={handleEdit}>Guardar</button>
+                </div>
+              </div>
+            ) : null}
           </TabsModal>
         </div>
       </Modal>

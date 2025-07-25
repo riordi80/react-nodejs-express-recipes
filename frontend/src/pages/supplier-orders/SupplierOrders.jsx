@@ -1,12 +1,17 @@
 // src/pages/supplier-orders/SupplierOrders.jsx
-import React, { useState, useEffect } from 'react';
-import { FaTruck, FaEuroSign, FaBoxOpen, FaExclamationTriangle, FaPlus, FaListUl, FaHistory, FaChartBar } from 'react-icons/fa';
+import React, { useState, useEffect, useRef } from 'react';
+import { FaTruck, FaEuroSign, FaBoxOpen, FaExclamationTriangle, FaPlus, FaListUl, FaHistory, FaChartBar, FaChevronDown, FaCheckCircle, FaTimesCircle, FaQuestionCircle } from 'react-icons/fa';
 import api from '../../api/axios';
 import { formatCurrency, formatDecimal } from '../../utils/formatters';
+import EditIngredientModal from '../../components/modals/EditIngredientModal';
 import './SupplierOrders.css';
 
 const SupplierOrders = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isModeDropdownOpen, setIsModeDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+  const modeDropdownRef = useRef(null);
   const [metrics, setMetrics] = useState({
     monthlySpending: 0,
     todayDeliveries: 0,
@@ -37,6 +42,36 @@ const SupplierOrders = () => {
   const [availableIngredients, setAvailableIngredients] = useState([]);
   const [ingredientsLoading, setIngredientsLoading] = useState(false);
 
+  // Estados para modal de edición de ingredientes
+  const [isEditIngredientOpen, setIsEditIngredientOpen] = useState(false);
+  const [selectedIngredient, setSelectedIngredient] = useState(null);
+
+  // Definición de tabs
+  const tabs = [
+    { id: 'dashboard', label: 'Dashboard', icon: FaChartBar },
+    { id: 'shopping-list', label: 'Lista de Compras', icon: FaListUl },
+    { id: 'active-orders', label: 'Pedidos Activos', icon: FaTruck },
+    { id: 'suppliers', label: 'Proveedores', icon: FaBoxOpen },
+    { id: 'history', label: 'Historial', icon: FaHistory },
+  ];
+
+  // Efecto para cerrar los dropdowns cuando se hace clic fuera
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
+      if (modeDropdownRef.current && !modeDropdownRef.current.contains(event.target)) {
+        setIsModeDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   useEffect(() => {
     loadDashboardData();
   }, []);
@@ -66,12 +101,105 @@ const SupplierOrders = () => {
     }
   }, [showEventSelection, showManualOrder]);
 
+  // Funciones para manejar la edición de ingredientes
+  const handleIngredientRowClick = async (ingredientId) => {
+    try {
+      const response = await api.get(`/ingredients/${ingredientId}`);
+      setSelectedIngredient(response.data);
+      setIsEditIngredientOpen(true);
+    } catch (error) {
+      console.error('Error al cargar ingrediente:', error);
+    }
+  };
+
+  const handleSaveIngredient = async (updatedIngredient) => {
+    try {
+      await api.put(`/ingredients/${updatedIngredient.ingredient_id}`, updatedIngredient);
+      
+      // Recargar la lista de compras si está visible
+      if (shoppingList) {
+        await loadShoppingList();
+      }
+      
+      setIsEditIngredientOpen(false);
+      setSelectedIngredient(null);
+      return true;
+    } catch (error) {
+      console.error('Error al guardar ingrediente:', error);
+      return false;
+    }
+  };
+
+  // Funciones para manejar el dropdown
+  const handleTabChange = (tabId) => {
+    setActiveTab(tabId);
+    setIsDropdownOpen(false); // Cerrar dropdown al seleccionar
+  };
+
+  const toggleDropdown = () => {
+    setIsDropdownOpen(!isDropdownOpen);
+  };
+
+  const toggleModeDropdown = () => {
+    setIsModeDropdownOpen(!isModeDropdownOpen);
+  };
+
+  // Función para obtener icono y estilo según estado del proveedor
+  const getSupplierStatusIndicator = (status) => {
+    switch (status) {
+      case 'complete':
+        return { icon: FaCheckCircle, className: 'supplier-status-complete', title: 'Proveedor configurado correctamente' };
+      case 'incomplete':
+        return { icon: FaExclamationTriangle, className: 'supplier-status-incomplete', title: 'Proveedor asignado pero sin precio configurado' };
+      case 'missing':
+      default:
+        return { icon: FaTimesCircle, className: 'supplier-status-missing', title: 'Sin proveedor asignado' };
+    }
+  };
+
+  // Opciones de modo para el dropdown móvil
+  const modeOptions = [
+    { 
+      id: 'automatic', 
+      label: 'Automático por Filtros', 
+      icon: FaListUl,
+      isActive: !showEventSelection && !showManualOrder,
+      onClick: () => {
+        if (showEventSelection) toggleEventSelectionMode();
+        if (showManualOrder) toggleManualOrderMode();
+        setShoppingList(null);
+        setIsModeDropdownOpen(false);
+      }
+    },
+    { 
+      id: 'events', 
+      label: 'Seleccionar Eventos Específicos', 
+      icon: FaPlus,
+      isActive: showEventSelection && !showManualOrder,
+      onClick: () => {
+        if (!showEventSelection) toggleEventSelectionMode();
+        if (showManualOrder) toggleManualOrderMode();
+        setShoppingList(null);
+        setIsModeDropdownOpen(false);
+      }
+    },
+    { 
+      id: 'manual', 
+      label: 'Pedido Manual', 
+      icon: FaBoxOpen,
+      isActive: showManualOrder,
+      onClick: () => {
+        if (!showManualOrder) toggleManualOrderMode();
+        if (showEventSelection) toggleEventSelectionMode();
+        setShoppingList(null);
+        setIsModeDropdownOpen(false);
+      }
+    }
+  ];
+
   const loadDashboardData = async () => {
     try {
-      console.log('Attempting to load dashboard data...');
-      
-      const response = await api.get('/supplier-orders/dashboard');
-      console.log('Response data:', response.data);
+      const response = await api.get('/orders/dashboard');
       
       setMetrics({
         monthlySpending: response.data.monthlySpending,
@@ -100,7 +228,7 @@ const SupplierOrders = () => {
         days: (filters.days * 2).toString() // Cargar más eventos para selección
       });
       
-      const response = await api.get(`/supplier-orders/available-events?${queryParams}`);
+      const response = await api.get(`/orders/available-events?${queryParams}`);
       setAvailableEvents(response.data);
       setEventsLoading(false);
     } catch (error) {
@@ -132,7 +260,7 @@ const SupplierOrders = () => {
         queryParams.set('eventIds', selectedEventIds.join(','));
       }
 
-      const response = await api.get(`/supplier-orders/shopping-list?${queryParams}`);
+      const response = await api.get(`/orders/shopping-list?${queryParams}`);
       setShoppingList(response.data);
       setShoppingListLoading(false);
     } catch (error) {
@@ -413,6 +541,38 @@ const SupplierOrders = () => {
           >
             <FaBoxOpen /> Pedido Manual
           </button>
+        </div>
+
+        {/* Dropdown para móvil - Modo de Selección */}
+        <div className="mode-mobile-dropdown" ref={modeDropdownRef}>
+          <button className="mode-mobile-dropdown-trigger" onClick={toggleModeDropdown}>
+            {(() => {
+              const activeMode = modeOptions.find(mode => mode.isActive);
+              const IconComponent = activeMode?.icon || FaListUl;
+              return (
+                <>
+                  <IconComponent className="mode-mobile-dropdown-icon" />
+                  <span className="mode-mobile-dropdown-label">{activeMode?.label || 'Seleccionar Modo'}</span>
+                  <FaChevronDown className={`mode-mobile-dropdown-arrow ${isModeDropdownOpen ? 'open' : ''}`} />
+                </>
+              );
+            })()}
+          </button>
+          <div className={`mode-mobile-dropdown-menu ${isModeDropdownOpen ? 'open' : ''}`}>
+            {modeOptions.map(mode => {
+              const IconComponent = mode.icon;
+              return (
+                <button
+                  key={mode.id}
+                  className={`mode-mobile-dropdown-item ${mode.isActive ? 'active' : ''}`}
+                  onClick={mode.onClick}
+                >
+                  <IconComponent className="mode-mobile-dropdown-item-icon" />
+                  <span className="mode-mobile-dropdown-item-label">{mode.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
         
         {showEventSelection && (
@@ -794,17 +954,17 @@ const SupplierOrders = () => {
             <label className="select-label">
               <span>
                 Período de tiempo
-                <select
-                  value={filters.days}
-                  onChange={(e) => setFilters(prev => ({ ...prev, days: parseInt(e.target.value) }))}
-                  className="days-select"
-                >
-                  <option value={7}>Próximos 7 días</option>
-                  <option value={15}>Próximos 15 días</option>
-                  <option value={30}>Próximos 30 días</option>
-                  <option value={60}>Próximos 60 días</option>
-                </select>
               </span>
+              <select
+                value={filters.days}
+                onChange={(e) => setFilters(prev => ({ ...prev, days: parseInt(e.target.value) }))}
+                className="days-select"
+              >
+                <option value={7}>Próximos 7 días</option>
+                <option value={15}>Próximos 15 días</option>
+                <option value={30}>Próximos 30 días</option>
+                <option value={60}>Próximos 60 días</option>
+              </select>
               <small>
                 {showEventSelection 
                   ? 'Filtrar eventos mostrados en la selección' 
@@ -870,6 +1030,31 @@ const SupplierOrders = () => {
             )}
           </div>
 
+          {/* Advertencias sobre configuración de proveedores */}
+          {shoppingList.supplierStats && (shoppingList.supplierStats.incomplete > 0 || shoppingList.supplierStats.missing > 0) && (
+            <div className="supplier-warnings">
+              {shoppingList.supplierStats.missing > 0 && (
+                <div className="warning-item missing">
+                  <FaTimesCircle className="warning-icon" />
+                  <span>
+                    <strong>{shoppingList.supplierStats.missing} ingredientes</strong> sin proveedor asignado - usando precios base
+                  </span>
+                </div>
+              )}
+              {shoppingList.supplierStats.incomplete > 0 && (
+                <div className="warning-item incomplete">
+                  <FaExclamationTriangle className="warning-icon" />
+                  <span>
+                    <strong>{shoppingList.supplierStats.incomplete} ingredientes</strong> con proveedor asignado pero sin precio configurado
+                  </span>
+                </div>
+              )}
+              <div className="warning-note">
+                <small>El costo total puede no ser preciso. Configura los proveedores y precios para obtener cálculos exactos.</small>
+              </div>
+            </div>
+          )}
+
           {/* Lista por Proveedores */}
           {shoppingList.ingredientsBySupplier.length > 0 ? (
             <div className="suppliers-list">
@@ -894,9 +1079,25 @@ const SupplierOrders = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {supplier.ingredients.map(ingredient => (
-                          <tr key={ingredient.ingredientId}>
-                            <td>{ingredient.name}</td>
+                        {supplier.ingredients.map(ingredient => {
+                          const statusIndicator = getSupplierStatusIndicator(ingredient.supplierStatus);
+                          const StatusIcon = statusIndicator.icon;
+                          return (
+                          <tr 
+                            key={ingredient.ingredientId}
+                            onClick={() => handleIngredientRowClick(ingredient.ingredientId)}
+                            style={{ cursor: 'pointer' }}
+                            className="clickable-ingredient-row"
+                          >
+                            <td>
+                              <div className="ingredient-name-with-status">
+                                <span>{ingredient.name}</span>
+                                <StatusIcon 
+                                  className={`supplier-status-icon ${statusIndicator.className}`} 
+                                  title={statusIndicator.title}
+                                />
+                              </div>
+                            </td>
                             <td>{formatDecimal(ingredient.needed)} {ingredient.unit}</td>
                             <td>{formatDecimal(ingredient.inStock)} {ingredient.unit}</td>
                             <td className="to-buy">{formatDecimal(ingredient.toBuy)} {ingredient.unit}</td>
@@ -929,7 +1130,8 @@ const SupplierOrders = () => {
                               )}
                             </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -999,43 +1201,58 @@ const SupplierOrders = () => {
     <div className="common-page-container">
       <div className="common-page-content">
         <div className="supplier-orders-header">
-          <h1 className="common-page-title">Pedidos a Proveedores</h1>
+          <h1 className="common-page-title">Pedidos</h1>
           <p className="page-description">
             Gestiona las compras de ingredientes de forma inteligente y optimizada
           </p>
         </div>
 
         <div className="supplier-orders-tabs">
-          <button 
-            className={`tab-btn ${activeTab === 'dashboard' ? 'active' : ''}`}
-            onClick={() => setActiveTab('dashboard')}
-          >
-            <FaChartBar /> Dashboard
+          {tabs.map(tab => {
+            const IconComponent = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                className={`tab-btn ${activeTab === tab.id ? 'active' : ''}`}
+                onClick={() => handleTabChange(tab.id)}
+              >
+                <IconComponent />
+                <span className="tab-label">{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+        
+        {/* Dropdown para móvil */}
+        <div className="supplier-orders-mobile-dropdown" ref={dropdownRef}>
+          <button className="mobile-dropdown-trigger" onClick={toggleDropdown}>
+            {(() => {
+              const activeTabData = tabs.find(tab => tab.id === activeTab);
+              const IconComponent = activeTabData?.icon;
+              return (
+                <>
+                  <IconComponent className="mobile-dropdown-icon" />
+                  <span className="mobile-dropdown-label">{activeTabData?.label}</span>
+                  <FaChevronDown className={`mobile-dropdown-arrow ${isDropdownOpen ? 'open' : ''}`} />
+                </>
+              );
+            })()}
           </button>
-          <button 
-            className={`tab-btn ${activeTab === 'shopping-list' ? 'active' : ''}`}
-            onClick={() => setActiveTab('shopping-list')}
-          >
-            <FaListUl /> Lista de Compras
-          </button>
-          <button 
-            className={`tab-btn ${activeTab === 'active-orders' ? 'active' : ''}`}
-            onClick={() => setActiveTab('active-orders')}
-          >
-            <FaTruck /> Pedidos Activos
-          </button>
-          <button 
-            className={`tab-btn ${activeTab === 'suppliers' ? 'active' : ''}`}
-            onClick={() => setActiveTab('suppliers')}
-          >
-            <FaBoxOpen /> Proveedores
-          </button>
-          <button 
-            className={`tab-btn ${activeTab === 'history' ? 'active' : ''}`}
-            onClick={() => setActiveTab('history')}
-          >
-            <FaHistory /> Historial
-          </button>
+          <div className={`mobile-dropdown-menu ${isDropdownOpen ? 'open' : ''}`}>
+            {tabs.map(tab => {
+              const IconComponent = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  className={`mobile-dropdown-item ${activeTab === tab.id ? 'active' : ''}`}
+                  onClick={() => handleTabChange(tab.id)}
+                >
+                  <IconComponent className="mobile-dropdown-item-icon" />
+                  <span className="mobile-dropdown-item-label">{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div className="supplier-orders-content">
@@ -1046,6 +1263,17 @@ const SupplierOrders = () => {
           {activeTab === 'history' && renderHistory()}
         </div>
       </div>
+
+      {/* Modal de edición de ingredientes */}
+      <EditIngredientModal
+        isOpen={isEditIngredientOpen}
+        onClose={() => {
+          setIsEditIngredientOpen(false);
+          setSelectedIngredient(null);
+        }}
+        ingredient={selectedIngredient}
+        onSave={handleSaveIngredient}
+      />
     </div>
   );
 };

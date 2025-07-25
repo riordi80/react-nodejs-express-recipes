@@ -1,0 +1,279 @@
+/* src/components/modals/EditIngredientModal.css */
+
+/* Modal form dentro de <Modal> */
+.ingredient-edit-modal .modal-body-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+  min-height: 450px;
+}
+
+/* Override para la pestaña de proveedores - ocupa todo el ancho */
+.ingredient-edit-modal .ingredient-suppliers-form {
+  display: block !important;
+  grid-template-columns: none !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* Estilos específicos para la lista de proveedores */
+.ingredient-edit-modal .ingredient-suppliers-form .suppliers-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.ingredient-edit-modal .ingredient-suppliers-form .supplier-item {
+  display: block;
+  padding: 20px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  transition: all 0.2s;
+}
+
+.ingredient-edit-modal .ingredient-suppliers-form .supplier-item:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-color: #cbd5e1;
+}
+
+.ingredient-edit-modal .ingredient-suppliers-form .supplier-item.preferred {
+  background: #eff6ff;
+  border-color: #3b82f6;
+}
+
+.ingredient-edit-modal .supplier-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  cursor: pointer;
+  margin-bottom: 16px;
+}
+
+.ingredient-edit-modal .supplier-info {
+  flex: 1;
+}
+
+.ingredient-edit-modal .supplier-name {
+  font-weight: 600;
+  font-size: 16px;
+  color: #1e293b;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ingredient-edit-modal .preferred-badge {
+  background: #10b981;
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ingredient-edit-modal .supplier-summary {
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.ingredient-edit-modal .supplier-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.ingredient-edit-modal .supplier-preferred-btn,
+.ingredient-edit-modal .supplier-remove-btn {
+  padding: 6px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: white;
+  color: #374151;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.ingredient-edit-modal .supplier-preferred-btn:hover,
+.ingredient-edit-modal .supplier-remove-btn:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.ingredient-edit-modal .supplier-preferred-btn.active {
+  background: #fbbf24;
+  color: white;
+  border-color: #f59e0b;
+}
+
+.ingredient-edit-modal .supplier-remove-btn {
+  color: #dc2626;
+  border-color: #fca5a5;
+}
+
+.ingredient-edit-modal .supplier-remove-btn:hover {
+  background: #fef2f2;
+  border-color: #f87171;
+}
+
+/* Contenido expandible */
+.ingredient-edit-modal .supplier-expanded-content {
+  overflow: hidden;
+  transition: max-height 0.3s ease, opacity 0.3s ease;
+  max-height: 500px;
+  opacity: 1;
+}
+
+.ingredient-edit-modal .supplier-expanded-content.collapsed {
+  max-height: 0;
+  opacity: 0;
+  margin-bottom: 0;
+}
+
+.ingredient-edit-modal .supplier-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  padding: 16px 0;
+  border-top: 1px solid #e2e8f0;
+  margin-top: 16px;
+}
+
+.ingredient-edit-modal .supplier-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ingredient-edit-modal .supplier-field label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #374151;
+  margin-bottom: 4px;
+}
+
+.ingredient-edit-modal .supplier-field input,
+.ingredient-edit-modal .supplier-field select {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 14px;
+  background: white;
+}
+
+.ingredient-edit-modal .supplier-field input:focus,
+.ingredient-edit-modal .supplier-field select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.ingredient-edit-modal .supplier-actions-field {
+  display: flex;
+  align-items: flex-end;
+}
+
+.ingredient-edit-modal .supplier-save-btn {
+  padding: 8px 16px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  height: 34px;
+}
+
+.ingredient-edit-modal .supplier-save-btn:hover {
+  background: #2563eb;
+}
+
+.ingredient-edit-modal .supplier-save-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+/* Chips para temporadas y alérgenos */
+.ingredient-edit-modal .seasons-chips,
+.ingredient-edit-modal .allergens-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.ingredient-edit-modal .season-chip,
+.ingredient-edit-modal .allergen-chip {
+  padding: 6px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 16px;
+  background: white;
+  color: #374151;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s;
+}
+
+.ingredient-edit-modal .season-chip:hover,
+.ingredient-edit-modal .allergen-chip:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.ingredient-edit-modal .season-chip.selected,
+.ingredient-edit-modal .allergen-chip.selected {
+  background: #3b82f6;
+  color: white;
+  border-color: #2563eb;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .ingredient-edit-modal .modal-body-form {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .ingredient-edit-modal .supplier-fields {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .ingredient-edit-modal .supplier-actions {
+    flex-direction: column;
+    gap: 6px;
+  }
+  
+  .ingredient-edit-modal .supplier-preferred-btn,
+  .ingredient-edit-modal .supplier-remove-btn {
+    font-size: 11px;
+    padding: 5px 8px;
+  }
+}
+
+/* Sección para añadir proveedores */
+.ingredient-edit-modal .ingredient-suppliers-form .add-suppliers-section {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.ingredient-edit-modal .ingredient-suppliers-form .add-suppliers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}

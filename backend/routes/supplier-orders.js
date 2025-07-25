@@ -121,8 +121,8 @@ router.get('/shopping-list', authenticateToken, authorizeRoles('admin', 'chef'),
       : 'SUM(ri.quantity_per_serving * em.portions)';
     
     const costFormula = includeStock
-      ? 'GREATEST(0, SUM(ri.quantity_per_serving * em.portions) - i.stock) * i.base_price * (1 + IFNULL(i.waste_percent, 0))'
-      : 'SUM(ri.quantity_per_serving * em.portions) * i.base_price * (1 + IFNULL(i.waste_percent, 0))';
+      ? 'GREATEST(0, SUM(ri.quantity_per_serving * em.portions) - i.stock) * COALESCE(NULLIF(si.price, 0), i.base_price) * (1 + IFNULL(i.waste_percent, 0))'
+      : 'SUM(ri.quantity_per_serving * em.portions) * COALESCE(NULLIF(si.price, 0), i.base_price) * (1 + IFNULL(i.waste_percent, 0))';
 
     const [neededIngredients] = await pool.query(`
       SELECT 
@@ -133,6 +133,7 @@ router.get('/shopping-list', authenticateToken, authorizeRoles('admin', 'chef'),
         i.stock as current_stock,
         SUM(ri.quantity_per_serving * em.portions) as total_needed,
         ${stockFormula} as to_buy,
+        ${costFormula} as total_cost,
         si.supplier_id,
         s.name as supplier_name,
         si.package_size,
@@ -165,7 +166,19 @@ router.get('/shopping-list', authenticateToken, authorizeRoles('admin', 'chef'),
               CEIL(${stockFormula} / si.package_size)
             ) * si.price
           ELSE ${costFormula}
-        END as real_total_cost
+        END as real_total_cost,
+        
+        -- Indicadores de configuración del proveedor
+        CASE 
+          WHEN si.supplier_id IS NOT NULL AND si.price IS NOT NULL AND si.price > 0 THEN 'complete'
+          WHEN si.supplier_id IS NOT NULL AND (si.price IS NULL OR si.price <= 0) THEN 'incomplete' 
+          ELSE 'missing'
+        END as supplier_status,
+        
+        -- Campos de debug
+        si.supplier_id as debug_supplier_id,
+        si.price as debug_price,
+        si.is_preferred_supplier as debug_preferred
       FROM EVENTS e
       JOIN EVENT_MENUS em ON e.event_id = em.event_id
       JOIN RECIPE_INGREDIENTS ri ON em.recipe_id = ri.recipe_id
@@ -174,14 +187,28 @@ router.get('/shopping-list', authenticateToken, authorizeRoles('admin', 'chef'),
       LEFT JOIN SUPPLIERS s ON si.supplier_id = s.supplier_id
       WHERE ${whereClause}
         AND i.is_available = 1
-      GROUP BY i.ingredient_id, i.name, i.unit, i.base_price, i.stock, si.supplier_id, s.name, si.package_size, si.package_unit, si.minimum_order_quantity, si.price
+      GROUP BY i.ingredient_id, i.name, i.unit, i.base_price, i.stock, si.supplier_id, s.name, si.package_size, si.package_unit, si.minimum_order_quantity, si.price, si.is_preferred_supplier
       HAVING to_buy > 0
       ORDER BY COALESCE(s.name, 'zzz'), i.name
     `, queryParams);
 
+    // Debug: Mostrar algunos resultados
+    console.log('Debug - Primeros 3 ingredientes:', neededIngredients.slice(0, 3).map(ing => ({
+      name: ing.name,
+      supplier_id: ing.debug_supplier_id,
+      price: ing.debug_price,
+      preferred: ing.debug_preferred,
+      status: ing.supplier_status
+    })));
+
     // 3. Agrupar por proveedor
     const supplierGroups = {};
     let totalCost = 0;
+    let supplierStats = {
+      complete: 0,    // Ingredientes con proveedor y precio
+      incomplete: 0,  // Ingredientes con proveedor pero sin precio
+      missing: 0      // Ingredientes sin proveedor
+    };
 
     neededIngredients.forEach(ingredient => {
       const supplierId = ingredient.supplier_id || 999;
@@ -212,7 +239,12 @@ router.get('/shopping-list', authenticateToken, authorizeRoles('admin', 'chef'),
         supplierPrice: parseFloat(ingredient.supplier_price || ingredient.price_per_unit),
         packagesToBuy: parseFloat(ingredient.packages_to_buy || 0),
         realQuantity: parseFloat(ingredient.real_quantity || 0),
-        realTotalCost: parseFloat(ingredient.real_total_cost || 0)
+        realTotalCost: parseFloat(ingredient.real_total_cost || 0),
+        supplierStatus: ingredient.supplier_status || 'missing',
+        // Campos de debug
+        debugSupplierId: ingredient.debug_supplier_id,
+        debugPrice: ingredient.debug_price,
+        debugPreferred: ingredient.debug_preferred
       };
 
       supplierGroups[supplierId].ingredients.push(ingredientData);
@@ -220,6 +252,9 @@ router.get('/shopping-list', authenticateToken, authorizeRoles('admin', 'chef'),
       const costToAdd = ingredientData.realTotalCost > 0 ? ingredientData.realTotalCost : ingredientData.totalCost;
       supplierGroups[supplierId].supplierTotal += costToAdd;
       totalCost += costToAdd;
+
+      // Contar estado del proveedor para estadísticas
+      supplierStats[ingredientData.supplierStatus]++;
     });
 
     const shoppingList = {
@@ -237,6 +272,7 @@ router.get('/shopping-list', authenticateToken, authorizeRoles('admin', 'chef'),
         days,
         selectedEventIds
       },
+      supplierStats,
       generatedAt: new Date().toISOString()
     };
 

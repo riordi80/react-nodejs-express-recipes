@@ -227,6 +227,12 @@
   display: block !important;
   width: 100%;
   box-sizing: border-box;
+  height: auto !important;
+  min-height: auto !important;
+}
+
+.supplier-info-form .modal-actions {
+  margin-bottom: 0 !important;
 }
 
 /* Estilos de textarea movidos a estilos globales en App.css */
@@ -526,7 +532,7 @@
 
 .form-row {
   display: grid;
-  grid-template-columns: 1fr 1fr auto;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 16px;
   align-items: end;
 }
@@ -555,7 +561,24 @@
 .checkbox-field {
   display: flex;
   align-items: center;
-  margin-top: 20px;
+  margin-top: 0;
+}
+
+.form-field-inline.checkbox-field {
+  justify-content: flex-start;
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
+  padding: 8px 12px;
+}
+
+.form-field-inline.checkbox-field label {
+  margin-bottom: 0;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  cursor: pointer;
 }
 
 .checkbox-label-inline {

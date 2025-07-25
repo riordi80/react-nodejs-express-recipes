@@ -46,7 +46,7 @@ const Sidebar = () => {
             <div className="navbar-item-inner-icon-wrapper flexbox">
               <FaAlignJustify className="pin-icon" />
             </div>
-            <span className="link-text">{isPinned ? 'Plegar Menú' : 'Fijar Menú'}</span>
+            <span className="link-text">{isPinned ? 'Ocultar Menú' : 'Fijar Menú'}</span>
           </button>
         </li>
         <li className="navbar-item flexbox-left">
@@ -90,19 +90,19 @@ const Sidebar = () => {
           </NavLink>
         </li>
         <li className="navbar-item flexbox-left">
+          <NavLink to="/orders" className="navbar-item-inner flexbox-left" onClick={handleLinkClick}>
+            <div className="navbar-item-inner-icon-wrapper flexbox">
+              <FaShoppingCart />
+            </div>
+            <span className="link-text">Pedidos</span>
+          </NavLink>
+        </li>
+        <li className="navbar-item flexbox-left">
           <NavLink to="/suppliers" className="navbar-item-inner flexbox-left" onClick={handleLinkClick}>
             <div className="navbar-item-inner-icon-wrapper flexbox">
               <FaTruck />
             </div>
             <span className="link-text">Proveedores</span>
-          </NavLink>
-        </li>
-        <li className="navbar-item flexbox-left">
-          <NavLink to="/supplier-orders" className="navbar-item-inner flexbox-left" onClick={handleLinkClick}>
-            <div className="navbar-item-inner-icon-wrapper flexbox">
-              <FaShoppingCart />
-            </div>
-            <span className="link-text">Pedidos</span>
           </NavLink>
         </li>
         <li className="navbar-item flexbox-left mobile-only-item">

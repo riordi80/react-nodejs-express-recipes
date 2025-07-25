@@ -15,6 +15,257 @@
   min-height: 450px;
 }
 
+/* Override para la pestaña de proveedores - ocupa todo el ancho */
+.ingredient-suppliers-form {
+  display: block !important;
+  grid-template-columns: none !important;
+  width: 100% !important;
+  max-width: 100% !important;
+}
+
+/* Estilos específicos para la lista de proveedores */
+.ingredient-suppliers-form .suppliers-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.ingredient-suppliers-form .supplier-item {
+  display: block;
+  padding: 20px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+  transition: all 0.2s;
+}
+
+.ingredient-suppliers-form .supplier-item:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-color: #cbd5e1;
+}
+
+.ingredient-suppliers-form .supplier-item.preferred {
+  background: #eff6ff;
+  border-color: #3b82f6;
+}
+
+/* Nuevos estilos para la interfaz expandida de proveedores */
+.supplier-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  padding: 8px;
+  margin: -4px;
+  border-radius: 6px;
+  transition: background-color 0.2s;
+}
+
+.supplier-header:hover {
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.supplier-info {
+  flex: 1;
+  margin-right: 12px;
+}
+
+.supplier-name {
+  font-weight: 600;
+  font-size: 16px;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.supplier-summary {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.preferred-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  background: #3b82f6;
+  color: white;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.supplier-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.supplier-actions button {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+  border: 1px solid;
+}
+
+.supplier-preferred-btn {
+  font-size: 12px;
+  padding: 4px 8px;
+  border: 1px solid #fbbf24;
+  border-radius: 4px;
+  background: #fef3c7;
+  color: #92400e;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+  min-width: auto;
+}
+
+.supplier-preferred-btn.active {
+  background: #3b82f6;
+  color: white;
+  border: 1px solid #3b82f6;
+}
+
+.supplier-preferred-btn:hover {
+  background: #fef3c7;
+  opacity: 0.8;
+}
+
+.supplier-preferred-btn.active:hover {
+  background: #2563eb;
+}
+
+.supplier-expanded-content {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #f1f5f9;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.supplier-expanded-content.collapsed {
+  display: none;
+}
+
+.supplier-fields {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.supplier-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.supplier-field label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  margin-bottom: 4px;
+}
+
+.supplier-field input,
+.supplier-field select {
+  padding: 6px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  font-size: 13px;
+  background: white;
+  transition: border-color 0.2s;
+}
+
+.supplier-field input:focus,
+.supplier-field select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+
+.supplier-bottom-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #f1f5f9;
+}
+
+.supplier-checkbox-container {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.supplier-checkbox-container input[type="checkbox"] {
+  margin: 0;
+}
+
+.supplier-checkbox-container label {
+  font-size: 12px;
+  color: #64748b;
+  margin: 0;
+  cursor: pointer;
+}
+
+.supplier-save-btn {
+  font-size: 12px;
+  padding: 6px 12px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.supplier-save-btn:hover {
+  background: #2563eb;
+}
+
+.supplier-save-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+.supplier-remove-btn {
+  font-size: 12px;
+  padding: 4px 8px;
+  border: 1px solid #dc2626;
+  border-radius: 4px;
+  background: #fee2e2;
+  color: #dc2626;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.supplier-remove-btn:hover {
+  background: #fecaca;
+}
+
+.ingredient-suppliers-form .add-suppliers-section {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.ingredient-suppliers-form .add-suppliers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
 /* Responsive Design - Ingredients */
 @media (max-width: 1024px) {
   .modal-body-form {
@@ -391,4 +642,21 @@
   }
 
   /* Responsive para form-fields-two-columns movido a App.css para consistencia global (DRY) */
+  
+  /* Responsive para proveedores en móvil */
+  .supplier-fields {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .supplier-bottom-actions {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch;
+  }
+  
+  .supplier-save-btn {
+    width: 100%;
+    padding: 10px;
+  }
 }
