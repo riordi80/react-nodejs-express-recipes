@@ -154,3 +154,72 @@ export const formatDecimalPrice = (value) => {
     useGrouping: false
   });
 };
+
+/**
+ * Formatea una fecha en formato español DD/MM/YYYY
+ * - Ejemplo: "2024-03-15" -> "15/03/2024"
+ * - Ejemplo: new Date() -> "15/03/2024"
+ */
+export const formatDate = (date) => {
+  if (!date) return '';
+  
+  let dateObj;
+  if (typeof date === 'string') {
+    dateObj = new Date(date);
+  } else if (date instanceof Date) {
+    dateObj = date;
+  } else {
+    return '';
+  }
+  
+  if (isNaN(dateObj.getTime())) return '';
+  
+  return dateObj.toLocaleDateString('es-ES', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+};
+
+/**
+ * Convierte una fecha en formato DD/MM/YYYY a formato ISO YYYY-MM-DD
+ * Para enviar al backend
+ * - Ejemplo: "15/03/2024" -> "2024-03-15"
+ */
+export const parseEuropeanDate = (dateString) => {
+  if (!dateString || typeof dateString !== 'string') return '';
+  
+  const parts = dateString.split('/');
+  if (parts.length !== 3) return '';
+  
+  const [day, month, year] = parts;
+  if (!day || !month || !year) return '';
+  
+  // Validar que sean números válidos
+  const dayNum = parseInt(day, 10);
+  const monthNum = parseInt(month, 10);
+  const yearNum = parseInt(year, 10);
+  
+  if (dayNum < 1 || dayNum > 31 || monthNum < 1 || monthNum > 12 || yearNum < 1900) {
+    return '';
+  }
+  
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+};
+
+/**
+ * Convierte una fecha en formato ISO YYYY-MM-DD a formato DD/MM/YYYY
+ * Para mostrar en inputs de texto
+ * - Ejemplo: "2024-03-15" -> "15/03/2024"
+ */
+export const formatDateForInput = (isoDate) => {
+  if (!isoDate || typeof isoDate !== 'string') return '';
+  
+  const parts = isoDate.split('-');
+  if (parts.length !== 3) return '';
+  
+  const [year, month, day] = parts;
+  if (!year || !month || !day) return '';
+  
+  return `${day}/${month}/${year}`;
+};

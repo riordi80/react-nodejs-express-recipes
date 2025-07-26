@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom';
 import { useSidebar } from '../../context/SidebarContext';
 import './Modal.css';
 
-export default function Modal({ isOpen, title, children, onClose, fullscreenMobile = false }) {
+export default function Modal({ isOpen, title, children, onClose, fullscreenMobile = false, fullscreen = false }) {
   const [isClosing, setIsClosing] = useState(false);
   const [shouldRender, setShouldRender] = useState(isOpen);
 
@@ -15,8 +15,8 @@ export default function Modal({ isOpen, title, children, onClose, fullscreenMobi
       setIsClosing(false);
       setShouldRender(true);
     } else {
-      // Si es fullscreen móvil Y estamos en móvil, usar animación de cierre
-      if (fullscreenMobile && window.innerWidth <= 768) {
+      // Si es fullscreen (general o móvil), usar animación de cierre
+      if (fullscreen || (fullscreenMobile && window.innerWidth <= 768)) {
         setIsClosing(true);
         setTimeout(() => {
           setShouldRender(false);
@@ -27,7 +27,7 @@ export default function Modal({ isOpen, title, children, onClose, fullscreenMobi
         setShouldRender(false);
       }
     }
-  }, [isOpen, fullscreenMobile]);
+  }, [isOpen, fullscreenMobile, fullscreen]);
 
   const handleClose = () => {
     // Simplemente llamar onClose, el useEffect manejará la animación
@@ -44,7 +44,22 @@ export default function Modal({ isOpen, title, children, onClose, fullscreenMobi
   let modalClasses = `modal-window`;
   let overlayClasses = `modal-overlay`;
 
-  if (fullscreenMobile) {
+  if (fullscreen) {
+    modalClasses += ` fullscreen`;
+    overlayClasses += ` fullscreen-overlay`;
+    
+    // Añadir clase cuando el sidebar móvil está abierto
+    if (isMobileMenuOpen) {
+      modalClasses += ` sidebar-open`;
+      overlayClasses += ` sidebar-open`;
+    }
+    
+    // Añadir clase para animación de salida
+    if (isClosing) {
+      modalClasses += ` closing`;
+      overlayClasses += ` closing`;
+    }
+  } else if (fullscreenMobile) {
     modalClasses += ` fullscreen-mobile`;
     overlayClasses += ` fullscreen-mobile-overlay`;
     

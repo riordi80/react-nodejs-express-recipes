@@ -90,7 +90,7 @@ const Sidebar = () => {
           </NavLink>
         </li>
         <li className="navbar-item flexbox-left">
-          <NavLink to="/orders" className="navbar-item-inner flexbox-left" onClick={handleLinkClick}>
+          <NavLink to="/supplier-orders" className="navbar-item-inner flexbox-left" onClick={handleLinkClick}>
             <div className="navbar-item-inner-icon-wrapper flexbox">
               <FaShoppingCart />
             </div>

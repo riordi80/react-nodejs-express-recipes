@@ -23,8 +23,7 @@
 }
 
 .logo-image {
-  height: 30px; /* o el tamaño que necesites */
-  width: auto;
+  /* El SVG ya tiene sus dimensiones definidas */
 }
 
 .logo-container {

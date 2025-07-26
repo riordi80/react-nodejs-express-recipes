@@ -16,6 +16,7 @@ const pool = mysql.createPool({
 // GET /dashboard/low-stock-ingredients - Ingredientes con stock bajo (alertas)
 router.get('/low-stock-ingredients', authenticateToken, authorizeRoles('admin', 'chef', 'inventory_manager'), async (req, res) => {
   try {
+    const limit = parseInt(req.query.limit) || 10;
     const [rows] = await pool.query(`
       SELECT 
         ingredient_id,
@@ -28,8 +29,8 @@ router.get('/low-stock-ingredients', authenticateToken, authorizeRoles('admin', 
       WHERE stock < stock_minimum 
       AND is_available = 1
       ORDER BY (stock - stock_minimum) ASC
-      LIMIT 10
-    `);
+      LIMIT ?
+    `, [limit]);
     
     res.json(rows);
   } catch (error) {
@@ -61,7 +62,7 @@ router.get('/recipes-by-category', authenticateToken, authorizeRoles('admin', 'c
 // GET /dashboard/latest-recipes - Últimas recetas añadidas
 router.get('/latest-recipes', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
   try {
-    const limit = req.query.limit || 5;
+    const limit = parseInt(req.query.limit) || 5;
     const [rows] = await pool.query(`
       SELECT 
         recipe_id,
@@ -74,7 +75,7 @@ router.get('/latest-recipes', authenticateToken, authorizeRoles('admin', 'chef')
       FROM RECIPES 
       ORDER BY created_at DESC 
       LIMIT ?
-    `, [parseInt(limit)]);
+    `, [limit]);
     
     res.json(rows);
   } catch (error) {
@@ -87,6 +88,7 @@ router.get('/latest-recipes', authenticateToken, authorizeRoles('admin', 'chef')
 router.get('/upcoming-events', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
   try {
     const period = req.query.period || 'week'; // 'week' o 'month'
+    const limit = parseInt(req.query.limit) || 10;
     const interval = period === 'week' ? 7 : 30;
     
     const [rows] = await pool.query(`
@@ -103,7 +105,8 @@ router.get('/upcoming-events', authenticateToken, authorizeRoles('admin', 'chef'
       WHERE event_date >= CURDATE() 
       AND event_date <= DATE_ADD(CURDATE(), INTERVAL ? DAY)
       ORDER BY event_date ASC, event_time ASC
-    `, [interval]);
+      LIMIT ?
+    `, [interval, limit]);
     
     res.json(rows);
   } catch (error) {
@@ -159,7 +162,11 @@ router.get('/events-with-menus', authenticateToken, authorizeRoles('admin', 'che
       return acc;
     }, {});
     
-    res.json(Object.values(groupedEvents));
+    // Aplicar límite después del agrupamiento
+    const limit = parseInt(req.query.limit) || 10;
+    const limitedEvents = Object.values(groupedEvents).slice(0, limit);
+    
+    res.json(limitedEvents);
   } catch (error) {
     console.error('Error al obtener eventos con menús:', error);
     res.status(500).json({ error: 'Error interno del servidor' });
@@ -169,6 +176,7 @@ router.get('/events-with-menus', authenticateToken, authorizeRoles('admin', 'che
 // GET /dashboard/supplier-order-reminders - Recordatorios de pedidos a proveedores
 router.get('/supplier-order-reminders', authenticateToken, authorizeRoles('admin', 'supplier_manager'), async (req, res) => {
   try {
+    const limit = parseInt(req.query.limit) || 10;
     const [rows] = await pool.query(`
       SELECT 
         so.order_id,
@@ -187,7 +195,8 @@ router.get('/supplier-order-reminders', authenticateToken, authorizeRoles('admin
       AND (so.delivery_date IS NULL OR so.delivery_date <= DATE_ADD(CURDATE(), INTERVAL 7 DAY))
       GROUP BY so.order_id
       ORDER BY so.delivery_date ASC, so.order_date ASC
-    `);
+      LIMIT ?
+    `, [limit]);
     
     res.json(rows);
   } catch (error) {
@@ -237,11 +246,157 @@ router.get('/seasonal-ingredients', authenticateToken, authorizeRoles('admin', '
   }
 });
 
+// GET /dashboard/cost-trends - Tendencias de costos de ingredientes
+router.get('/cost-trends', authenticateToken, authorizeRoles('admin', 'chef', 'supplier_manager'), async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 10;
+    const [rows] = await pool.query(`
+      SELECT 
+        i.ingredient_id,
+        i.name,
+        i.base_price as current_price,
+        ph.old_price,
+        ph.change_date,
+        ROUND(((i.base_price - ph.old_price) / ph.old_price) * 100, 1) as price_change_percent,
+        CASE 
+          WHEN i.base_price > ph.old_price THEN 'increase'
+          WHEN i.base_price < ph.old_price THEN 'decrease'
+          ELSE 'stable'
+        END as trend_direction,
+        DATEDIFF(CURDATE(), ph.change_date) as days_ago
+      FROM INGREDIENTS i
+      INNER JOIN PRICE_HISTORY ph ON i.ingredient_id = ph.ingredient_id
+      WHERE ph.change_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+        AND i.is_available = 1
+        AND ph.old_price > 0
+        AND i.base_price != ph.old_price
+      ORDER BY ABS(((i.base_price - ph.old_price) / ph.old_price) * 100) DESC
+      LIMIT ?
+    `, [limit]);
+    
+    // Si no hay datos de price_history, mostrar ingredientes más caros como fallback
+    if (rows.length === 0) {
+      const fallbackLimit = Math.min(limit, 5); // Limitar fallback a máximo 5
+      const [fallbackRows] = await pool.query(`
+        SELECT 
+          ingredient_id,
+          name,
+          base_price as current_price,
+          base_price as old_price,
+          CURDATE() as change_date,
+          0 as price_change_percent,
+          'stable' as trend_direction,
+          0 as days_ago
+        FROM INGREDIENTS 
+        WHERE is_available = 1 
+          AND base_price > 0
+        ORDER BY base_price DESC
+        LIMIT ?
+      `, [fallbackLimit]);
+      
+      return res.json(fallbackRows);
+    }
+    
+    res.json(rows);
+  } catch (error) {
+    console.error('Error al obtener tendencias de costos:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// GET /dashboard/seasonal-alerts - Alertas de ingredientes de temporada
+router.get('/seasonal-alerts', authenticateToken, authorizeRoles('admin', 'chef', 'inventory_manager'), async (req, res) => {
+  try {
+    const currentMonth = new Date().getMonth() + 1; // 1-12
+    const monthNames = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 
+                       'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+    
+    const [rows] = await pool.query(`
+      SELECT 
+        ingredient_id,
+        name,
+        season,
+        stock,
+        unit,
+        is_available
+      FROM INGREDIENTS 
+      WHERE season IS NOT NULL 
+        AND season != ''
+        AND is_available = 1
+      ORDER BY name ASC
+    `);
+    
+    const alerts = [];
+    const currentMonthName = monthNames[currentMonth - 1];
+    const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1;
+    const prevMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+    const nextMonthName = monthNames[nextMonth - 1];
+    const prevMonthName = monthNames[prevMonth - 1];
+    
+    rows.forEach(ingredient => {
+      if (!ingredient.season) return;
+      
+      const season = ingredient.season.toLowerCase();
+      
+      // Ingrediente en temporada alta (contiene el mes actual)
+      if (season.includes(currentMonthName)) {
+        alerts.push({
+          ingredient_id: ingredient.ingredient_id,
+          name: ingredient.name,
+          stock: ingredient.stock,
+          unit: ingredient.unit,
+          alert_type: 'in_season',
+          message: 'En temporada alta',
+          urgency: 'success'
+        });
+      }
+      // Ingrediente que va a salir de temporada (está en temporada actual pero no en el próximo mes)
+      else if (season.includes(prevMonthName) && !season.includes(currentMonthName)) {
+        alerts.push({
+          ingredient_id: ingredient.ingredient_id,
+          name: ingredient.name,
+          stock: ingredient.stock,
+          unit: ingredient.unit,
+          alert_type: 'ending_season',
+          message: 'Temporada termina pronto',
+          urgency: 'warning'
+        });
+      }
+      // Ingrediente que va a entrar en temporada
+      else if (season.includes(nextMonthName) && !season.includes(currentMonthName)) {
+        alerts.push({
+          ingredient_id: ingredient.ingredient_id,
+          name: ingredient.name,
+          stock: ingredient.stock,
+          unit: ingredient.unit,
+          alert_type: 'starting_season',
+          message: 'Temporada inicia pronto',
+          urgency: 'info'
+        });
+      }
+    });
+    
+    // Limitar según el parámetro limit
+    const limit = parseInt(req.query.limit) || 8;
+    const limitedAlerts = alerts.slice(0, limit);
+    
+    res.json({
+      current_month: currentMonthName,
+      alerts: limitedAlerts,
+      total_seasonal_ingredients: rows.length
+    });
+  } catch (error) {
+    console.error('Error al obtener alertas de temporada:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+
 // GET /dashboard/summary - Resumen general del dashboard
 router.get('/summary', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
   try {
     const [totalRecipes] = await pool.query('SELECT COUNT(*) as count FROM RECIPES');
-    const [totalIngredients] = await pool.query('SELECT COUNT(*) as count FROM INGREDIENTS WHERE is_available = 1');
+    const [totalEvents] = await pool.query('SELECT COUNT(*) as count FROM EVENTS');
     const [totalSuppliers] = await pool.query('SELECT COUNT(*) as count FROM SUPPLIERS');
     const [lowStockCount] = await pool.query('SELECT COUNT(*) as count FROM INGREDIENTS WHERE stock < stock_minimum AND is_available = 1');
     const [upcomingEvents] = await pool.query('SELECT COUNT(*) as count FROM EVENTS WHERE event_date >= CURDATE() AND event_date <= DATE_ADD(CURDATE(), INTERVAL 7 DAY)');
@@ -249,7 +404,7 @@ router.get('/summary', authenticateToken, authorizeRoles('admin', 'chef'), async
     
     const summary = {
       totalRecipes: totalRecipes[0].count,
-      totalIngredients: totalIngredients[0].count,
+      totalEvents: totalEvents[0].count,
       totalSuppliers: totalSuppliers[0].count,
       lowStockCount: lowStockCount[0].count,
       upcomingEvents: upcomingEvents[0].count,

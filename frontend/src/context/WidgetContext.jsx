@@ -4,18 +4,20 @@ const WidgetContext = createContext();
 
 // Configuración predeterminada de widgets
 const defaultWidgetConfig = {
-  // Widgets existentes
+  // Widgets activos por defecto
   stockAlerts: true,
   upcomingEvents: true,
-  recipesByCategory: true,
-  latestRecipes: true,
+  supplierOrders: true,
+  seasonalAlerts: true,
   seasonalIngredients: true,
-  eventsWithMenus: true,
+  latestRecipes: true,
+  costTrends: true,
   
-  // Widgets nuevos (inicialmente desactivados)
-  supplierOrders: false,
-  costTrends: false,
-  seasonalAlerts: false,
+  // Widgets desactivados por defecto
+  eventsWithMenus: false,
+  recipesByCategory: false,
+  
+  // Widgets adicionales (desactivados)
   wasteManagement: false,
   supplierPerformance: false,
   nutritionalAnalysis: false,
@@ -26,21 +28,17 @@ const defaultWidgetConfig = {
   refreshInterval: 30000 // 30 segundos
 };
 
-// Orden predeterminado de widgets (coincide con el orden en Settings)
+// Orden predeterminado de widgets (según nueva configuración)
 const defaultWidgetOrder = [
-  // 📋 Gestión de Inventario
-  'stockAlerts',
-  'seasonalIngredients',
-  'seasonalAlerts',
-  // 📅 Eventos y Planificación
-  'upcomingEvents',
-  'eventsWithMenus',
-  // 🍽️ Recetas y Cocina
-  'latestRecipes',
-  'recipesByCategory',
-  // 🚚 Proveedores y Compras
-  'supplierOrders',
-  'costTrends'
+  'stockAlerts',           // Alertas de Stock
+  'upcomingEvents',        // Próximos Eventos
+  'supplierOrders',        // Órdenes de Compra Pendientes
+  'seasonalAlerts',        // Alertas de Temporada
+  'seasonalIngredients',   // Ingredientes de Temporada
+  'eventsWithMenus',       // Eventos con Menús (desactivado por defecto)
+  'latestRecipes',         // Últimas Recetas
+  'costTrends',            // Tendencias de Costos
+  'recipesByCategory'      // Recetas por Categoría (desactivado por defecto)
 ];
 
 export const WidgetProvider = ({ children }) => {

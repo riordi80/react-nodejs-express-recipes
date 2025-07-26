@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import { useWidget } from '../../context/WidgetContext';
+import EditIngredientModal from '../../components/modals/EditIngredientModal';
+import OrderDetailModal from '../../components/modals/OrderDetailModal';
 import './Dashboard.css';
 
 // Importar iconos para los widgets
@@ -13,11 +16,11 @@ import {
   FaTruck,
   FaLeaf,
   FaUsers,
-  FaReceipt,
-  FaBoxOpen
+  FaReceipt
 } from 'react-icons/fa';
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const { widgetConfig, getOrderedWidgets } = useWidget();
   const [dashboardData, setDashboardData] = useState({
     summary: {},
@@ -27,13 +30,27 @@ const Dashboard = () => {
     upcomingEvents: [],
     eventsWithMenus: [],
     supplierOrderReminders: [],
-    seasonalIngredients: {}
+    seasonalIngredients: {},
+    costTrends: [],
+    seasonalAlerts: {}
   });
   
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const intervalRef = useRef(null);
   const mountedRef = useRef(true);
+
+  // Estado para el modal de editar ingrediente
+  const [editIngredientModal, setEditIngredientModal] = useState({
+    isOpen: false,
+    ingredient: null
+  });
+
+  // Estado para el modal de detalle de pedido
+  const [orderDetailModal, setOrderDetailModal] = useState({
+    isOpen: false,
+    order: null
+  });
 
   useEffect(() => {
     mountedRef.current = true;
@@ -43,6 +60,13 @@ const Dashboard = () => {
       mountedRef.current = false;
     };
   }, []);
+
+  // Efecto para recargar datos cuando cambie itemsPerWidget
+  useEffect(() => {
+    if (mountedRef.current) {
+      fetchDashboardData();
+    }
+  }, [widgetConfig.itemsPerWidget]);
 
   // Efecto para manejar la actualización automática
   useEffect(() => {
@@ -75,6 +99,7 @@ const Dashboard = () => {
       }
       
       // Hacer todas las peticiones en paralelo
+      const itemsLimit = widgetConfig.itemsPerWidget || 5;
       const [
         summaryResponse,
         lowStockResponse,
@@ -83,16 +108,20 @@ const Dashboard = () => {
         upcomingEventsResponse,
         eventsMenusResponse,
         supplierRemindersResponse,
-        seasonalResponse
+        seasonalResponse,
+        costTrendsResponse,
+        seasonalAlertsResponse
       ] = await Promise.all([
         api.get('/dashboard/summary'),
-        api.get('/dashboard/low-stock-ingredients'),
+        api.get('/dashboard/low-stock-ingredients', { params: { limit: itemsLimit } }),
         api.get('/dashboard/recipes-by-category'),
-        api.get('/dashboard/latest-recipes'),
-        api.get('/dashboard/upcoming-events'),
-        api.get('/dashboard/events-with-menus'),
-        api.get('/dashboard/supplier-order-reminders'),
-        api.get('/dashboard/seasonal-ingredients')
+        api.get('/dashboard/latest-recipes', { params: { limit: itemsLimit } }),
+        api.get('/dashboard/upcoming-events', { params: { limit: itemsLimit } }),
+        api.get('/dashboard/events-with-menus', { params: { limit: itemsLimit } }),
+        api.get('/dashboard/supplier-order-reminders', { params: { limit: itemsLimit } }),
+        api.get('/dashboard/seasonal-ingredients'),
+        api.get('/dashboard/cost-trends', { params: { limit: itemsLimit } }),
+        api.get('/dashboard/seasonal-alerts', { params: { limit: itemsLimit } })
       ]);
 
       // Solo actualizar si el componente sigue montado
@@ -105,7 +134,9 @@ const Dashboard = () => {
           upcomingEvents: upcomingEventsResponse.data,
           eventsWithMenus: eventsMenusResponse.data,
           supplierOrderReminders: supplierRemindersResponse.data,
-          seasonalIngredients: seasonalResponse.data
+          seasonalIngredients: seasonalResponse.data,
+          costTrends: costTrendsResponse.data,
+          seasonalAlerts: seasonalAlertsResponse.data
         });
         
         // Limpiar errores si la actualización es exitosa
@@ -118,7 +149,8 @@ const Dashboard = () => {
       if (mountedRef.current) {
         // Solo mostrar error si no es una actualización automática
         if (!isAutoUpdate) {
-          setError('Error al cargar los datos del dashboard');
+          const errorMessage = err.response?.data?.error || err.message || 'Error desconocido';
+          setError(`Error al cargar los datos del dashboard: ${errorMessage}`);
         }
         console.error('Error fetching dashboard data:', err);
       }
@@ -139,6 +171,126 @@ const Dashboard = () => {
 
   const formatTime = (timeString) => {
     return timeString ? timeString.substring(0, 5) : '';
+  };
+
+  // Funciones para navegación y modales
+  const handleIngredientClick = async (ingredientId) => {
+    try {
+      const response = await api.get(`/ingredients/${ingredientId}`);
+      setEditIngredientModal({
+        isOpen: true,
+        ingredient: response.data
+      });
+    } catch (error) {
+      console.error('Error al cargar ingrediente:', error);
+    }
+  };
+
+  const handleEventClick = (eventId) => {
+    navigate(`/events/${eventId}`);
+  };
+
+  const handleRecipeClick = (recipeId) => {
+    navigate(`/recipes/${recipeId}`);
+  };
+
+  const handleIngredientSave = async (ingredientData) => {
+    try {
+      await api.put(`/ingredients/${ingredientData.ingredient_id}`, ingredientData);
+      
+      // Recargar datos del dashboard para reflejar cambios
+      fetchDashboardData(true);
+      
+      // Cerrar modal
+      setEditIngredientModal({ isOpen: false, ingredient: null });
+      return true;
+    } catch (error) {
+      console.error('Error al guardar ingrediente:', error);
+      return false;
+    }
+  };
+
+  const handleIngredientModalClose = () => {
+    setEditIngredientModal({ isOpen: false, ingredient: null });
+  };
+
+  const handleSupplierOrderClick = async (order) => {
+    try {
+      // Cargar datos completos del pedido
+      const response = await api.get(`/supplier-orders/${order.order_id}`);
+      setOrderDetailModal({
+        isOpen: true,
+        order: response.data
+      });
+    } catch (error) {
+      console.error('Error al cargar detalle del pedido:', error);
+      // Fallback: usar los datos básicos si falla la carga completa
+      setOrderDetailModal({
+        isOpen: true,
+        order: order
+      });
+    }
+  };
+
+  const handleOrderStatusUpdate = async (orderId, newStatus) => {
+    try {
+      await api.put(`/supplier-orders/${orderId}`, { status: newStatus });
+      
+      // Recargar datos del dashboard para reflejar cambios
+      fetchDashboardData(true);
+      
+      // Actualizar el pedido en el modal
+      setOrderDetailModal(prev => ({
+        ...prev,
+        order: { ...prev.order, status: newStatus }
+      }));
+      
+      return true;
+    } catch (error) {
+      console.error('Error al actualizar estado del pedido:', error);
+      return false;
+    }
+  };
+
+  const handleOrderDelete = async (orderId) => {
+    try {
+      await api.delete(`/supplier-orders/${orderId}`);
+      
+      // Recargar datos del dashboard
+      fetchDashboardData(true);
+      
+      // Cerrar modal
+      setOrderDetailModal({ isOpen: false, order: null });
+      
+      return true;
+    } catch (error) {
+      console.error('Error al eliminar pedido:', error);
+      return false;
+    }
+  };
+
+  const handleOrderModalClose = () => {
+    setOrderDetailModal({ isOpen: false, order: null });
+  };
+
+  // Funciones de navegación para las métricas del resumen
+  const handleMetricClick = (metricType) => {
+    switch (metricType) {
+      case 'recipes':
+        navigate('/recipes');
+        break;
+      case 'events':
+        navigate('/events');
+        break;
+      case 'suppliers':
+        navigate('/suppliers');
+        break;
+      case 'stock':
+        navigate('/ingredients');
+        break;
+      default:
+        break;
+    }
   };
 
   // Función para renderizar widgets según la configuración
@@ -163,7 +315,12 @@ const Dashboard = () => {
               {dashboardData.lowStockIngredients.length > 0 ? (
                 <div className="stock-alerts">
                   {dashboardData.lowStockIngredients.map(ingredient => (
-                    <div key={ingredient.ingredient_id} className="stock-alert-item">
+                    <div 
+                      key={ingredient.ingredient_id} 
+                      className="stock-alert-item clickable" 
+                      onClick={() => handleIngredientClick(ingredient.ingredient_id)}
+                      style={{ cursor: 'pointer' }}
+                    >
                       <div className="alert-info">
                         <strong>{ingredient.name}</strong>
                         <span className="alert-details">
@@ -194,7 +351,12 @@ const Dashboard = () => {
               {dashboardData.upcomingEvents.length > 0 ? (
                 <div className="upcoming-events">
                   {dashboardData.upcomingEvents.map(event => (
-                    <div key={event.event_id} className="event-item">
+                    <div 
+                      key={event.event_id} 
+                      className="event-item clickable" 
+                      onClick={() => handleEventClick(event.event_id)}
+                      style={{ cursor: 'pointer' }}
+                    >
                       <div className="event-info">
                         <strong>{event.name}</strong>
                         <div className="event-details">
@@ -263,7 +425,12 @@ const Dashboard = () => {
               {dashboardData.latestRecipes.length > 0 ? (
                 <div className="latest-recipes">
                   {dashboardData.latestRecipes.map(recipe => (
-                    <div key={recipe.recipe_id} className="recipe-item">
+                    <div 
+                      key={recipe.recipe_id} 
+                      className="recipe-item clickable" 
+                      onClick={() => handleRecipeClick(recipe.recipe_id)}
+                      style={{ cursor: 'pointer' }}
+                    >
                       <div className="recipe-info">
                         <strong>{recipe.name}</strong>
                         <div className="recipe-details">
@@ -298,7 +465,12 @@ const Dashboard = () => {
                 {dashboardData.seasonalIngredients.seasonal_ingredients?.length > 0 ? (
                   <div className="seasonal-ingredients">
                     {dashboardData.seasonalIngredients.seasonal_ingredients.map(ingredient => (
-                      <div key={ingredient.ingredient_id} className="seasonal-item">
+                      <div 
+                        key={ingredient.ingredient_id} 
+                        className="seasonal-item clickable" 
+                        onClick={() => handleIngredientClick(ingredient.ingredient_id)}
+                        style={{ cursor: 'pointer' }}
+                      >
                         <strong>{ingredient.name}</strong>
                         <span className="seasonal-stock">{ingredient.stock} {ingredient.unit}</span>
                       </div>
@@ -323,7 +495,12 @@ const Dashboard = () => {
               {dashboardData.eventsWithMenus.length > 0 ? (
                 <div className="events-with-menus">
                   {dashboardData.eventsWithMenus.map(event => (
-                    <div key={event.event_id} className="event-menu-item">
+                    <div 
+                      key={event.event_id} 
+                      className="event-menu-item clickable" 
+                      onClick={() => handleEventClick(event.event_id)}
+                      style={{ cursor: 'pointer' }}
+                    >
                       <div className="event-menu-header">
                         <strong>{event.event_name}</strong>
                         <span className="event-menu-date">
@@ -360,29 +537,54 @@ const Dashboard = () => {
               <h3>Órdenes de Compra Pendientes</h3>
             </div>
             <div className="widget-content">
-              <div className="supplier-orders">
-                <div className="order-item">
-                  <div className="order-info">
-                    <strong>Proveedor Central</strong>
-                    <span className="order-details">5 ingredientes - Vence: 2 días</span>
-                  </div>
-                  <div className="order-status pending">Pendiente</div>
+              {dashboardData.supplierOrderReminders.length > 0 ? (
+                <div className="supplier-orders">
+                  {dashboardData.supplierOrderReminders.map(order => {
+                    // Calcular días hasta entrega
+                    const today = new Date();
+                    const deliveryDate = order.delivery_date ? new Date(order.delivery_date) : null;
+                    const daysUntilDelivery = deliveryDate ? 
+                      Math.ceil((deliveryDate - today) / (1000 * 60 * 60 * 24)) : null;
+                    
+                    // Determinar urgencia
+                    const getUrgencyClass = () => {
+                      if (!deliveryDate) return 'pending';
+                      if (daysUntilDelivery <= 1) return 'urgent';
+                      if (daysUntilDelivery <= 3) return 'warning';
+                      return 'pending';
+                    };
+
+                    const getUrgencyText = () => {
+                      if (!deliveryDate) return order.status === 'pending' ? 'Pendiente' : 'Pedido';
+                      if (daysUntilDelivery <= 0) return 'Vencido';
+                      if (daysUntilDelivery === 1) return 'Urgente';
+                      return order.status === 'pending' ? 'Pendiente' : 'Pedido';
+                    };
+
+                    return (
+                      <div 
+                        key={order.order_id} 
+                        className="order-item clickable" 
+                        onClick={() => handleSupplierOrderClick(order)}
+                        style={{ cursor: 'pointer' }}
+                      >
+                        <div className="order-info">
+                          <strong>{order.supplier_name}</strong>
+                          <span className="order-details">
+                            {order.items_count} ingredientes
+                            {deliveryDate && ` - ${daysUntilDelivery > 0 ? `Vence: ${daysUntilDelivery} días` : 'Vencido'}`}
+                          </span>
+                        </div>
+                        <div className={`order-status ${getUrgencyClass()}`}>
+                          {getUrgencyText()}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div className="order-item">
-                  <div className="order-info">
-                    <strong>Verduras Frescas S.A.</strong>
-                    <span className="order-details">3 ingredientes - Vence: 1 día</span>
-                  </div>
-                  <div className="order-status urgent">Urgente</div>
-                </div>
-                <div className="order-item">
-                  <div className="order-info">
-                    <strong>Lácteos del Valle</strong>
-                    <span className="order-details">2 ingredientes - Vence: 4 días</span>
-                  </div>
-                  <div className="order-status pending">Pendiente</div>
-                </div>
-              </div>
+              ) : (
+                <p className="no-data">No hay pedidos pendientes</p>
+              )}
             </div>
           </div>
         );
@@ -395,36 +597,30 @@ const Dashboard = () => {
               <h3>Tendencias de Costos</h3>
             </div>
             <div className="widget-content">
-              <div className="cost-trends">
-                <div className="trend-item">
-                  <div className="trend-info">
-                    <strong>Tomates</strong>
-                    <span className="trend-period">Últimos 30 días</span>
-                  </div>
-                  <div className="trend-change increase">+15%</div>
+              {dashboardData.costTrends.length > 0 ? (
+                <div className="cost-trends">
+                  {dashboardData.costTrends.map(trend => (
+                    <div 
+                      key={trend.ingredient_id} 
+                      className="trend-item clickable" 
+                      onClick={() => handleIngredientClick(trend.ingredient_id)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div className="trend-info">
+                        <strong>{trend.name}</strong>
+                        <span className="trend-period">
+                          {trend.days_ago > 0 ? `Hace ${trend.days_ago} días` : 'Hoy'}
+                        </span>
+                      </div>
+                      <div className={`trend-change ${trend.trend_direction}`}>
+                        {trend.price_change_percent > 0 ? '+' : ''}{trend.price_change_percent}%
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="trend-item">
-                  <div className="trend-info">
-                    <strong>Carne de Res</strong>
-                    <span className="trend-period">Últimos 30 días</span>
-                  </div>
-                  <div className="trend-change decrease">-8%</div>
-                </div>
-                <div className="trend-item">
-                  <div className="trend-info">
-                    <strong>Aceite de Oliva</strong>
-                    <span className="trend-period">Últimos 30 días</span>
-                  </div>
-                  <div className="trend-change increase">+22%</div>
-                </div>
-                <div className="trend-item">
-                  <div className="trend-info">
-                    <strong>Queso Mozzarella</strong>
-                    <span className="trend-period">Últimos 30 días</span>
-                  </div>
-                  <div className="trend-change stable">0%</div>
-                </div>
-              </div>
+              ) : (
+                <p className="no-data">No hay cambios de precios recientes</p>
+              )}
             </div>
           </div>
         );
@@ -437,29 +633,41 @@ const Dashboard = () => {
               <h3>Alertas de Temporada</h3>
             </div>
             <div className="widget-content">
-              <div className="seasonal-alerts">
-                <div className="alert-item">
-                  <div className="alert-info">
-                    <strong>Fresas</strong>
-                    <span className="alert-details">Temporada termina en 2 semanas</span>
+              {dashboardData.seasonalAlerts.alerts?.length > 0 ? (
+                <div className="seasonal-alerts">
+                  <div className="seasonal-month">
+                    <strong>Mes actual: {dashboardData.seasonalAlerts.current_month}</strong>
                   </div>
-                  <div className="alert-badge warning">Próximo a terminar</div>
+                  {dashboardData.seasonalAlerts.alerts.map(alert => (
+                    <div 
+                      key={alert.ingredient_id} 
+                      className="alert-item clickable" 
+                      onClick={() => handleIngredientClick(alert.ingredient_id)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <div className="alert-info">
+                        <strong>{alert.name}</strong>
+                        <span className="alert-details">
+                          {alert.message}
+                          {alert.stock > 0 && ` - Stock: ${alert.stock} ${alert.unit}`}
+                        </span>
+                      </div>
+                      <div className={`alert-badge ${alert.urgency}`}>
+                        {alert.alert_type === 'in_season' ? 'Temporada alta' :
+                         alert.alert_type === 'ending_season' ? 'Terminando' :
+                         alert.alert_type === 'starting_season' ? 'Próximo' : alert.message}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                <div className="alert-item">
-                  <div className="alert-info">
-                    <strong>Calabazas</strong>
-                    <span className="alert-details">Temporada inicia en 1 mes</span>
+              ) : (
+                <div className="seasonal-alerts">
+                  <div className="seasonal-month">
+                    <strong>Mes actual: {dashboardData.seasonalAlerts.current_month || new Date().toLocaleDateString('es-ES', { month: 'long' })}</strong>
                   </div>
-                  <div className="alert-badge info">Próximo a iniciar</div>
+                  <p className="no-data">No hay alertas estacionales</p>
                 </div>
-                <div className="alert-item">
-                  <div className="alert-info">
-                    <strong>Manzanas</strong>
-                    <span className="alert-details">En temporada alta</span>
-                  </div>
-                  <div className="alert-badge success">Temporada alta</div>
-                </div>
-              </div>
+              )}
             </div>
           </div>
         );
@@ -505,7 +713,11 @@ const Dashboard = () => {
 
         {/* Tarjetas de resumen */}
         <div className="dashboard-summary">
-          <div className="summary-card">
+          <div 
+            className="summary-card clickable" 
+            onClick={() => handleMetricClick('recipes')}
+            style={{ cursor: 'pointer' }}
+          >
             <div className="summary-icon recipes">
               <FaUtensils />
             </div>
@@ -515,17 +727,25 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div className="summary-card">
-            <div className="summary-icon ingredients">
-              <FaBoxOpen />
+          <div 
+            className="summary-card clickable" 
+            onClick={() => handleMetricClick('events')}
+            style={{ cursor: 'pointer' }}
+          >
+            <div className="summary-icon events">
+              <FaCalendarAlt />
             </div>
             <div className="summary-content">
-              <h3>{dashboardData.summary.totalIngredients}</h3>
-              <p>Ingredientes</p>
+              <h3>{dashboardData.summary.totalEvents}</h3>
+              <p>Eventos</p>
             </div>
           </div>
 
-          <div className="summary-card">
+          <div 
+            className="summary-card clickable" 
+            onClick={() => handleMetricClick('suppliers')}
+            style={{ cursor: 'pointer' }}
+          >
             <div className="summary-icon suppliers">
               <FaTruck />
             </div>
@@ -535,7 +755,11 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div className="summary-card alert">
+          <div 
+            className="summary-card alert clickable" 
+            onClick={() => handleMetricClick('stock')}
+            style={{ cursor: 'pointer' }}
+          >
             <div className="summary-icon low-stock">
               <FaExclamationTriangle />
             </div>
@@ -555,6 +779,24 @@ const Dashboard = () => {
           ))}
         </div>
       </div>
+
+      {/* Modal de editar ingrediente */}
+      <EditIngredientModal
+        isOpen={editIngredientModal.isOpen}
+        onClose={handleIngredientModalClose}
+        ingredient={editIngredientModal.ingredient}
+        onSave={handleIngredientSave}
+        onIngredientUpdated={() => {}}
+      />
+
+      {/* Modal de detalle de pedido */}
+      <OrderDetailModal
+        isOpen={orderDetailModal.isOpen}
+        onClose={handleOrderModalClose}
+        order={orderDetailModal.order}
+        onStatusUpdate={handleOrderStatusUpdate}
+        onDelete={handleOrderDelete}
+      />
     </div>
   );
 };

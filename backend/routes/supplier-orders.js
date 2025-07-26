@@ -192,14 +192,6 @@ router.get('/shopping-list', authenticateToken, authorizeRoles('admin', 'chef'),
       ORDER BY COALESCE(s.name, 'zzz'), i.name
     `, queryParams);
 
-    // Debug: Mostrar algunos resultados
-    console.log('Debug - Primeros 3 ingredientes:', neededIngredients.slice(0, 3).map(ing => ({
-      name: ing.name,
-      supplier_id: ing.debug_supplier_id,
-      price: ing.debug_price,
-      preferred: ing.debug_preferred,
-      status: ing.supplier_status
-    })));
 
     // 3. Agrupar por proveedor
     const supplierGroups = {};
@@ -283,47 +275,6 @@ router.get('/shopping-list', authenticateToken, authorizeRoles('admin', 'chef'),
   }
 });
 
-// GET /supplier-orders/active - Obtener pedidos activos
-router.get('/active', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
-  try {
-    // TODO: Implementar consulta real a la base de datos
-    
-    const activeOrders = [
-      {
-        id: 1,
-        supplier: 'Proveedor A',
-        status: 'borrador',
-        items: 5,
-        total: 125.50,
-        createdAt: '2024-01-24',
-        deliveryDate: null
-      },
-      {
-        id: 2,
-        supplier: 'Proveedor B',
-        status: 'enviado',
-        items: 3,
-        total: 89.30,
-        createdAt: '2024-01-23',
-        deliveryDate: '2024-01-26'
-      },
-      {
-        id: 3,
-        supplier: 'Proveedor C',
-        status: 'en_camino',
-        items: 8,
-        total: 245.80,
-        createdAt: '2024-01-22',
-        deliveryDate: '2024-01-25'
-      }
-    ];
-
-    res.json(activeOrders);
-  } catch (error) {
-    console.error('Error al obtener pedidos activos:', error);
-    res.status(500).json({ message: 'Error interno del servidor' });
-  }
-});
 
 // GET /supplier-orders/available-events - Obtener eventos disponibles para pedidos
 router.get('/available-events', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
@@ -360,46 +311,920 @@ router.get('/available-events', authenticateToken, authorizeRoles('admin', 'chef
   }
 });
 
+// POST /supplier-orders/generate - Generar pedidos desde lista de compras
+router.post('/generate', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
+  const connection = await pool.getConnection();
+  
+  try {
+    await connection.beginTransaction();
+    
+    const { 
+      suppliers, // Array de proveedores con sus ingredientes
+      deliveryDate,
+      notes,
+      generatedFrom // 'shopping-list', 'manual', 'events'
+    } = req.body;
+
+    if (!suppliers || !Array.isArray(suppliers) || suppliers.length === 0) {
+      return res.status(400).json({ message: 'Datos de proveedores son obligatorios' });
+    }
+
+    const createdOrders = [];
+
+    // Crear un pedido por cada proveedor
+    for (const supplierData of suppliers) {
+      const { supplierId, supplierName, ingredients, supplierTotal } = supplierData;
+      
+      if (!ingredients || ingredients.length === 0) {
+        continue; // Skip proveedores sin ingredientes
+      }
+
+      // Crear el pedido principal
+      const [orderResult] = await connection.execute(`
+        INSERT INTO SUPPLIER_ORDERS (
+          supplier_id, 
+          order_date, 
+          delivery_date, 
+          status, 
+          total_amount, 
+          notes, 
+          created_by_user_id
+        ) VALUES (?, CURDATE(), ?, 'pending', ?, ?, ?)
+      `, [
+        supplierId === 999 ? null : supplierId, // null para "Sin Proveedor Asignado"
+        deliveryDate || null,
+        supplierTotal,
+        notes || `Pedido generado desde ${generatedFrom || 'lista de compras'}`,
+        req.user.user_id
+      ]);
+
+      const orderId = orderResult.insertId;
+
+      // Insertar los items del pedido
+      for (const ingredient of ingredients) {
+        const {
+          ingredientId,
+          toBuy,
+          packagesToBuy = 0,
+          realQuantity = 0,
+          supplierPrice = 0,
+          realTotalCost = 0,
+          totalCost = 0
+        } = ingredient;
+
+        // Usar cantidades reales si están disponibles, sino las básicas
+        const quantity = realQuantity > 0 ? realQuantity : toBuy;
+        const unitPrice = supplierPrice > 0 ? supplierPrice : (totalCost / toBuy);
+        const itemTotalPrice = realTotalCost > 0 ? realTotalCost : totalCost;
+
+        await connection.execute(`
+          INSERT INTO SUPPLIER_ORDER_ITEMS (
+            order_id,
+            ingredient_id,
+            quantity,
+            unit_price,
+            total_price
+          ) VALUES (?, ?, ?, ?, ?)
+        `, [orderId, ingredientId, quantity, unitPrice, itemTotalPrice]);
+      }
+
+      // Registrar auditoría
+      await logAudit(req.user.user_id, 'CREATE', 'SUPPLIER_ORDERS', orderId, 
+        `Pedido creado para ${supplierName} - Total: €${supplierTotal}`, connection);
+
+      createdOrders.push({
+        orderId,
+        supplierId,
+        supplierName,
+        totalAmount: supplierTotal,
+        itemsCount: ingredients.length,
+        status: 'pending'
+      });
+    }
+
+    await connection.commit();
+
+    res.json({
+      success: true,
+      message: `${createdOrders.length} pedidos creados exitosamente`,
+      orders: createdOrders
+    });
+
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error al generar pedidos:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  } finally {
+    connection.release();
+  }
+});
+
+// GET /supplier-orders/active - Obtener pedidos activos con datos reales
+router.get('/active', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
+  try {
+    const [orders] = await pool.query(`
+      SELECT 
+        so.order_id,
+        so.supplier_id,
+        COALESCE(s.name, 'Sin Proveedor Asignado') as supplier_name,
+        so.order_date,
+        so.delivery_date,
+        so.status,
+        so.total_amount,
+        so.notes,
+        so.created_at,
+        so.updated_at,
+        COUNT(soi.ingredient_id) as items_count,
+        u.first_name,
+        u.last_name
+      FROM SUPPLIER_ORDERS so
+      LEFT JOIN SUPPLIERS s ON so.supplier_id = s.supplier_id
+      LEFT JOIN SUPPLIER_ORDER_ITEMS soi ON so.order_id = soi.order_id
+      LEFT JOIN USERS u ON so.created_by_user_id = u.user_id
+      WHERE so.status IN ('pending', 'ordered', 'delivered')
+      GROUP BY so.order_id, so.supplier_id, s.name, so.order_date, so.delivery_date, 
+               so.status, so.total_amount, so.notes, so.created_at, so.updated_at,
+               u.first_name, u.last_name
+      ORDER BY 
+        CASE so.status 
+          WHEN 'pending' THEN 1 
+          WHEN 'ordered' THEN 2 
+          WHEN 'delivered' THEN 3 
+          ELSE 4 
+        END,
+        so.created_at DESC
+    `);
+
+    res.json(orders);
+  } catch (error) {
+    console.error('Error al obtener pedidos activos:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// GET /supplier-orders/history - Obtener historial completo de pedidos con filtros
+router.get('/history', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
+  try {
+    const {
+      startDate = null,
+      endDate = null,
+      supplierId = null,
+      status = null,
+      minAmount = null,
+      maxAmount = null,
+      createdBy = null,
+      orderBy = 'order_date',
+      sortDirection = 'DESC',
+      page = 1,
+      limit = 50
+    } = req.query;
+
+    // Construir condiciones WHERE
+    const whereConditions = [];
+    const queryParams = [];
+
+    if (startDate) {
+      whereConditions.push('so.order_date >= ?');
+      queryParams.push(startDate);
+    }
+
+    if (endDate) {
+      whereConditions.push('so.order_date <= ?');
+      queryParams.push(endDate);
+    }
+
+    if (supplierId && supplierId !== 'all') {
+      if (supplierId === '999') {
+        whereConditions.push('so.supplier_id IS NULL');
+      } else {
+        whereConditions.push('so.supplier_id = ?');
+        queryParams.push(supplierId);
+      }
+    }
+
+    if (status && status !== 'all') {
+      whereConditions.push('so.status = ?');
+      queryParams.push(status);
+    }
+
+    if (minAmount) {
+      whereConditions.push('so.total_amount >= ?');
+      queryParams.push(parseFloat(minAmount));
+    }
+
+    if (maxAmount) {
+      whereConditions.push('so.total_amount <= ?');
+      queryParams.push(parseFloat(maxAmount));
+    }
+
+    if (createdBy && createdBy !== 'all') {
+      whereConditions.push('so.created_by_user_id = ?');
+      queryParams.push(createdBy);
+    }
+
+    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+    // Validar orden y dirección
+    const validOrderFields = ['order_date', 'total_amount', 'status', 'supplier_name', 'created_at'];
+    const validDirections = ['ASC', 'DESC'];
+    const safeOrderBy = validOrderFields.includes(orderBy) ? orderBy : 'order_date';
+    const safeSortDirection = validDirections.includes(sortDirection.toUpperCase()) ? sortDirection.toUpperCase() : 'DESC';
+
+    // Calcular offset para paginación
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    // Obtener total de registros
+    const [totalResult] = await pool.query(`
+      SELECT COUNT(*) as total
+      FROM SUPPLIER_ORDERS so
+      LEFT JOIN SUPPLIERS s ON so.supplier_id = s.supplier_id
+      ${whereClause}
+    `, queryParams);
+
+    const totalRecords = totalResult[0].total;
+    const totalPages = Math.ceil(totalRecords / parseInt(limit));
+
+    // Obtener datos con paginación
+    const [orders] = await pool.query(`
+      SELECT 
+        so.order_id,
+        so.supplier_id,
+        COALESCE(s.name, 'Sin Proveedor Asignado') as supplier_name,
+        s.phone as supplier_phone,
+        s.email as supplier_email,
+        so.order_date,
+        so.delivery_date,
+        so.status,
+        so.total_amount,
+        so.notes,
+        so.created_at,
+        so.updated_at,
+        COUNT(soi.ingredient_id) as items_count,
+        u.first_name,
+        u.last_name,
+        u.email as created_by_email
+      FROM SUPPLIER_ORDERS so
+      LEFT JOIN SUPPLIERS s ON so.supplier_id = s.supplier_id
+      LEFT JOIN SUPPLIER_ORDER_ITEMS soi ON so.order_id = soi.order_id
+      LEFT JOIN USERS u ON so.created_by_user_id = u.user_id
+      ${whereClause}
+      GROUP BY so.order_id, so.supplier_id, s.name, s.phone, s.email, so.order_date, 
+               so.delivery_date, so.status, so.total_amount, so.notes, so.created_at, 
+               so.updated_at, u.first_name, u.last_name, u.email
+      ORDER BY ${safeOrderBy === 'supplier_name' ? 's.name' : `so.${safeOrderBy}`} ${safeSortDirection}
+      LIMIT ? OFFSET ?
+    `, [...queryParams, parseInt(limit), offset]);
+
+    // Obtener estadísticas del filtro actual
+    const [statsResult] = await pool.query(`
+      SELECT 
+        COUNT(*) as total_orders,
+        SUM(so.total_amount) as total_amount,
+        AVG(so.total_amount) as avg_amount,
+        COUNT(CASE WHEN so.status = 'pending' THEN 1 END) as pending_count,
+        COUNT(CASE WHEN so.status = 'ordered' THEN 1 END) as ordered_count,
+        COUNT(CASE WHEN so.status = 'delivered' THEN 1 END) as delivered_count,
+        COUNT(CASE WHEN so.status = 'cancelled' THEN 1 END) as cancelled_count
+      FROM SUPPLIER_ORDERS so
+      LEFT JOIN SUPPLIERS s ON so.supplier_id = s.supplier_id
+      ${whereClause}
+    `, queryParams);
+
+    const response = {
+      orders,
+      pagination: {
+        currentPage: parseInt(page),
+        totalPages,
+        totalRecords,
+        recordsPerPage: parseInt(limit),
+        hasNext: parseInt(page) < totalPages,
+        hasPrev: parseInt(page) > 1
+      },
+      filters: {
+        startDate,
+        endDate,
+        supplierId,
+        status,
+        minAmount,
+        maxAmount,
+        createdBy,
+        orderBy: safeOrderBy,
+        sortDirection: safeSortDirection
+      },
+      statistics: {
+        totalOrders: parseInt(statsResult[0].total_orders) || 0,
+        totalAmount: parseFloat(statsResult[0].total_amount) || 0,
+        averageAmount: parseFloat(statsResult[0].avg_amount) || 0,
+        statusBreakdown: {
+          pending: parseInt(statsResult[0].pending_count) || 0,
+          ordered: parseInt(statsResult[0].ordered_count) || 0,
+          delivered: parseInt(statsResult[0].delivered_count) || 0,
+          cancelled: parseInt(statsResult[0].cancelled_count) || 0
+        }
+      }
+    };
+
+    res.json(response);
+  } catch (error) {
+    console.error('Error al obtener historial de pedidos:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// GET /supplier-orders/trends - Obtener tendencias y métricas temporales
+router.get('/trends', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
+  try {
+    const {
+      period = 'month', // 'week', 'month', 'quarter', 'year'
+      months = 12,
+      supplierId = null
+    } = req.query;
+
+    let dateFormat;
+    let dateTrunc;
+    let intervalValue;
+
+    switch (period) {
+      case 'week':
+        dateFormat = '%Y-%u';
+        dateTrunc = 'WEEK';
+        intervalValue = parseInt(months) * 4; // Convertir meses a semanas
+        break;
+      case 'quarter':
+        dateFormat = '%Y-Q%q';
+        dateTrunc = 'QUARTER';
+        intervalValue = Math.ceil(parseInt(months) / 3);
+        break;
+      case 'year':
+        dateFormat = '%Y';
+        dateTrunc = 'YEAR';
+        intervalValue = Math.ceil(parseInt(months) / 12);
+        break;
+      default: // month
+        dateFormat = '%Y-%m';
+        dateTrunc = 'MONTH';
+        intervalValue = parseInt(months);
+    }
+
+    // Construir condición de proveedor
+    let supplierCondition = '';
+    const queryParams = [intervalValue];
+
+    if (supplierId && supplierId !== 'all') {
+      if (supplierId === '999') {
+        supplierCondition = 'AND so.supplier_id IS NULL';
+      } else {
+        supplierCondition = 'AND so.supplier_id = ?';
+        queryParams.push(supplierId);
+      }
+    }
+
+    // Obtener tendencias de gastos por período
+    const [spendingTrends] = await pool.query(`
+      SELECT 
+        DATE_FORMAT(so.order_date, ?) as period,
+        COUNT(*) as total_orders,
+        SUM(so.total_amount) as total_spending,
+        AVG(so.total_amount) as avg_order_amount,
+        COUNT(CASE WHEN so.status = 'delivered' THEN 1 END) as delivered_orders,
+        COUNT(CASE WHEN so.status = 'cancelled' THEN 1 END) as cancelled_orders
+      FROM SUPPLIER_ORDERS so
+      WHERE so.order_date >= DATE_SUB(CURDATE(), INTERVAL ? ${dateTrunc})
+        ${supplierCondition}
+      GROUP BY period
+      ORDER BY period ASC
+    `, [dateFormat, ...queryParams]);
+
+    // Obtener tendencias por proveedor (top 5)
+    const [supplierTrends] = await pool.query(`
+      SELECT 
+        COALESCE(s.name, 'Sin Proveedor Asignado') as supplier_name,
+        COUNT(*) as total_orders,
+        SUM(so.total_amount) as total_spending,
+        AVG(so.total_amount) as avg_order_amount
+      FROM SUPPLIER_ORDERS so
+      LEFT JOIN SUPPLIERS s ON so.supplier_id = s.supplier_id
+      WHERE so.order_date >= DATE_SUB(CURDATE(), INTERVAL ? ${dateTrunc})
+        AND so.status IN ('ordered', 'delivered')
+        ${supplierId && supplierId !== 'all' ? supplierCondition : ''}
+      GROUP BY supplier_name
+      ORDER BY total_spending DESC
+      LIMIT 5
+    `, [intervalValue, ...(supplierId && supplierId !== 'all' ? [supplierId] : [])]);
+
+    // Obtener métricas de tiempo de entrega
+    const [deliveryMetrics] = await pool.query(`
+      SELECT 
+        AVG(DATEDIFF(so.delivery_date, so.order_date)) as avg_delivery_days,
+        MIN(DATEDIFF(so.delivery_date, so.order_date)) as min_delivery_days,
+        MAX(DATEDIFF(so.delivery_date, so.order_date)) as max_delivery_days,
+        COUNT(CASE 
+          WHEN DATEDIFF(so.delivery_date, so.order_date) <= 3 THEN 1 
+        END) * 100.0 / COUNT(*) as on_time_percentage
+      FROM SUPPLIER_ORDERS so
+      WHERE so.status = 'delivered'
+        AND so.delivery_date IS NOT NULL
+        AND so.order_date >= DATE_SUB(CURDATE(), INTERVAL ? ${dateTrunc})
+        ${supplierCondition}
+    `, [intervalValue, ...(supplierId && supplierId !== 'all' ? [supplierId] : [])]);
+
+    // Obtener distribución por estado
+    const [statusDistribution] = await pool.query(`
+      SELECT 
+        so.status,
+        COUNT(*) as count,
+        SUM(so.total_amount) as total_amount
+      FROM SUPPLIER_ORDERS so
+      WHERE so.order_date >= DATE_SUB(CURDATE(), INTERVAL ? ${dateTrunc})
+        ${supplierCondition}
+      GROUP BY so.status
+      ORDER BY count DESC
+    `, [intervalValue, ...(supplierId && supplierId !== 'all' ? [supplierId] : [])]);
+
+    res.json({
+      period,
+      months: intervalValue,
+      spendingTrends,
+      supplierTrends,
+      deliveryMetrics: deliveryMetrics[0] || {},
+      statusDistribution,
+      generatedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error al obtener tendencias:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// GET /supplier-orders/export - Exportar historial en formato CSV
+router.get('/export', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
+  try {
+    const {
+      startDate = null,
+      endDate = null,
+      supplierId = null,
+      status = null,
+      minAmount = null,
+      maxAmount = null,
+      createdBy = null,
+      format = 'csv'
+    } = req.query;
+
+    // Construir condiciones WHERE (mismo que en history)
+    const whereConditions = [];
+    const queryParams = [];
+
+    if (startDate) {
+      whereConditions.push('so.order_date >= ?');
+      queryParams.push(startDate);
+    }
+
+    if (endDate) {
+      whereConditions.push('so.order_date <= ?');
+      queryParams.push(endDate);
+    }
+
+    if (supplierId && supplierId !== 'all') {
+      if (supplierId === '999') {
+        whereConditions.push('so.supplier_id IS NULL');
+      } else {
+        whereConditions.push('so.supplier_id = ?');
+        queryParams.push(supplierId);
+      }
+    }
+
+    if (status && status !== 'all') {
+      whereConditions.push('so.status = ?');
+      queryParams.push(status);
+    }
+
+    if (minAmount) {
+      whereConditions.push('so.total_amount >= ?');
+      queryParams.push(parseFloat(minAmount));
+    }
+
+    if (maxAmount) {
+      whereConditions.push('so.total_amount <= ?');
+      queryParams.push(parseFloat(maxAmount));
+    }
+
+    if (createdBy && createdBy !== 'all') {
+      whereConditions.push('so.created_by_user_id = ?');
+      queryParams.push(createdBy);
+    }
+
+    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+    // Obtener todos los datos sin paginación para export
+    const [orders] = await pool.query(`
+      SELECT 
+        so.order_id as 'ID Pedido',
+        COALESCE(s.name, 'Sin Proveedor Asignado') as 'Proveedor',
+        s.email as 'Email Proveedor',
+        s.phone as 'Teléfono Proveedor',
+        so.order_date as 'Fecha Pedido',
+        so.delivery_date as 'Fecha Entrega',
+        CASE so.status
+          WHEN 'pending' THEN 'Pendiente'
+          WHEN 'ordered' THEN 'Enviado'
+          WHEN 'delivered' THEN 'Entregado'
+          WHEN 'cancelled' THEN 'Cancelado'
+          ELSE so.status
+        END as 'Estado',
+        so.total_amount as 'Importe Total',
+        COUNT(soi.ingredient_id) as 'Número de Ingredientes',
+        CONCAT(u.first_name, ' ', u.last_name) as 'Creado por',
+        so.notes as 'Notas',
+        so.created_at as 'Fecha Creación',
+        so.updated_at as 'Última Actualización'
+      FROM SUPPLIER_ORDERS so
+      LEFT JOIN SUPPLIERS s ON so.supplier_id = s.supplier_id
+      LEFT JOIN SUPPLIER_ORDER_ITEMS soi ON so.order_id = soi.order_id
+      LEFT JOIN USERS u ON so.created_by_user_id = u.user_id
+      ${whereClause}
+      GROUP BY so.order_id, s.name, s.email, s.phone, so.order_date, 
+               so.delivery_date, so.status, so.total_amount, so.notes, 
+               so.created_at, so.updated_at, u.first_name, u.last_name
+      ORDER BY so.order_date DESC
+    `, queryParams);
+
+    if (format === 'csv') {
+      // Generar CSV
+      if (orders.length === 0) {
+        return res.status(404).json({ message: 'No hay datos para exportar' });
+      }
+
+      const headers = Object.keys(orders[0]);
+      const csvContent = [
+        headers.join(','),
+        ...orders.map(row => 
+          headers.map(header => {
+            const value = row[header];
+            // Escapar comillas y manejar valores nulos
+            if (value === null || value === undefined) return '';
+            if (typeof value === 'string' && (value.includes(',') || value.includes('"') || value.includes('\n'))) {
+              return `"${value.replace(/"/g, '""')}"`;
+            }
+            return value;
+          }).join(',')
+        )
+      ].join('\n');
+
+      // Configurar headers para descarga
+      const filename = `pedidos_proveedores_${new Date().toISOString().split('T')[0]}.csv`;
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Content-Length', Buffer.byteLength(csvContent, 'utf8'));
+      
+      // Añadir BOM para UTF-8 para Excel
+      res.write('\ufeff');
+      res.end(csvContent);
+    } else {
+      // Formato JSON por defecto
+      res.json({
+        data: orders,
+        exportedAt: new Date().toISOString(),
+        totalRecords: orders.length,
+        filters: { startDate, endDate, supplierId, status, minAmount, maxAmount, createdBy }
+      });
+    }
+  } catch (error) {
+    console.error('Error al exportar datos:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// GET /supplier-orders/:id - Obtener detalles de un pedido específico
+router.get('/:id', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    // Obtener información del pedido
+    const [orders] = await pool.query(`
+      SELECT 
+        so.order_id,
+        so.supplier_id,
+        COALESCE(s.name, 'Sin Proveedor Asignado') as supplier_name,
+        s.phone as supplier_phone,
+        s.email as supplier_email,
+        so.order_date,
+        so.delivery_date,
+        so.status,
+        so.total_amount,
+        so.notes,
+        so.created_at,
+        so.updated_at,
+        u.first_name,
+        u.last_name
+      FROM SUPPLIER_ORDERS so
+      LEFT JOIN SUPPLIERS s ON so.supplier_id = s.supplier_id
+      LEFT JOIN USERS u ON so.created_by_user_id = u.user_id
+      WHERE so.order_id = ?
+    `, [id]);
+
+    if (orders.length === 0) {
+      return res.status(404).json({ message: 'Pedido no encontrado' });
+    }
+
+    // Obtener items del pedido
+    const [items] = await pool.query(`
+      SELECT 
+        soi.ingredient_id,
+        i.name as ingredient_name,
+        i.unit,
+        soi.quantity,
+        soi.unit_price,
+        soi.total_price,
+        i.stock as current_stock
+      FROM SUPPLIER_ORDER_ITEMS soi
+      JOIN INGREDIENTS i ON soi.ingredient_id = i.ingredient_id
+      WHERE soi.order_id = ?
+      ORDER BY i.name
+    `, [id]);
+
+    const orderDetail = {
+      ...orders[0],
+      items: items
+    };
+
+    res.json(orderDetail);
+  } catch (error) {
+    console.error('Error al obtener detalles del pedido:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// PUT /supplier-orders/:id/status - Actualizar estado de un pedido
+router.put('/:id/status', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
+  const { id } = req.params;
+  const { status, notes } = req.body;
+
+  const validStatuses = ['pending', 'ordered', 'delivered', 'cancelled'];
+  if (!validStatuses.includes(status)) {
+    return res.status(400).json({ message: 'Estado no válido' });
+  }
+
+  try {
+    // Verificar que el pedido existe
+    const [existing] = await pool.query('SELECT status, supplier_id FROM SUPPLIER_ORDERS WHERE order_id = ?', [id]);
+    if (existing.length === 0) {
+      return res.status(404).json({ message: 'Pedido no encontrado' });
+    }
+
+    const oldStatus = existing[0].status;
+
+    // Actualizar el estado
+    const updateFields = ['status = ?', 'updated_at = CURRENT_TIMESTAMP'];
+    const updateValues = [status];
+
+    if (notes) {
+      updateFields.push('notes = ?');
+      updateValues.push(notes);
+    }
+
+    updateValues.push(id); // Para el WHERE
+
+    await pool.query(`
+      UPDATE SUPPLIER_ORDERS 
+      SET ${updateFields.join(', ')}
+      WHERE order_id = ?
+    `, updateValues);
+
+    // Si el pedido se marca como entregado, actualizar el stock de ingredientes
+    if (status === 'delivered' && oldStatus !== 'delivered') {
+      const [items] = await pool.query(`
+        SELECT ingredient_id, quantity 
+        FROM SUPPLIER_ORDER_ITEMS 
+        WHERE order_id = ?
+      `, [id]);
+
+      for (const item of items) {
+        await pool.query(`
+          UPDATE INGREDIENTS 
+          SET stock = stock + ? 
+          WHERE ingredient_id = ?
+        `, [item.quantity, item.ingredient_id]);
+      }
+    }
+
+    // Registrar auditoría
+    await logAudit(req.user.user_id, 'UPDATE', 'SUPPLIER_ORDERS', id, 
+      `Estado cambiado de ${oldStatus} a ${status}`);
+
+    res.json({ 
+      success: true, 
+      message: `Estado del pedido actualizado a ${status}` 
+    });
+  } catch (error) {
+    console.error('Error al actualizar estado del pedido:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// DELETE /supplier-orders/:id - Eliminar/Cancelar un pedido
+router.delete('/:id', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
+  const { id } = req.params;
+  const connection = await pool.getConnection();
+
+  try {
+    await connection.beginTransaction();
+
+    // Verificar que el pedido existe y no está entregado
+    const [existing] = await connection.query(
+      'SELECT status, supplier_id FROM SUPPLIER_ORDERS WHERE order_id = ?', 
+      [id]
+    );
+    
+    if (existing.length === 0) {
+      return res.status(404).json({ message: 'Pedido no encontrado' });
+    }
+
+    if (existing[0].status === 'delivered') {
+      return res.status(400).json({ 
+        message: 'No se puede eliminar un pedido ya entregado' 
+      });
+    }
+
+    // Eliminar items del pedido
+    await connection.query('DELETE FROM SUPPLIER_ORDER_ITEMS WHERE order_id = ?', [id]);
+    
+    // Eliminar el pedido
+    await connection.query('DELETE FROM SUPPLIER_ORDERS WHERE order_id = ?', [id]);
+
+    // Registrar auditoría
+    await logAudit(req.user.user_id, 'DELETE', 'SUPPLIER_ORDERS', id, 
+      'Pedido eliminado', connection);
+
+    await connection.commit();
+
+    res.json({ 
+      success: true, 
+      message: 'Pedido eliminado exitosamente' 
+    });
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error al eliminar pedido:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  } finally {
+    connection.release();
+  }
+});
+
+
 // GET /supplier-orders/suppliers/analysis - Análisis de proveedores
 router.get('/suppliers/analysis', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
   try {
-    // TODO: Implementar análisis real de proveedores
-    
-    const suppliersAnalysis = [
-      {
-        id: 1,
-        name: 'Proveedor A',
-        totalOrders: 15,
-        totalSpent: 1250.30,
-        averageDeliveryTime: 2.5,
-        onTimeDeliveries: 0.93,
-        qualityRating: 4.2,
-        priceRating: 3.8,
-        lastOrder: '2024-01-23'
-      },
-      {
-        id: 2,
-        name: 'Proveedor B',
-        totalOrders: 8,
-        totalSpent: 890.50,
-        averageDeliveryTime: 1.8,
-        onTimeDeliveries: 0.87,
-        qualityRating: 4.7,
-        priceRating: 4.1,
-        lastOrder: '2024-01-22'
-      },
-      {
-        id: 3,
-        name: 'Proveedor C',
-        totalOrders: 12,
-        totalSpent: 650.80,
-        averageDeliveryTime: 3.2,
-        onTimeDeliveries: 0.75,
-        qualityRating: 3.9,
-        priceRating: 4.5,
-        lastOrder: '2024-01-20'
-      }
-    ];
+    // Primero obtener todos los proveedores que tienen pedidos
+    const [suppliersData] = await pool.query(`
+      SELECT 
+        s.supplier_id,
+        s.name,
+        s.email,
+        s.phone,
+        
+        -- Estadísticas de pedidos
+        COUNT(DISTINCT so.order_id) as total_orders,
+        COALESCE(SUM(CASE WHEN so.status IN ('ordered', 'delivered') THEN so.total_amount ELSE 0 END), 0) as total_spent,
+        
+        -- Fecha del último pedido
+        MAX(so.order_date) as last_order_date,
+        
+        -- Tiempo promedio de entrega (solo pedidos entregados)
+        AVG(CASE 
+          WHEN so.status = 'delivered' AND so.delivery_date IS NOT NULL AND so.order_date IS NOT NULL 
+          THEN DATEDIFF(so.delivery_date, so.order_date) 
+          ELSE NULL 
+        END) as average_delivery_days,
+        
+        -- Porcentaje de entregas a tiempo (asumiendo 3 días como estándar)
+        (COUNT(CASE 
+          WHEN so.status = 'delivered' 
+            AND so.delivery_date IS NOT NULL 
+            AND so.order_date IS NOT NULL 
+            AND DATEDIFF(so.delivery_date, so.order_date) <= 3 
+          THEN 1 
+        END) * 100.0 / NULLIF(COUNT(CASE WHEN so.status = 'delivered' THEN 1 END), 0)) as on_time_delivery_percent,
+        
+        -- Pedidos por estado
+        COUNT(CASE WHEN so.status = 'pending' THEN 1 END) as pending_orders,
+        COUNT(CASE WHEN so.status = 'ordered' THEN 1 END) as ordered_orders,
+        COUNT(CASE WHEN so.status = 'delivered' THEN 1 END) as delivered_orders,
+        COUNT(CASE WHEN so.status = 'cancelled' THEN 1 END) as cancelled_orders
+        
+      FROM SUPPLIER_ORDERS so
+      JOIN SUPPLIERS s ON so.supplier_id = s.supplier_id
+      WHERE (s.name IS NULL OR s.name != 'Sin Proveedor Asignado')
+      GROUP BY s.supplier_id, s.name, s.email, s.phone
+      HAVING total_orders > 0
+      ORDER BY total_spent DESC, total_orders DESC
+    `);
+
+    // Obtener información de ingredientes y calcular rating de precios por ingrediente
+    const suppliersWithIngredients = await Promise.all(
+      suppliersData.map(async (supplier) => {
+        const [ingredientsData] = await pool.query(`
+          SELECT 
+            COUNT(DISTINCT si.ingredient_id) as ingredients_count,
+            AVG(si.price) as average_ingredient_price
+          FROM SUPPLIER_INGREDIENTS si
+          WHERE si.supplier_id = ?
+        `, [supplier.supplier_id]);
+
+        // Calcular rating de precios de forma más simple
+        const [ingredientPrices] = await pool.query(`
+          SELECT 
+            si1.ingredient_id,
+            si1.price as my_price,
+            (SELECT COUNT(*) 
+             FROM SUPPLIER_INGREDIENTS si_count 
+             WHERE si_count.ingredient_id = si1.ingredient_id 
+               AND si_count.price IS NOT NULL 
+               AND si_count.price > 0
+            ) as competitor_count,
+            (SELECT MIN(price) 
+             FROM SUPPLIER_INGREDIENTS si_min 
+             WHERE si_min.ingredient_id = si1.ingredient_id 
+               AND si_min.price IS NOT NULL 
+               AND si_min.price > 0
+            ) as min_price,
+            (SELECT MAX(price) 
+             FROM SUPPLIER_INGREDIENTS si_max 
+             WHERE si_max.ingredient_id = si1.ingredient_id 
+               AND si_max.price IS NOT NULL 
+               AND si_max.price > 0
+            ) as max_price
+          FROM SUPPLIER_INGREDIENTS si1
+          WHERE si1.supplier_id = ?
+            AND si1.price IS NOT NULL 
+            AND si1.price > 0
+        `, [supplier.supplier_id]);
+
+        // Calcular rating promedio manualmente
+        let totalRating = 0;
+        let validIngredients = 0;
+
+        ingredientPrices.forEach(ingredient => {
+          if (ingredient.competitor_count === 1) {
+            // Solo un proveedor = rating neutro
+            totalRating += 3.0;
+          } else if (ingredient.competitor_count > 1) {
+            // Múltiples proveedores = rating competitivo
+            const { my_price, min_price, max_price } = ingredient;
+            if (max_price > min_price) {
+              // Escala de 1-5: precio más bajo = 5 estrellas
+              const rating = 5 - ((my_price - min_price) / (max_price - min_price)) * 4;
+              totalRating += Math.max(1, Math.min(5, rating));
+            } else {
+              // Todos tienen el mismo precio
+              totalRating += 3.0;
+            }
+          }
+          validIngredients++;
+        });
+
+        const ingredient_based_price_rating = validIngredients > 0 ? totalRating / validIngredients : 3.0;
+
+        return {
+          ...supplier,
+          ingredients_count: ingredientsData[0]?.ingredients_count || 0,
+          average_ingredient_price: ingredientsData[0]?.average_ingredient_price || 0,
+          ingredient_based_price_rating: ingredient_based_price_rating
+        };
+      })
+    );
+
+    // Calcular métricas adicionales y formatear datos
+    const suppliersAnalysis = suppliersWithIngredients.map(supplier => {
+      // Usar el rating de precios basado en ingredientes específicos
+      const priceRating = supplier.ingredient_based_price_rating;
+
+      // Calcular rating de calidad basado en entregas a tiempo y otros factores
+      const qualityRating = supplier.on_time_delivery_percent 
+        ? Math.min(5, (supplier.on_time_delivery_percent / 100) * 5)
+        : 3.0; // Rating neutro si no hay datos
+
+      return {
+        id: supplier.supplier_id,
+        name: supplier.name,
+        email: supplier.email,
+        phone: supplier.phone,
+        totalOrders: parseInt(supplier.total_orders) || 0,
+        totalSpent: parseFloat(supplier.total_spent) || 0,
+        averageDeliveryTime: parseFloat(supplier.average_delivery_days) || null,
+        onTimeDeliveries: parseFloat(supplier.on_time_delivery_percent) || 0,
+        qualityRating: parseFloat(qualityRating.toFixed(1)),
+        priceRating: parseFloat(priceRating.toFixed(1)),
+        lastOrder: supplier.last_order_date,
+        ingredientsCount: parseInt(supplier.ingredients_count) || 0,
+        averageIngredientPrice: parseFloat(supplier.average_ingredient_price) || 0,
+        ordersByStatus: {
+          pending: parseInt(supplier.pending_orders) || 0,
+          ordered: parseInt(supplier.ordered_orders) || 0,
+          delivered: parseInt(supplier.delivered_orders) || 0,
+          cancelled: parseInt(supplier.cancelled_orders) || 0
+        }
+      };
+    });
 
     res.json(suppliersAnalysis);
   } catch (error) {
@@ -407,5 +1232,7 @@ router.get('/suppliers/analysis', authenticateToken, authorizeRoles('admin', 'ch
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });
+
+
 
 module.exports = router;

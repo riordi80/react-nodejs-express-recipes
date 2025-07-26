@@ -136,10 +136,10 @@ a:visited {
    ======== */
 
 #navbar {
-    top: 41px;
+    top: 50px;
     padding: 20px 0;
     width: 5em;
-    height: calc(100vh - 41px);
+    height: calc(100vh - 50px);
     position: fixed;
     background-color: rgb(var(--background-secondary));
     transition: width .35s cubic-bezier(var(--transition-main), 1);
@@ -344,8 +344,8 @@ a:visited {
     #navbar {
         position: fixed !important;
         left: -100% !important;
-        top: 60px !important;
-        height: calc(100vh - 60px) !important;
+        top: 70px !important;
+        height: calc(100vh - 70px) !important;
         width: 5em !important;
         z-index: 1000 !important;
         transition: left 0.3s ease !important;

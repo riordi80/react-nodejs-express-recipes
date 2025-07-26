@@ -42,7 +42,7 @@ const TabsModal = ({
   const activeTabData = tabs.find(tab => tab.id === activeTab);
 
   return (
-    <div className={`tabs-modal ${className}`}>
+    <div className={`tabs-modal-container ${className}`}>
       {/* Pestañas para desktop */}
       <div className="modal-tabs">
         {tabs.map(tab => {

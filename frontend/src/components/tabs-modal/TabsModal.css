@@ -1,5 +1,19 @@
 /* src/components/tabs-modal/TabsModal.css */
 
+/* Container for TabsModal */
+.tabs-modal-container {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Layout flex solo en desktop */
+@media (min-width: 769px) {
+  .tabs-modal-container {
+    height: 100%;
+    overflow: hidden;
+  }
+}
+
 /* ==============================================
    DESKTOP STYLES
    ============================================== */
@@ -191,4 +205,14 @@
 /* Content wrapper */
 .tab-content {
   width: 100%;
+}
+
+/* Layout flex para contenido solo en desktop */
+@media (min-width: 769px) {
+  .tab-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
 }

@@ -66,10 +66,13 @@ export default function EditIngredientModal({
     }
   }, []);
 
-  const loadIngredientSuppliers = useCallback(async () => {
+  const loadIngredientSuppliers = useCallback(async (showLoading = true) => {
     if (!ingredient?.ingredient_id) return;
     
-    setLoadingSuppliersData(true);
+    if (showLoading) {
+      setLoadingSuppliersData(true);
+    }
+    
     try {
       const { data } = await api.get(`/ingredients/${ingredient.ingredient_id}/suppliers`);
       setIngredientSuppliers(data);
@@ -90,7 +93,9 @@ export default function EditIngredientModal({
       console.error('Error al cargar proveedores del ingrediente:', err);
       setIngredientSuppliers([]);
     } finally {
-      setLoadingSuppliersData(false);
+      if (showLoading) {
+        setLoadingSuppliersData(false);
+      }
     }
   }, [ingredient?.ingredient_id]);
 
@@ -179,8 +184,13 @@ export default function EditIngredientModal({
         is_preferred_supplier: isPreferred
       });
       
-      // Recargar datos
-      await loadIngredientSuppliers();
+      // Recargar datos sin mostrar loading
+      await loadIngredientSuppliers(false);
+      
+      // Notificar al componente padre que hubo cambios
+      if (onIngredientUpdated) {
+        onIngredientUpdated({ ...ingredient, supplier_updated: true });
+      }
     } catch (err) {
       console.error('Error al actualizar proveedor preferido:', err);
     }
@@ -191,7 +201,12 @@ export default function EditIngredientModal({
     
     try {
       await api.delete(`/ingredients/${ingredient.ingredient_id}/suppliers/${supplierId}`);
-      await loadIngredientSuppliers();
+      await loadIngredientSuppliers(false);
+      
+      // Notificar al componente padre que hubo cambios
+      if (onIngredientUpdated) {
+        onIngredientUpdated({ ...ingredient, supplier_updated: true });
+      }
     } catch (err) {
       console.error('Error al eliminar proveedor del ingrediente:', err);
     }
@@ -212,7 +227,12 @@ export default function EditIngredientModal({
         is_preferred_supplier: false
       });
       
-      await loadIngredientSuppliers();
+      await loadIngredientSuppliers(false);
+      
+      // Notificar al componente padre que hubo cambios
+      if (onIngredientUpdated) {
+        onIngredientUpdated({ ...ingredient, supplier_updated: true });
+      }
     } catch (error) {
       console.error('Error añadiendo proveedor:', error);
     } finally {
@@ -634,7 +654,13 @@ export default function EditIngredientModal({
                                           };
                                           
                                           await api.put(`/ingredients/${ingredient.ingredient_id}/suppliers/${supplier.supplier_id}`, payload);
-                                          await loadIngredientSuppliers();
+                                          // Recargar sin mostrar loading para evitar el efecto visual
+                                          await loadIngredientSuppliers(false);
+                                          
+                                          // Notificar al componente padre que hubo cambios
+                                          if (onIngredientUpdated) {
+                                            onIngredientUpdated({ ...ingredient, supplier_updated: true });
+                                          }
                                         } catch (err) {
                                           console.error('Error al guardar datos del proveedor:', err);
                                         }

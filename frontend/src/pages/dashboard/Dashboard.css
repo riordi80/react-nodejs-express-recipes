@@ -49,6 +49,125 @@
   margin-bottom: 32px;
 }
 
+/* Elementos clickeables en widgets */
+.stock-alert-item.clickable,
+.event-item.clickable,
+.alert-item.clickable,
+.order-item.clickable,
+.trend-item.clickable,
+.seasonal-item.clickable,
+.recipe-item.clickable,
+.event-menu-item.clickable {
+  transition: all 0.2s ease;
+  border-radius: 6px;
+}
+
+/* Hover específico para alertas de stock (rojo más oscuro) */
+.stock-alert-item.clickable:hover {
+  background-color: #fee2e2;
+  border-color: #fca5a5;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.stock-alert-item.clickable:active {
+  transform: translateY(0);
+  background-color: #fecaca;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* Hover para eventos (azul grisáceo) */
+.event-item.clickable:hover {
+  background-color: #f1f5f9;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.event-item.clickable:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* Hover para alertas de temporada (gris más oscuro) */
+.alert-item.clickable:hover {
+  background-color: #f1f5f9;
+  border-color: #cbd5e1;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.alert-item.clickable:active {
+  transform: translateY(0);
+  background-color: #e2e8f0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* Hover para órdenes de compra (gris azulado más oscuro) */
+.order-item.clickable:hover {
+  background-color: #f1f5f9;
+  border-color: #cbd5e1;
+  transform: translateY(-1px) translateX(2px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.order-item.clickable:active {
+  transform: translateY(0) translateX(1px);
+  background-color: #e2e8f0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* Hover para tendencias de costos (gris neutro) */
+.trend-item.clickable:hover {
+  background-color: #f1f5f9;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.trend-item.clickable:active {
+  transform: translateY(0);
+  background-color: #e2e8f0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* Hover para ingredientes de temporada actual (verde claro) */
+.seasonal-item.clickable:hover {
+  background-color: #f0fdf4;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.seasonal-item.clickable:active {
+  transform: translateY(0);
+  background-color: #dcfce7;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* Hover para recetas (gris consistente) */
+.recipe-item.clickable:hover {
+  background-color: #f1f5f9;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.recipe-item.clickable:active {
+  transform: translateY(0);
+  background-color: #e2e8f0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* Hover para eventos con menús (púrpura claro) */
+.event-menu-item.clickable:hover {
+  background-color: #faf5ff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.event-menu-item.clickable:active {
+  transform: translateY(0);
+  background-color: #f3e8ff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
 .summary-card {
   background: white;
   border-radius: 12px;
@@ -59,6 +178,17 @@
   align-items: center;
   gap: 16px;
   transition: transform 0.2s, box-shadow 0.2s;
+}
+
+/* Efectos hover para tarjetas clickeables */
+.summary-card.clickable:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.summary-card.clickable:active {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
 .summary-card:hover {
@@ -81,7 +211,7 @@
   background: linear-gradient(135deg, #3b82f6, #1d4ed8);
 }
 
-.summary-icon.ingredients {
+.summary-icon.events {
   background: linear-gradient(135deg, #10b981, #059669);
 }
 
@@ -298,6 +428,11 @@
   background: #f8fafc;
   border-radius: 8px;
   border: 1px solid #e2e8f0;
+}
+
+.recipe-info {
+  flex: 1; /* Permite que la info ocupe el espacio disponible */
+  min-width: 0; /* Permite que el flex item se encoja si es necesario */
 }
 
 .recipe-info strong {
@@ -728,4 +863,100 @@
 .alert-badge.success {
   background: #dcfce7;
   color: #166534;
+}
+
+/* Estilos para el widget de supplier orders mejorado */
+.order-status.warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.order-status.urgent {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* Estilos para cost trends */
+.cost-trends {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.trend-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.trend-item:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+.trend-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.trend-info strong {
+  color: #1e293b;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.trend-period {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.trend-change {
+  font-size: 14px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 4px;
+  min-width: 60px;
+  text-align: center;
+}
+
+.trend-change.increase {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.trend-change.decrease {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.trend-change.stable {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+/* Estilos para seasonal alerts mejorado */
+.seasonal-month {
+  background: #f8fafc;
+  padding: 8px 12px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.seasonal-month strong {
+  color: #1e293b;
+  font-size: 13px;
+}
+
+.seasonal-alerts .alert-item {
+  margin-bottom: 8px;
+}
+
+.seasonal-alerts .alert-item:last-child {
+  margin-bottom: 0;
 }
