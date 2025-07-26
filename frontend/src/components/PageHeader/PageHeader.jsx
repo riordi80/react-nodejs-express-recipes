@@ -6,6 +6,7 @@ import './PageHeader.css';
 
 export default function PageHeader({
   title,
+  subtitle,
   // Search functionality
   searchValue = '',
   onSearchChange,
@@ -132,6 +133,11 @@ export default function PageHeader({
             </div>
           )}
         </div>
+        
+        {/* Subtitle */}
+        {subtitle && (
+          <p className="page-header-subtitle">{subtitle}</p>
+        )}
         
         {/* Messages */}
         {message && (

@@ -23,6 +23,7 @@ const BasePage = ({
   
   // PageHeader props (explicitly defined for clarity)
   title,
+  subtitle,
   message,
   messageType,
   filterText,
@@ -43,6 +44,7 @@ const BasePage = ({
         {/* PageHeader handles all header functionality */}
         <PageHeader
           title={title}
+          subtitle={subtitle}
           message={message}
           messageType={messageType}
           searchValue={filterText}

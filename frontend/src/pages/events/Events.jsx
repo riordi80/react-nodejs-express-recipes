@@ -439,6 +439,7 @@ export default function Events() {
     <>
       <BasePage
         title="Eventos"
+        subtitle="Planifica y organiza tus eventos gastronómicos"
         data={filteredData}
         columns={columns}
         loading={loading}

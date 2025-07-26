@@ -289,6 +289,7 @@ export default function RecipesPage() {
     <>
       <BasePage
         title="Recetas"
+        subtitle="Crea y administra tus recetas de cocina"
         data={recipes}
         columns={columns}
         loading={loading}

@@ -112,6 +112,7 @@ export default function Allergens() {
     <>
       <BasePage
         title="Alérgenos"
+        subtitle="Administra la información de alérgenos para tus recetas"
         data={filteredData}
         columns={columns}
         loading={loading}

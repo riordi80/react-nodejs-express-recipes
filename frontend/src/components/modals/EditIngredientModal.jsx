@@ -12,7 +12,8 @@ export default function EditIngredientModal({
   onClose,
   ingredient,
   onSave,
-  onIngredientUpdated
+  onIngredientUpdated,
+  mode = 'edit' // 'edit' | 'create'
 }) {
   const [editedItem, setEditedItem] = useState(null);
   const [editedWastePercent, setEditedWastePercent] = useState('');
@@ -28,13 +29,26 @@ export default function EditIngredientModal({
   const dropdownRef = useRef(null);
 
   const availableSeasons = [
-    { value: 'primavera', label: 'Primavera' },
-    { value: 'verano', label: 'Verano' },
-    { value: 'otoño', label: 'Otoño' },
-    { value: 'invierno', label: 'Invierno' }
+    { value: 'enero', label: 'Enero' },
+    { value: 'febrero', label: 'Febrero' },
+    { value: 'marzo', label: 'Marzo' },
+    { value: 'abril', label: 'Abril' },
+    { value: 'mayo', label: 'Mayo' },
+    { value: 'junio', label: 'Junio' },
+    { value: 'julio', label: 'Julio' },
+    { value: 'agosto', label: 'Agosto' },
+    { value: 'septiembre', label: 'Septiembre' },
+    { value: 'octubre', label: 'Octubre' },
+    { value: 'noviembre', label: 'Noviembre' },
+    { value: 'diciembre', label: 'Diciembre' },
+    { value: 'todo_año', label: 'Todo el año' }
   ];
 
-  const tabs = [
+  // Tabs dinámicas según el modo
+  const tabs = mode === 'create' ? [
+    { id: 'info', label: 'Información General', icon: FaUser },
+    { id: 'nutrition', label: 'Información Nutricional', icon: FaLeaf }
+  ] : [
     { id: 'info', label: 'Información General', icon: FaUser },
     { id: 'nutrition', label: 'Nutrición', icon: FaLeaf },
     { id: 'suppliers', label: 'Proveedores', icon: FaTruck }
@@ -100,7 +114,28 @@ export default function EditIngredientModal({
   }, [ingredient?.ingredient_id]);
 
   useEffect(() => {
-    if (ingredient) {
+    if (mode === 'create') {
+      // Inicializar para modo creación
+      setEditedItem({
+        name: '',
+        unit: 'unit',
+        base_price: '',
+        stock: '',
+        stock_minimum: '',
+        season: [],
+        expiration_date: '',
+        is_available: true,
+        comment: '',
+        calories_per_100g: '',
+        protein_per_100g: '',
+        carbs_per_100g: '',
+        fat_per_100g: ''
+      });
+      setEditedWastePercent('');
+      setEditedSelectedAllergens([]);
+      loadAllergens();
+    } else if (ingredient) {
+      // Modo edición
       setEditedItem({ ...ingredient });
       setEditedWastePercent(ingredient.waste_percent ? formatDecimal(ingredient.waste_percent * 100, 2) : '');
       setEditedSelectedAllergens(ingredient.allergens || []);
@@ -110,7 +145,7 @@ export default function EditIngredientModal({
         loadAllSuppliers();
       }
     }
-  }, [ingredient, activeTab, loadAllergens, loadIngredientSuppliers, loadAllSuppliers]);
+  }, [ingredient, mode, activeTab, loadAllergens, loadIngredientSuppliers, loadAllSuppliers]);
 
   const handleSave = async () => {
     if (!editedItem) return;
@@ -126,10 +161,10 @@ export default function EditIngredientModal({
       fat_per_100g: parseEuropeanNumber(editedItem.fat_per_100g) || 0,
       waste_percent: parseEuropeanNumber(editedWastePercent) / 100 || 0,
       allergens: editedSelectedAllergens,
-      season: editedItem.season || []
+      season: Array.isArray(editedItem.season) ? editedItem.season : (editedItem.season ? [editedItem.season] : [])
     };
 
-    const success = await onSave(processedItem);
+    const success = await onSave(processedItem, editedSelectedAllergens);
     if (success && onIngredientUpdated) {
       onIngredientUpdated(processedItem);
     }
@@ -243,7 +278,7 @@ export default function EditIngredientModal({
   if (!editedItem) return null;
 
   return (
-    <Modal isOpen={isOpen} title="Editar ingrediente" onClose={handleClose} fullscreenMobile={true}>
+    <Modal isOpen={isOpen} title={mode === 'create' ? 'Nuevo ingrediente' : 'Editar ingrediente'} onClose={handleClose} fullscreenMobile={true}>
       <div className="ingredient-edit-modal">
         <TabsModal
           tabs={tabs}
@@ -377,7 +412,9 @@ export default function EditIngredientModal({
               
               <div className="modal-actions">
                 <button type="button" className="btn cancel" onClick={handleClose}>Cancelar</button>
-                <button type="button" className="btn edit" onClick={handleSave}>Guardar</button>
+                <button type="button" className="btn edit" onClick={handleSave}>
+                  {mode === 'create' ? 'Crear' : 'Guardar'}
+                </button>
               </div>
             </form>
           ) : activeTab === 'nutrition' ? (
@@ -498,10 +535,12 @@ export default function EditIngredientModal({
               
               <div className="modal-actions">
                 <button type="button" className="btn cancel" onClick={handleClose}>Cancelar</button>
-                <button type="button" className="btn edit" onClick={handleSave}>Guardar</button>
+                <button type="button" className="btn edit" onClick={handleSave}>
+                  {mode === 'create' ? 'Crear' : 'Guardar'}
+                </button>
               </div>
             </form>
-          ) : activeTab === 'suppliers' ? (
+          ) : activeTab === 'suppliers' && mode === 'edit' ? (
             <div className="modal-body-form ingredient-suppliers-form">
               <div style={{ marginBottom: '20px' }}>
                 <h4 style={{ fontSize: '16px', fontWeight: '600', color: '#1e293b', marginBottom: '16px' }}>
@@ -525,7 +564,7 @@ export default function EditIngredientModal({
                                 <div className="supplier-info">
                                   <div className="supplier-name">
                                     {supplier.supplier_name}
-                                    {supplier.is_preferred_supplier && (
+                                    {supplier.is_preferred_supplier === 1 && (
                                       <span className="preferred-badge">PREFERIDO</span>
                                     )}
                                   </div>

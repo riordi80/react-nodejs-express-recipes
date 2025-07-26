@@ -340,6 +340,7 @@ export default function Suppliers() {
     <>
       <BasePage
         title="Proveedores"
+        subtitle="Gestiona tu red de proveedores y sus productos"
         data={filteredData}
         columns={columns}
         loading={loading}

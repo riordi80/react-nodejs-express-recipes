@@ -1903,10 +1903,7 @@ const SupplierOrders = () => {
                         <div className="order-card-footer">
                           <button 
                             className="view-details-btn"
-                            onClick={() => {
-                              setSelectedOrder(order);
-                              setShowOrderDetailModal(true);
-                            }}
+                            onClick={() => handleOrderClick(order)}
                           >
                             <FaEye />
                             Ver Detalles
@@ -1938,16 +1935,6 @@ const SupplierOrders = () => {
             >
               <FaChartBar />
               Reportes Detallados
-            </button>
-            <button 
-              className="btn view"
-              onClick={() => {
-                // Abrir modal directamente en la pestaña de tendencias
-                setShowReportsModal(true);
-              }}
-            >
-              <FaHistory />
-              Historial Completo
             </button>
             <button 
               className="btn edit"

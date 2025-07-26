@@ -2248,7 +2248,7 @@
 
 .pdf-download-btn {
   position: absolute;
-  top: 618x;
+  top: 80px;
   right: 16px;
   display: inline-flex;
   align-items: center;
@@ -2951,6 +2951,11 @@
   
   .supplier-mini-item .supplier-info {
     width: 100%;
+  }
+
+  .pdf-download-btn {
+    position: absolute;
+    top: 60px;
   }
   
   .recent-order-item {
