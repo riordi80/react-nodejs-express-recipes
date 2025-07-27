@@ -37,6 +37,15 @@
   margin-left: 16px;
 }
 
+/* Subtitle */
+.page-header-subtitle {
+  font-size: 16px;
+  font-weight: 400;
+  color: #64748b;
+  margin: 8px 0 0 0;
+  line-height: 1.4;
+}
+
 /* Messages */
 .page-header-message {
   padding: 12px 16px;

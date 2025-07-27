@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import api from '../api/axios';
+import api, { waitForConfig } from '../api/axios';
 
 const AuthContext = createContext();
 
@@ -11,8 +11,8 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const checkSession = async () => {
       try {
-        // Esperar un momento para que axios configure la URL correcta
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Esperar a que axios esté completamente configurado
+        await waitForConfig();
         
         const res = await api.get('/me'); // el backend revisa la cookie
         setUser(res.data.user);

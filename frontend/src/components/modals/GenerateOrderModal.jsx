@@ -1,8 +1,9 @@
 // src/components/modals/GenerateOrderModal.jsx
 import React, { useState } from 'react';
-import { FaTruck, FaCalendarAlt, FaStickyNote, FaEuroSign } from 'react-icons/fa';
+import { FaTruck, FaEuroSign } from 'react-icons/fa';
 import { formatCurrency } from '../../utils/formatters';
 import Modal from '../modal/Modal';
+import './GenerateOrderModal.css';
 
 const GenerateOrderModal = ({ 
   isOpen, 
@@ -45,10 +46,11 @@ const GenerateOrderModal = ({
         </span>
       }
       maxWidth="600px"
+      fullscreenMobile={true}
     >
       {/* Resumen de pedidos a generar */}
+      <h4 className="section-title">📊 Resumen de Pedidos a Generar</h4>
       <div className="order-summary">
-        <h4>Resumen de Pedidos a Generar</h4>
         <div className="summary-stats">
           <div className="stat">
             <span className="stat-label">Proveedores</span>
@@ -93,7 +95,6 @@ const GenerateOrderModal = ({
       <form onSubmit={handleSubmit} className="order-config-form">
         <div className="form-group">
           <label htmlFor="deliveryDate" className="form-label">
-            <FaCalendarAlt />
             Fecha de Entrega Deseada (opcional)
           </label>
           <input
@@ -112,7 +113,6 @@ const GenerateOrderModal = ({
 
         <div className="form-group">
           <label htmlFor="notes" className="form-label">
-            <FaStickyNote />
             Notas Adicionales (opcional)
           </label>
           <textarea

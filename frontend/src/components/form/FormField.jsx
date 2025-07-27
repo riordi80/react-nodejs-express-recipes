@@ -36,10 +36,10 @@ const containerStyle = {
   padding: 0
 };
 
-export const FormField = ({ label, children, ...props }) => {
+export const FormField = ({ label, children, labelClassName }) => {
   return (
     <div style={containerStyle}>
-      <label style={labelStyle}>{label}</label>
+      <label style={labelStyle} className={labelClassName}>{label}</label>
       {children}
     </div>
   );

@@ -115,14 +115,15 @@ router.get('/shopping-list', authenticateToken, authorizeRoles('admin', 'chef'),
       WHERE ${whereClause}
     `, queryParams);
 
-    // 2. Calcular ingredientes necesarios
+    // 2. Calcular ingredientes necesarios (corregido para incluir merma en cantidades)
     const stockFormula = includeStock 
-      ? 'GREATEST(0, SUM(ri.quantity_per_serving * em.portions) - i.stock)' 
-      : 'SUM(ri.quantity_per_serving * em.portions)';
+      ? 'GREATEST(0, (SUM(ri.quantity_per_serving * em.portions) * (1 + IFNULL(i.waste_percent, 0))) - i.stock)' 
+      : 'SUM(ri.quantity_per_serving * em.portions) * (1 + IFNULL(i.waste_percent, 0))';
     
+    // Cálculo de costos: usar precio por unidad base del ingrediente cuando no hay proveedor
     const costFormula = includeStock
-      ? 'GREATEST(0, SUM(ri.quantity_per_serving * em.portions) - i.stock) * COALESCE(NULLIF(si.price, 0), i.base_price) * (1 + IFNULL(i.waste_percent, 0))'
-      : 'SUM(ri.quantity_per_serving * em.portions) * COALESCE(NULLIF(si.price, 0), i.base_price) * (1 + IFNULL(i.waste_percent, 0))';
+      ? 'GREATEST(0, (SUM(ri.quantity_per_serving * em.portions) * (1 + IFNULL(i.waste_percent, 0))) - i.stock) * i.base_price'
+      : 'SUM(ri.quantity_per_serving * em.portions) * (1 + IFNULL(i.waste_percent, 0)) * i.base_price';
 
     const [neededIngredients] = await pool.query(`
       SELECT 
@@ -131,7 +132,9 @@ router.get('/shopping-list', authenticateToken, authorizeRoles('admin', 'chef'),
         i.unit,
         i.base_price as price_per_unit,
         i.stock as current_stock,
-        SUM(ri.quantity_per_serving * em.portions) as total_needed,
+        i.waste_percent,
+        SUM(ri.quantity_per_serving * em.portions) as total_needed_base,
+        SUM(ri.quantity_per_serving * em.portions) * (1 + IFNULL(i.waste_percent, 0)) as total_needed_with_waste,
         ${stockFormula} as to_buy,
         ${costFormula} as total_cost,
         si.supplier_id,
@@ -142,7 +145,7 @@ router.get('/shopping-list', authenticateToken, authorizeRoles('admin', 'chef'),
         si.price as supplier_price,
         -- Calcular cantidad real de paquetes necesarios (solo si hay proveedor)
         CASE 
-          WHEN si.supplier_id IS NOT NULL THEN 
+          WHEN si.supplier_id IS NOT NULL AND si.package_size > 0 THEN 
             GREATEST(
               si.minimum_order_quantity,
               CEIL(${stockFormula} / si.package_size)
@@ -151,16 +154,16 @@ router.get('/shopping-list', authenticateToken, authorizeRoles('admin', 'chef'),
         END as packages_to_buy,
         -- Calcular cantidad total real (en unidades base)
         CASE 
-          WHEN si.supplier_id IS NOT NULL THEN 
+          WHEN si.supplier_id IS NOT NULL AND si.package_size > 0 THEN 
             GREATEST(
               si.minimum_order_quantity,
               CEIL(${stockFormula} / si.package_size)
             ) * si.package_size
-          ELSE 0
+          ELSE ${stockFormula}
         END as real_quantity,
         -- Calcular costo real basado en precio del proveedor
         CASE 
-          WHEN si.supplier_id IS NOT NULL THEN 
+          WHEN si.supplier_id IS NOT NULL AND si.price IS NOT NULL AND si.price > 0 THEN 
             GREATEST(
               si.minimum_order_quantity,
               CEIL(${stockFormula} / si.package_size)
@@ -187,7 +190,7 @@ router.get('/shopping-list', authenticateToken, authorizeRoles('admin', 'chef'),
       LEFT JOIN SUPPLIERS s ON si.supplier_id = s.supplier_id
       WHERE ${whereClause}
         AND i.is_available = 1
-      GROUP BY i.ingredient_id, i.name, i.unit, i.base_price, i.stock, si.supplier_id, s.name, si.package_size, si.package_unit, si.minimum_order_quantity, si.price, si.is_preferred_supplier
+      GROUP BY i.ingredient_id, i.name, i.unit, i.base_price, i.stock, i.waste_percent, si.supplier_id, s.name, si.package_size, si.package_unit, si.minimum_order_quantity, si.price, si.is_preferred_supplier
       HAVING to_buy > 0
       ORDER BY COALESCE(s.name, 'zzz'), i.name
     `, queryParams);
@@ -218,20 +221,23 @@ router.get('/shopping-list', authenticateToken, authorizeRoles('admin', 'chef'),
       const ingredientData = {
         ingredientId: ingredient.ingredient_id,
         name: ingredient.name,
-        needed: parseFloat(ingredient.total_needed),
-        inStock: parseFloat(ingredient.current_stock),
-        toBuy: parseFloat(ingredient.to_buy),
+        needed: Math.round(parseFloat(ingredient.total_needed_with_waste) * 10000) / 10000,
+        neededBase: Math.round(parseFloat(ingredient.total_needed_base) * 10000) / 10000,
+        neededWithWaste: Math.round(parseFloat(ingredient.total_needed_with_waste) * 10000) / 10000,
+        wastePercent: Math.round(parseFloat(ingredient.waste_percent || 0) * 10000) / 10000,
+        inStock: Math.round(parseFloat(ingredient.current_stock) * 10000) / 10000,
+        toBuy: Math.round(parseFloat(ingredient.to_buy) * 10000) / 10000,
         unit: ingredient.unit,
-        pricePerUnit: parseFloat(ingredient.price_per_unit),
-        totalCost: parseFloat(ingredient.total_cost || 0),
+        pricePerUnit: Math.round(parseFloat(ingredient.price_per_unit) * 10000) / 10000,
+        totalCost: Math.round(parseFloat(ingredient.total_cost || 0) * 100) / 100,
         // Nuevos campos para cantidades reales
-        packageSize: parseFloat(ingredient.package_size || 1),
+        packageSize: Math.round(parseFloat(ingredient.package_size || 1) * 10000) / 10000,
         packageUnit: ingredient.package_unit || 'unidad',
-        minimumOrderQuantity: parseFloat(ingredient.minimum_order_quantity || 1),
-        supplierPrice: parseFloat(ingredient.supplier_price || ingredient.price_per_unit),
-        packagesToBuy: parseFloat(ingredient.packages_to_buy || 0),
-        realQuantity: parseFloat(ingredient.real_quantity || 0),
-        realTotalCost: parseFloat(ingredient.real_total_cost || 0),
+        minimumOrderQuantity: Math.round(parseFloat(ingredient.minimum_order_quantity || 1) * 100) / 100,
+        supplierPrice: Math.round(parseFloat(ingredient.supplier_price || ingredient.price_per_unit) * 10000) / 10000,
+        packagesToBuy: Math.round(parseFloat(ingredient.packages_to_buy || 0) * 100) / 100,
+        realQuantity: Math.round(parseFloat(ingredient.real_quantity || 0) * 10000) / 10000,
+        realTotalCost: Math.round(parseFloat(ingredient.real_total_cost || 0) * 100) / 100,
         supplierStatus: ingredient.supplier_status || 'missing',
         // Campos de debug
         debugSupplierId: ingredient.debug_supplier_id,

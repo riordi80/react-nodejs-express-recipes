@@ -84,6 +84,93 @@ router.get('/', authenticateToken, authorizeRoles('admin','chef'), async (req, r
   }
 });
 
+// GET /events/dashboard-widgets - Obtener datos para widgets del dashboard
+router.get('/dashboard-widgets', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
+  try {
+    // Widget 1: Eventos Próximos (7 días)
+    const [upcomingEvents] = await pool.execute(`
+      SELECT 
+        event_id,
+        name,
+        event_date,
+        event_time,
+        guests_count,
+        status
+      FROM EVENTS 
+      WHERE event_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+        AND status != 'cancelled'
+      ORDER BY event_date ASC, event_time ASC
+      LIMIT 10
+    `);
+
+    // Widget 2: Sin Menú Asignado
+    const [eventsWithoutMenu] = await pool.execute(`
+      SELECT 
+        e.event_id,
+        e.name,
+        e.event_date,
+        e.guests_count,
+        e.status
+      FROM EVENTS e
+      LEFT JOIN EVENT_MENUS em ON e.event_id = em.event_id
+      WHERE em.event_id IS NULL 
+        AND e.status != 'cancelled'
+        AND e.event_date >= CURDATE()
+      ORDER BY e.event_date ASC
+      LIMIT 10
+    `);
+
+    // Widget 3: Presupuesto Excedido
+    const [budgetExceededEvents] = await pool.execute(`
+      SELECT 
+        e.event_id,
+        e.name,
+        e.event_date,
+        e.budget,
+        e.guests_count,
+        COALESCE(SUM(r.cost_per_serving * em.portions), 0) as menu_cost,
+        (COALESCE(SUM(r.cost_per_serving * em.portions), 0) - e.budget) as excess_amount
+      FROM EVENTS e
+      LEFT JOIN EVENT_MENUS em ON e.event_id = em.event_id
+      LEFT JOIN RECIPES r ON em.recipe_id = r.recipe_id
+      WHERE e.budget > 0 
+        AND e.status != 'cancelled'
+        AND e.event_date >= CURDATE()
+      GROUP BY e.event_id, e.name, e.event_date, e.budget, e.guests_count
+      HAVING menu_cost > e.budget
+      ORDER BY excess_amount DESC
+      LIMIT 10
+    `);
+
+    // Widget 4: Eventos Grandes (>50 invitados)
+    const [largeEvents] = await pool.execute(`
+      SELECT 
+        event_id,
+        name,
+        event_date,
+        guests_count,
+        status,
+        location
+      FROM EVENTS 
+      WHERE guests_count > 50
+        AND status != 'cancelled'
+        AND event_date >= CURDATE()
+      ORDER BY guests_count DESC, event_date ASC
+      LIMIT 10
+    `);
+
+    res.json({
+      upcomingEvents: upcomingEvents,
+      eventsWithoutMenu: eventsWithoutMenu,
+      budgetExceeded: budgetExceededEvents,
+      largeEvents: largeEvents
+    });
+  } catch (error) {
+    console.error('Error al obtener datos de widgets de eventos:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
 // GET /events/:id - Obtener evento específico con su menú
 router.get('/:id', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
   const { id } = req.params;
@@ -103,17 +190,30 @@ router.get('/:id', authenticateToken, authorizeRoles('admin','chef'), async (req
       return res.status(404).json({ message: 'Evento no encontrado' });
     }
 
-    // Obtener menú del evento
+    // Obtener menú del evento con información nutricional y alérgenos
     const [menuRows] = await pool.execute(`
       SELECT 
         em.*,
         r.name as recipe_name,
         r.cost_per_serving,
         r.prep_time,
-        r.difficulty
+        r.difficulty,
+        -- Información nutricional (suma de todos los ingredientes por 100g)
+        ROUND(SUM(i.calories_per_100g * ri.quantity_per_serving / 100), 1) as calories,
+        ROUND(SUM(i.protein_per_100g * ri.quantity_per_serving / 100), 1) as protein,
+        ROUND(SUM(i.carbs_per_100g * ri.quantity_per_serving / 100), 1) as carbs,
+        ROUND(SUM(i.fat_per_100g * ri.quantity_per_serving / 100), 1) as fat,
+        -- Alérgenos (lista de nombres únicos)
+        GROUP_CONCAT(DISTINCT a.name ORDER BY a.name SEPARATOR ', ') as allergens
       FROM EVENT_MENUS em
       JOIN RECIPES r ON em.recipe_id = r.recipe_id
+      LEFT JOIN RECIPE_INGREDIENTS ri ON r.recipe_id = ri.recipe_id
+      LEFT JOIN INGREDIENTS i ON ri.ingredient_id = i.ingredient_id
+      LEFT JOIN INGREDIENT_ALLERGENS ia ON i.ingredient_id = ia.ingredient_id
+      LEFT JOIN ALLERGENS a ON ia.allergen_id = a.allergen_id
       WHERE em.event_id = ?
+      GROUP BY em.event_id, em.recipe_id, em.portions, em.course_type, em.notes, 
+               r.name, r.cost_per_serving, r.prep_time, r.difficulty
       ORDER BY 
         CASE em.course_type 
           WHEN 'starter' THEN 1

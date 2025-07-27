@@ -1,6 +1,316 @@
 /* src/pages/ingredients/Ingredients.css */
 
+/* === WIDGETS DASHBOARD === */
+/* Usando el mismo estilo que los widgets del Dashboard */
+.ingredients-widgets {
+  margin-bottom: 24px;
+}
 
+/* Widgets de Ingredientes */
+.widgets-grid > .widget-card {
+  vertical-align: top;
+  margin: 0;
+}
+
+.widgets-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr); /* 4 columnas exactas para 4 widgets */
+  grid-auto-rows: auto; /* Permite altura automática según contenido */
+  gap: 24px;
+  margin-bottom: 20px;
+  align-items: start; /* Alinea los elementos al inicio, no estirados */
+}
+
+/* Widget principal - mismo estilo que Dashboard */
+.widget-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  flex-direction: column;
+  height: auto; /* Altura automática según contenido */
+  margin: 0; /* Reset margin */
+  padding: 0; /* Reset padding */
+  position: relative; /* Reset position */
+  top: 0; /* Reset top */
+  align-self: start; /* No stretch, alineado al inicio */
+}
+
+.widget-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Header del widget - mismo estilo que Dashboard */
+.widget-header {
+  padding: 20px 24px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.widget-header h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+}
+
+.widget-icon {
+  font-size: 20px;
+  color: #3b82f6;
+}
+
+.widget-icon.critical {
+  color: #ef4444;
+}
+
+.widget-header .widget-icon.warning {
+  color: #f59e0b;
+  font-size: 20px !important;
+  line-height: normal !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  vertical-align: middle !important;
+  align-self: center !important;
+}
+
+.widget-icon.seasonal {
+  color: #10b981;
+}
+
+.widget-icon.no-suppliers {
+  color: #2563eb;
+}
+
+.widget-count {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+  margin-left: auto;
+}
+
+/* Contenido del widget - mismo estilo que Dashboard */
+.widget-content {
+  padding: 24px;
+  flex: none; /* No crece, mantiene su tamaño natural */
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  min-height: auto; /* Sin altura mínima forzada */
+}
+
+.widget-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 120px;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.widget-empty {
+  text-align: center;
+  color: #64748b;
+  font-style: italic;
+  margin: 20px 0;
+}
+
+/* Lista de items del widget - mismo estilo que Dashboard */
+.widget-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.widget-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.2s ease;
+}
+
+.widget-item.clickable {
+  cursor: pointer;
+}
+
+/* Efectos hover específicos por tipo - mismo estilo que Dashboard */
+.widget-card.critical .widget-item.clickable:hover {
+  background-color: #fee2e2;
+  border-color: #fca5a5;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.widget-card.critical .widget-item.clickable:active {
+  transform: translateY(0);
+  background-color: #fecaca;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.widget-card.warning .widget-item.clickable:hover,
+.widget-card.seasonal .widget-item.clickable:hover,
+.widget-card.no-suppliers .widget-item.clickable:hover {
+  background-color: #f1f5f9;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.widget-card.warning .widget-item.clickable:active,
+.widget-card.seasonal .widget-item.clickable:active,
+.widget-card.no-suppliers .widget-item.clickable:active {
+  transform: translateY(0);
+  background-color: #e2e8f0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.item-info .item-name {
+  color: #1e293b;
+  font-weight: 600;
+  margin-bottom: 4px;
+  display: block;
+}
+
+.item-detail {
+  font-size: 14px;
+  color: #64748b;
+  margin-left: 8px;
+}
+
+.item-value {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 12px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.item-value.critical {
+  background: #ef4444;
+  color: white;
+}
+
+.item-value.warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.item-value.normal {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.item-value.seasonal {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.item-value.no-suppliers {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.widget-more {
+  text-align: center;
+  color: #64748b;
+  font-style: italic;
+  margin: 20px 0;
+}
+
+/* Responsive adjustments - mismo que Dashboard */
+@media (max-width: 1400px) {
+  .widgets-grid {
+    grid-template-columns: repeat(2, 1fr); /* 2 columnas en pantallas medianas */
+    gap: 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .widgets-grid {
+    grid-template-columns: 1fr; /* 1 columna en móvil */
+    gap: 16px;
+  }
+  
+  .widget-header {
+    padding: 16px 20px;
+  }
+  
+  .widget-header h3 {
+    font-size: 16px;
+  }
+  
+  .widget-content {
+    padding: 20px;
+    min-height: auto;
+  }
+  
+  .widget-item {
+    padding: 12px 14px;
+  }
+  
+  .item-info .item-name {
+    font-size: 14px;
+  }
+  
+  .item-detail {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .widgets-grid {
+    gap: 12px;
+  }
+  
+  .widget-header {
+    padding: 14px 16px;
+  }
+  
+  .widget-content {
+    padding: 16px;
+  }
+  
+  .widget-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    padding: 12px;
+  }
+  
+  .item-value {
+    align-self: flex-end;
+  }
+}
+
+/* === TÍTULO DE SECCIÓN DE TABLA === */
+.ingredients-table-section {
+  margin: 32px 0 24px 0;
+  padding-top: 24px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.ingredients-table-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 16px 0;
+  line-height: 1.3;
+}
 
 /* Estilos de botones movidos a /src/styles/buttons.css */
 
@@ -658,5 +968,16 @@
   .supplier-save-btn {
     width: 100%;
     padding: 10px;
+  }
+  
+  /* Responsive para título de sección */
+  .ingredients-table-section {
+    margin: 24px 0 20px 0;
+    padding-top: 20px;
+  }
+  
+  .ingredients-table-title {
+    font-size: 20px;
+    margin-bottom: 12px;
   }
 }

@@ -1,6 +1,8 @@
 // src/pages/supplier-orders/SupplierOrders.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { FaTruck, FaEuroSign, FaBoxOpen, FaExclamationTriangle, FaPlus, FaListUl, FaHistory, FaChartBar, FaChevronDown, FaCheckCircle, FaTimesCircle, FaQuestionCircle, FaDownload, FaEye, FaCalendarAlt, FaClock } from 'react-icons/fa';
+import PageHeader from '../../components/page-header/PageHeader';
+import Loading from '../../components/loading';
 import api from '../../api/axios';
 import { formatCurrency, formatDecimal } from '../../utils/formatters';
 import EditIngredientModal from '../../components/modals/EditIngredientModal';
@@ -909,7 +911,7 @@ const SupplierOrders = () => {
             </div>
 
             {eventsLoading ? (
-              <div className="loading">Cargando eventos disponibles...</div>
+              <Loading message="Cargando eventos disponibles..." size="medium" inline />
             ) : (
               <div className="events-grid">
                 {availableEvents.map(event => (
@@ -1210,7 +1212,7 @@ const SupplierOrders = () => {
             )}
 
             {ingredientsLoading && (
-              <div className="loading">Cargando ingredientes disponibles...</div>
+              <Loading message="Cargando ingredientes disponibles..." size="medium" inline />
             )}
           </div>
         )}
@@ -1218,7 +1220,7 @@ const SupplierOrders = () => {
 
       {/* Resultados */}
       {shoppingListLoading ? (
-        <div className="loading">Generando lista de compras...</div>
+        <Loading message="Generando lista de compras..." size="medium" />
       ) : showEventSelection && selectedEventIds.length === 0 ? (
         <div className="empty-state">
           <p>Selecciona uno o más eventos para generar la lista de compras</p>
@@ -1354,7 +1356,20 @@ const SupplierOrders = () => {
                                 />
                               </div>
                             </td>
-                            <td>{formatDecimal(ingredient.needed)} {ingredient.unit}</td>
+                            <td>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                <span>{formatDecimal(ingredient.needed)} {ingredient.unit}</span>
+                                {ingredient.wastePercent > 0 && (
+                                  <span style={{ 
+                                    fontSize: '11px', 
+                                    color: '#64748b',
+                                    fontStyle: 'italic'
+                                  }}>
+                                    Base: {formatDecimal(ingredient.neededBase)} + {(ingredient.wastePercent * 100).toFixed(1)}% merma
+                                  </span>
+                                )}
+                              </div>
+                            </td>
                             <td>{formatDecimal(ingredient.inStock)} {ingredient.unit}</td>
                             <td className="to-buy">{formatDecimal(ingredient.toBuy)} {ingredient.unit}</td>
                             <td className="package-info">
@@ -1366,7 +1381,7 @@ const SupplierOrders = () => {
                             </td>
                             <td className="real-quantity">
                               {ingredient.packagesToBuy > 0 ? (
-                                `${formatDecimal(ingredient.packagesToBuy)} ${ingredient.packageUnit || 'unidad'}`
+                                `${formatDecimal(ingredient.realQuantity)} ${ingredient.unit}`
                               ) : (
                                 `${formatDecimal(ingredient.toBuy)} ${ingredient.unit}`
                               )}
@@ -1429,7 +1444,7 @@ const SupplierOrders = () => {
         </h2>
 
         {activeOrdersLoading ? (
-          <div className="loading">Cargando pedidos activos...</div>
+          <Loading message="Cargando pedidos activos..." size="medium" inline />
         ) : activeOrders.length === 0 ? (
           <div className="empty-state">
             <p>No hay pedidos activos</p>
@@ -1563,7 +1578,7 @@ const SupplierOrders = () => {
         </h2>
         
         {suppliersAnalysisLoading ? (
-          <div className="loading">Cargando análisis de proveedores...</div>
+          <Loading message="Cargando análisis de proveedores..." size="medium" inline />
         ) : suppliersAnalysis.length === 0 ? (
           <div className="empty-state">
             <p>No hay datos suficientes para generar análisis</p>
@@ -1762,7 +1777,7 @@ const SupplierOrders = () => {
         </h2>
         
         {historyLoading ? (
-          <div className="loading">Cargando datos de historial...</div>
+          <Loading message="Cargando datos de historial..." size="medium" inline />
         ) : historyMetrics ? (
           <>
             {/* Dashboard de métricas rápidas */}
@@ -1903,10 +1918,7 @@ const SupplierOrders = () => {
                         <div className="order-card-footer">
                           <button 
                             className="view-details-btn"
-                            onClick={() => {
-                              setSelectedOrder(order);
-                              setShowOrderDetailModal(true);
-                            }}
+                            onClick={() => handleOrderClick(order)}
                           >
                             <FaEye />
                             Ver Detalles
@@ -1938,16 +1950,6 @@ const SupplierOrders = () => {
             >
               <FaChartBar />
               Reportes Detallados
-            </button>
-            <button 
-              className="btn view"
-              onClick={() => {
-                // Abrir modal directamente en la pestaña de tendencias
-                setShowReportsModal(true);
-              }}
-            >
-              <FaHistory />
-              Historial Completo
             </button>
             <button 
               className="btn edit"
@@ -1985,7 +1987,7 @@ const SupplierOrders = () => {
     return (
       <div className="common-page-container">
         <div className="common-page-content">
-          <div className="loading">Cargando datos de pedidos...</div>
+          <Loading message="Cargando datos de pedidos..." size="large" />
         </div>
       </div>
     );
@@ -1994,12 +1996,10 @@ const SupplierOrders = () => {
   return (
     <div className="common-page-container">
       <div className="common-page-content">
-        <div className="supplier-orders-header">
-          <h1 className="common-page-title">Pedidos</h1>
-          <p className="page-description">
-            Gestiona las compras de ingredientes de forma inteligente y optimizada
-          </p>
-        </div>
+        <PageHeader
+          title="Pedidos"
+          subtitle="Gestiona las compras de ingredientes de forma inteligente y optimizada"
+        />
 
         <div className="supplier-orders-tabs">
           {tabs.map(tab => {

@@ -3,7 +3,9 @@ import React from 'react';
 import DataTable from 'react-data-table-component';
 import { StyleSheetManager } from 'styled-components';
 import isPropValid from '@emotion/is-prop-valid';
-import PageHeader from './PageHeader/PageHeader';
+import PageHeader from '../page-header/PageHeader';
+import Loading from '../loading';
+import { useSettings } from '../../context/SettingsContext';
 
 const BasePage = ({
   // Data and table props
@@ -23,6 +25,7 @@ const BasePage = ({
   
   // PageHeader props (explicitly defined for clarity)
   title,
+  subtitle,
   message,
   messageType,
   filterText,
@@ -37,12 +40,14 @@ const BasePage = ({
   headerLayout = 'standard',
   enableMobileModal = true,
 }) => {
+  const { settings } = useSettings();
   return (
     <div className="common-page-container">
       <div className="common-page-content">
         {/* PageHeader handles all header functionality */}
         <PageHeader
           title={title}
+          subtitle={subtitle}
           message={message}
           messageType={messageType}
           searchValue={filterText}
@@ -78,15 +83,12 @@ const BasePage = ({
                 data={data}
                 progressPending={loading}
                 progressComponent={
-                  <div className="loading-overlay">
-                    <div className="loading-text">
-                      Cargando...
-                    </div>
-                  </div>
+                  <Loading message="Cargando datos..." size="medium" inline />
                 }
                 noDataComponent={noDataMessage}
                 pagination
-                paginationPerPage={15}
+                paginationPerPage={settings.pageSize}
+                paginationRowsPerPageOptions={[10, 25, 50, 100]}
                 paginationComponentOptions={{
                   rowsPerPageText: 'Filas por página',
                   rangeSeparatorText: 'de',

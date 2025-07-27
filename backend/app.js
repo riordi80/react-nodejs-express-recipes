@@ -1,5 +1,6 @@
 // app.js
 require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
@@ -13,7 +14,7 @@ const backupManager     = require('./utils/backupManager');
 
 const app = express();
 
-// 0) Leer configuración de .env
+// Configuración de .env
 const PORT          = process.env.PORT || 4000;
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
 const BACKEND_URL = process.env.BACKEND_URL || `http://localhost`;
@@ -34,7 +35,6 @@ app.use(cors({
     if (origin === CLIENT_ORIGIN) {
       callback(null, true);
     } else {
-      console.log(`🚫 CORS rechazado: ${origin} (esperado: ${CLIENT_ORIGIN})`);
       callback(new Error(`No permitido por CORS. Origen: ${origin}, Esperado: ${CLIENT_ORIGIN}`));
     }
   },
@@ -78,7 +78,22 @@ app.use('/api/settings',       require('./routes/settings'));
 app.use('/api/data',           require('./routes/data'));
 app.use('/api/supplier-orders', require('./routes/supplier-orders'));
 
-// 5) Healthcheck
+// 5) Ruta raíz
+app.get('/', (req, res) => {
+  res.json({
+    message: 'API Recetario - Servidor funcionando correctamente',
+    status: 'ok',
+    version: '1.0.0',
+    timestamp: new Date().toISOString(),
+    endpoints: {
+      health: '/health',
+      docs: '/docs',
+      api: '/api/*'
+    }
+  });
+});
+
+// 6) Healthcheck
 app.get('/health', (req, res) => {
   res.json({
     status:    'ok',
@@ -87,10 +102,12 @@ app.get('/health', (req, res) => {
   });
 });
 
-// 6) Inicializar BackupManager
-backupManager.initialize().catch(console.error);
+// 7) Inicializar BackupManager
+backupManager.initialize().catch(error => {
+  console.error('Error initializing backup manager:', error);
+});
 
-// 7) Iniciar servidor
-app.listen(PORT, () => {
-  console.log(`Servidor corriendo en ${BACKEND_URL}`);
+// 8) Iniciar servidor
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`✅ Servidor corriendo en ${BACKEND_URL}:${PORT}`);
 });

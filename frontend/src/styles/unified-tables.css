@@ -1,0 +1,255 @@
+/* src/styles/unified-tables.css */
+/* Estilos unificados para DataTables basados en el diseño de ranking-table */
+
+/* Contenedor principal de la tabla */
+.rdt_Table {
+  background: white !important;
+  border-radius: 8px !important;
+  border: 1px solid #e2e8f0 !important;
+  overflow: hidden !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Header de la tabla */
+.rdt_TableHead {
+  background: #f8fafc !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+.rdt_TableHeadRow {
+  background-color: #f8fafc !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  min-height: 52px !important;
+}
+
+.rdt_TableCol {
+  background: #f8fafc !important;
+  color: #374151 !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  padding: 12px 16px !important;
+  border-right: none !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.rdt_TableCol:hover {
+  background: #f1f5f9 !important;
+  color: #1e293b !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.rdt_TableCol:focus {
+  background: #f1f5f9 !important;
+  color: #1e293b !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.rdt_TableCol:active {
+  background: #e2e8f0 !important;
+  color: #1e293b !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Filas del cuerpo de la tabla */
+.rdt_TableRow {
+  background-color: white !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+  min-height: 58px !important;
+  transition: background-color 0.2s ease !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.rdt_TableRow:hover {
+  background-color: #f8fafc !important;
+  cursor: pointer;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.rdt_TableRow:focus {
+  background-color: #f8fafc !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.rdt_TableRow:active {
+  background-color: #f1f5f9 !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.rdt_TableRow:not(:last-of-type) {
+  border-bottom: 1px solid #f1f5f9 !important;
+}
+
+/* Celdas del cuerpo */
+.rdt_TableCell {
+  padding: 16px !important;
+  color: #374151 !important;
+  font-size: 14px !important;
+  border-right: none !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Filas alternadas (si se usa) */
+.rdt_TableRow:nth-child(even) {
+  background-color: #fafbfc !important;
+}
+
+.rdt_TableRow:nth-child(even):hover {
+  background-color: #f8fafc !important;
+}
+
+/* Eliminar bordes internos */
+.rdt_Table .rdt_TableCol,
+.rdt_Table .rdt_TableCell {
+  border-left: none !important;
+  border-right: none !important;
+}
+
+/* Estilos para el área sin datos */
+.rdt_TableBody .rdt_EmptyMessage {
+  background-color: white !important;
+  color: #64748b !important;
+  padding: 32px 16px !important;
+  text-align: center !important;
+  font-style: italic !important;
+}
+
+/* Paginación (si se usa) */
+.rdt_Pagination {
+  background: white !important;
+  border-top: 1px solid #e2e8f0 !important;
+  padding: 16px !important;
+}
+
+/* Loading overlay */
+.rdt_ProgressWrapper {
+  background-color: rgba(248, 250, 252, 0.8) !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .rdt_TableCol,
+  .rdt_TableCell {
+    padding: 12px 8px !important;
+    font-size: 13px !important;
+  }
+  
+  .rdt_TableHeadRow {
+    min-height: 48px !important;
+  }
+  
+  .rdt_TableRow {
+    min-height: 52px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .rdt_TableCol,
+  .rdt_TableCell {
+    padding: 10px 6px !important;
+    font-size: 12px !important;
+  }
+  
+  .rdt_TableHeadRow {
+    min-height: 44px !important;
+  }
+  
+  .rdt_TableRow {
+    min-height: 48px !important;
+  }
+}
+
+/* Estilos para acciones en las celdas */
+.table-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+}
+
+.table-actions .icon-btn {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  min-height: 32px;
+}
+
+.table-actions .icon-btn:hover {
+  background: #e2e8f0;
+  border-color: #94a3b8;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.table-actions .icon-btn.edit-icon {
+  color: #3b82f6;
+}
+
+.table-actions .icon-btn.delete-icon {
+  color: #ef4444;
+}
+
+.table-actions .icon-btn.activate-icon {
+  color: #10b981;
+}
+
+/* Reglas de anulación para eliminar cualquier estilo azul residual */
+.rdt_Table *,
+.rdt_Table *:hover,
+.rdt_Table *:focus,
+.rdt_Table *:active {
+  border-color: #e2e8f0 !important;
+  outline: none !important;
+}
+
+/* Específicamente para react-data-table-component */
+div[class*="rdt_"] *,
+div[class*="rdt_"] *:hover,
+div[class*="rdt_"] *:focus,
+div[class*="rdt_"] *:active {
+  border-color: #e2e8f0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Eliminar cualquier fondo azul de selección */
+.rdt_Table *::selection {
+  background: #e2e8f0 !important;
+  color: #1e293b !important;
+}
+
+/* Anular estilos globales que puedan estar interfiriendo */
+.rdt_Table button,
+.rdt_Table button:hover,
+.rdt_Table button:focus,
+.rdt_Table button:active {
+  background-color: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
+  color: #374151 !important;
+  outline: none !important;
+  box-shadow: none !important;
+}

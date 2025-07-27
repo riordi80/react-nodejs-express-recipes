@@ -34,12 +34,23 @@ const api = axios.create({
   withCredentials: true,
 });
 
+// Variable para rastrear si la configuración está lista
+let configReady = false;
+
 // Cargar configuración e inicializar axios
-loadRuntimeConfig().then(config => {
+const configPromise = loadRuntimeConfig().then(config => {
   api.defaults.baseURL = config.apiBaseUrl;
+  configReady = true;
+  return config;
 });
 
 // Función para obtener la configuración actual
 export const getConfig = () => runtimeConfig;
+
+// Función para esperar a que la configuración esté lista
+export const waitForConfig = () => configPromise;
+
+// Función para verificar si la configuración está lista
+export const isConfigReady = () => configReady;
 
 export default api;

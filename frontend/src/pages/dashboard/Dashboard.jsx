@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import PageHeader from '../../components/page-header/PageHeader';
 import api from '../../api/axios';
 import { useWidget } from '../../context/WidgetContext';
 import EditIngredientModal from '../../components/modals/EditIngredientModal';
@@ -706,10 +707,10 @@ const Dashboard = () => {
   return (
     <div className="dashboard-container">
       <div className="dashboard-content">
-        <div className="dashboard-header">
-          <h1>Dashboard</h1>
-          <p>Resumen general del sistema de recetas</p>
-        </div>
+        <PageHeader
+          title="Dashboard"
+          subtitle="Resumen general del sistema de recetas"
+        />
 
         {/* Tarjetas de resumen */}
         <div className="dashboard-summary">

@@ -256,14 +256,7 @@
   cursor: pointer;
 }
 
-.supplier-edit-modal .modal-actions .btn.cancel {
-  background-color: #6c757d;
-  color: white;
-}
-
-.supplier-edit-modal .modal-actions .btn.cancel:hover {
-  background-color: #5a6268;
-}
+/* Estilos de botones movidos a App.css para consistencia global */
 
 .supplier-edit-modal .modal-actions .btn.edit {
   background-color: #3b82f6;

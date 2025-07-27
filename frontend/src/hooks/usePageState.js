@@ -1,24 +1,24 @@
 // src/hooks/usePageState.js
-import React from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import api from '../api/axios';
 
 export const usePageState = (apiEndpoint, options = {}) => {
-  const [data, setData] = React.useState([]);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState(null);
-  const [filterText, setFilterText] = React.useState('');
-  const [message, setMessage] = React.useState(null);
-  const [messageType, setMessageType] = React.useState('success');
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [filterText, setFilterText] = useState('');
+  const [message, setMessage] = useState(null);
+  const [messageType, setMessageType] = useState('success');
   
   // Support for complex filters (for Recipes page)
-  const [filters, setFilters] = React.useState(options.initialFilters || {});
+  const [filters, setFilters] = useState(options.initialFilters || {});
 
   // Fetch data with optional filters
-  const fetchData = React.useCallback(async (customFilters = {}) => {
+  const fetchData = useCallback(async (customFilters = {}) => {
     setLoading(true);
     try {
-      const api = await import('../api/axios');
       const params = options.useFilters ? { ...filters, ...customFilters } : undefined;
-      const response = await api.default.get(apiEndpoint, { params });
+      const response = await api.get(apiEndpoint, { params });
       setData(response.data);
       setError(null);
     } catch (err) {
@@ -29,22 +29,21 @@ export const usePageState = (apiEndpoint, options = {}) => {
   }, [apiEndpoint, filters, options.useFilters]);
 
   // Initial fetch
-  React.useEffect(() => {
+  useEffect(() => {
     fetchData();
   }, [fetchData]);
 
   // Re-fetch when filters change (for complex filter pages)
-  React.useEffect(() => {
+  useEffect(() => {
     if (options.useFilters) {
       fetchData();
     }
   }, [filters, fetchData, options.useFilters]);
 
   // Reload data
-  const reload = React.useCallback(async () => {
+  const reload = useCallback(async () => {
     try {
-      const api = await import('../api/axios');
-      const response = await api.default.get(apiEndpoint);
+      const response = await api.get(apiEndpoint);
       setData(response.data);
       setError(null);
     } catch (err) {
@@ -54,14 +53,14 @@ export const usePageState = (apiEndpoint, options = {}) => {
   }, [apiEndpoint]);
 
   // Notification system
-  const notify = (msg, type = 'success') => {
+  const notify = useCallback((msg, type = 'success') => {
     setMessage(msg);
     setMessageType(type);
     setTimeout(() => setMessage(null), 3000);
-  };
+  }, []);
 
   // Filter data based on search text
-  const filteredData = React.useMemo(() => {
+  const filteredData = useMemo(() => {
     if (!filterText) return data;
     
     return data.filter(item => {
@@ -72,10 +71,9 @@ export const usePageState = (apiEndpoint, options = {}) => {
   }, [data, filterText]);
 
   // CRUD operations
-  const createItem = React.useCallback(async (itemData) => {
+  const createItem = useCallback(async (itemData) => {
     try {
-      const api = await import('../api/axios');
-      await api.default.post(apiEndpoint, itemData);
+      await api.post(apiEndpoint, itemData);
       notify('Elemento creado correctamente', 'success');
       await reload();
       return true;
@@ -83,12 +81,11 @@ export const usePageState = (apiEndpoint, options = {}) => {
       notify(err.response?.data?.message || 'Error al crear', 'error');
       return false;
     }
-  }, [apiEndpoint, reload]);
+  }, [apiEndpoint, reload, notify]);
 
-  const updateItem = React.useCallback(async (id, itemData) => {
+  const updateItem = useCallback(async (id, itemData) => {
     try {
-      const api = await import('../api/axios');
-      await api.default.put(`${apiEndpoint}/${id}`, itemData);
+      await api.put(`${apiEndpoint}/${id}`, itemData);
       notify('Elemento actualizado correctamente', 'success');
       await reload();
       return true;
@@ -96,12 +93,11 @@ export const usePageState = (apiEndpoint, options = {}) => {
       notify(err.response?.data?.message || 'Error al actualizar', 'error');
       return false;
     }
-  }, [apiEndpoint, reload]);
+  }, [apiEndpoint, reload, notify]);
 
-  const deleteItem = React.useCallback(async (id) => {
+  const deleteItem = useCallback(async (id) => {
     try {
-      const api = await import('../api/axios');
-      await api.default.delete(`${apiEndpoint}/${id}`);
+      await api.delete(`${apiEndpoint}/${id}`);
       notify('Elemento eliminado correctamente', 'success');
       await reload();
       return true;
@@ -109,7 +105,7 @@ export const usePageState = (apiEndpoint, options = {}) => {
       notify(err.response?.data?.message || 'Error al eliminar', 'error');
       return false;
     }
-  }, [apiEndpoint, reload]);
+  }, [apiEndpoint, reload, notify]);
 
   return {
     // Data

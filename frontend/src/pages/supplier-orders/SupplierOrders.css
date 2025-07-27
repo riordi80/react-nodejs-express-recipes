@@ -1,16 +1,5 @@
 /* src/pages/supplier-orders/SupplierOrders.css */
 
-/* ===== HEADER DE LA PÁGINA ===== */
-.supplier-orders-header {
-  margin-bottom: 32px;
-}
-
-.page-description {
-  color: #64748b;
-  font-size: 16px;
-  margin: 8px 0 0 0;
-  line-height: 1.5;
-}
 
 /* ===== SISTEMA DE PESTAÑAS ===== */
 .supplier-orders-tabs {
@@ -2248,7 +2237,7 @@
 
 .pdf-download-btn {
   position: absolute;
-  top: 618x;
+  top: 80px;
   right: 16px;
   display: inline-flex;
   align-items: center;
@@ -2273,9 +2262,24 @@
   color: #334155;
 }
 
-.pdf-download-btn:active {
+.pdf-download-btn:focus,
+.modal .pdf-download-btn:focus,
+button.pdf-download-btn:focus {
+  background-color: #e2e8f0 !important;
+  color: #334155 !important;
+  border-color: #94a3b8 !important;
+  box-shadow: none !important;
+  outline: none;
+}
+
+.pdf-download-btn:active,
+.modal .pdf-download-btn:active,
+button.pdf-download-btn:active {
   transform: translateY(1px);
-  background-color: #cbd5e1;
+  background-color: #cbd5e1 !important;
+  color: #334155 !important;
+  border-color: #94a3b8 !important;
+  box-shadow: none !important;
 }
 
 .contact-item {
@@ -2462,13 +2466,6 @@
 }
 
 @media (max-width: 768px) {
-  .supplier-orders-header {
-    margin-bottom: 24px;
-  }
-  
-  .page-description {
-    font-size: 14px;
-  }
   
   .supplier-orders-tabs {
     margin-bottom: 24px;
@@ -2951,6 +2948,11 @@
   
   .supplier-mini-item .supplier-info {
     width: 100%;
+  }
+
+  .pdf-download-btn {
+    position: absolute;
+    top: 60px;
   }
   
   .recent-order-item {
