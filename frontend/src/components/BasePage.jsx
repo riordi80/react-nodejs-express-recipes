@@ -5,6 +5,7 @@ import { StyleSheetManager } from 'styled-components';
 import isPropValid from '@emotion/is-prop-valid';
 import PageHeader from './PageHeader/PageHeader';
 import Loading from './Loading';
+import { useSettings } from '../context/SettingsContext';
 
 const BasePage = ({
   // Data and table props
@@ -39,6 +40,7 @@ const BasePage = ({
   headerLayout = 'standard',
   enableMobileModal = true,
 }) => {
+  const { settings } = useSettings();
   return (
     <div className="common-page-container">
       <div className="common-page-content">
@@ -85,7 +87,8 @@ const BasePage = ({
                 }
                 noDataComponent={noDataMessage}
                 pagination
-                paginationPerPage={15}
+                paginationPerPage={settings.pageSize}
+                paginationRowsPerPageOptions={[10, 25, 50, 100]}
                 paginationComponentOptions={{
                   rowsPerPageText: 'Filas por página',
                   rangeSeparatorText: 'de',

@@ -251,7 +251,24 @@ const columns = useMemo(() => [
   { name: 'P. Base', selector: r => `${formatPrice(r.base_price)}/${r.unit}`, sortable: true },
   { name: 'Merma (%)', selector: row => `${formatDecimal(row.waste_percent * 100, 2)}%`, sortable: true },
   { name: 'P. Neto', selector: r => formatPrice(r.net_price), sortable: true },
-  { name: 'Stock', selector: r => r.stock ? formatDecimal(r.stock, 2) : '-', sortable: true },
+  { 
+    name: 'Stock', 
+    selector: r => r.stock || 0, 
+    sortable: true,
+    cell: row => {
+      if (!row.stock && row.stock !== 0) return '-';
+      
+      const stock = parseFloat(row.stock) || 0;
+      const stockMinimum = parseFloat(row.stock_minimum) || 0;
+      const isLowStock = stockMinimum > 0 && stock < stockMinimum;
+      
+      return (
+        <span className={isLowStock ? 'table-cell-critical' : ''}>
+          {formatDecimal(stock, 2)}
+        </span>
+      );
+    }
+  },
   { name: 'Stock Mín.', selector: r => r.stock_minimum ? formatDecimal(r.stock_minimum, 2) : '-', sortable: true },
   { 
     name: 'Temporada',
@@ -273,13 +290,24 @@ const columns = useMemo(() => [
   },
   { 
     name: 'Caduca',
-    selector: row => {
-      if (!row.expiration_date) return '';
-      const date = new Date(row.expiration_date);
-      return date.toLocaleDateString('es-ES');
-    },
+    selector: row => row.expiration_date ? new Date(row.expiration_date) : null,
     sortable: true,
-    minWidth: '120px'
+    minWidth: '120px',
+    cell: row => {
+      if (!row.expiration_date) return '-';
+      const date = new Date(row.expiration_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      date.setHours(0, 0, 0, 0);
+      
+      const isExpired = date < today;
+      
+      return (
+        <span className={isExpired ? 'table-cell-expired' : ''}>
+          {isExpired ? 'Caducado' : date.toLocaleDateString('es-ES')}
+        </span>
+      );
+    }
   },
   { 
     name: 'Estado', 
@@ -376,7 +404,7 @@ const columns = useMemo(() => [
               type="critical"
               loading={widgetsLoading}
               collapsible={true}
-              emptyMessage="✅ Todo en orden"
+              emptyMessage="Todo en orden"
             >
               <div className="widget-list">
                 {widgetsData.lowStock.slice(0, 4).map(ingredient => (
@@ -412,7 +440,7 @@ const columns = useMemo(() => [
               type="warning"
               loading={widgetsLoading}
               collapsible={true}
-              emptyMessage="✅ Sin caducidades próximas"
+              emptyMessage="Sin caducidades próximas"
             >
               <div className="widget-list">
                 {widgetsData.expiringSoon.slice(0, 4).map(ingredient => {
@@ -487,7 +515,7 @@ const columns = useMemo(() => [
               type="info"
               loading={widgetsLoading}
               collapsible={true}
-              emptyMessage="✅ Todos tienen proveedores"
+              emptyMessage="Todos tienen proveedores"
             >
               <div className="widget-list">
                 {widgetsData.noSuppliers.slice(0, 4).map(ingredient => (

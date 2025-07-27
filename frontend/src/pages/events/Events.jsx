@@ -415,12 +415,13 @@ export default function Events() {
     },
     { 
       name: 'Fecha', 
-      selector: r => {
-        const date = new Date(r.event_date);
+      selector: r => new Date(r.event_date),
+      sortable: true,
+      cell: row => {
+        const date = new Date(row.event_date);
         const formattedDate = date.toLocaleDateString('es-ES');
-        return formattedDate + (r.event_time ? ` ${r.event_time.slice(0, 5)}` : '');
-      }, 
-      sortable: true
+        return formattedDate + (row.event_time ? ` ${row.event_time.slice(0, 5)}` : '');
+      }
     },
     { 
       name: 'Invitados', 

@@ -8,6 +8,7 @@ import BasePage from '../../components/BasePage';
 import Loading from '../../components/Loading';
 import Modal from '../../components/modal/Modal';
 import { usePageState } from '../../hooks/usePageState';
+import { useSettings } from '../../context/SettingsContext';
 import api from '../../api/axios';
 import FilterBar from '@/components/recipes/FilterBar';
 import ViewToggle from '@/components/recipes/ViewToggle';
@@ -16,6 +17,7 @@ import './Recipes.css';
 
 export default function RecipesPage() {
   const navigate = useNavigate();
+  const { settings } = useSettings();
 
   // Detectar si estamos en móvil
   const [isMobile, setIsMobile] = useState(false);
@@ -254,7 +256,8 @@ export default function RecipesPage() {
           progressComponent={<Loading message="Cargando recetas..." size="medium" inline />}
           noDataComponent="No hay recetas para mostrar"
           pagination
-          paginationPerPage={15}
+          paginationPerPage={settings.pageSize}
+          paginationRowsPerPageOptions={[10, 25, 50, 100]}
           paginationComponentOptions={{
             rowsPerPageText: 'Filas por página',
             rangeSeparatorText: 'de',

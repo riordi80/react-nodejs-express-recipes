@@ -285,6 +285,37 @@ body {
   border-color: #f59e0b;
 }
 
+/* Table cell status styles - reutilizables en todas las tablas */
+.table-cell-critical {
+  background: #fee2e2 !important;
+  color: #dc2626 !important;
+  font-weight: 600 !important;
+  padding: 4px 8px !important;
+  border-radius: 20px !important;
+  border: 1px solid #fecaca !important;
+  display: inline-block !important;
+}
+
+.table-cell-warning {
+  background: #fef3c7 !important;
+  color: #d97706 !important;
+  font-weight: 600 !important;
+  padding: 4px 8px !important;
+  border-radius: 20px !important;
+  border: 1px solid #fbbf24 !important;
+  display: inline-block !important;
+}
+
+.table-cell-expired {
+  background: #fee2e2 !important;
+  color: #dc2626 !important;
+  font-weight: 600 !important;
+  padding: 4px 8px !important;
+  border-radius: 20px !important;
+  border: 1px solid #fecaca !important;
+  display: inline-block !important;
+}
+
 /* Responsive para chips */
 @media (max-width: 768px) {
   .chips-container,
