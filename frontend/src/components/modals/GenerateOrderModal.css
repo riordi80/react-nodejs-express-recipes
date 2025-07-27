@@ -237,16 +237,7 @@
   border: none;
 }
 
-.btn.cancel {
-  background: #f8fafc;
-  color: #64748b;
-  border: 1px solid #e2e8f0;
-}
-
-.btn.cancel:hover:not(:disabled) {
-  background: #f1f5f9;
-  color: #475569;
-}
+/* Estilos de botones movidos a App.css para consistencia global */
 
 .btn.add {
   background: linear-gradient(135deg, #059669 0%, #047857 100%);

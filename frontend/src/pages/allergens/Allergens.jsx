@@ -1,8 +1,9 @@
 // src/pages/allergens/Allergens.jsx
 import React, { useState, useMemo } from 'react';
 import TableActions from '../../components/table/TableActions';
-import BasePage from '../../components/BasePage';
+import BasePage from '../../components/base-page/BasePage';
 import Modal from '../../components/modal/Modal';
+import { FormField, FormInput } from '../../components/form/FormField';
 import { usePageState } from '../../hooks/usePageState';
 import './Allergens.css';
 
@@ -139,17 +140,18 @@ export default function Allergens() {
         onClose={() => setIsCreateOpen(false)}
       >
         <form onSubmit={handleAdd}>
-          <input
-            type="text"
-            placeholder="Nombre del alérgeno"
-            className={`input-field ${hasInputError ? 'input-error' : ''}`}
-            value={newName}
-            onChange={e => {
-              setNewName(e.target.value);
-              if (hasInputError) setHasInputError(false);
-            }}
-            autoFocus
-          />
+          <FormField label="Nombre del alérgeno" required>
+            <FormInput
+              value={newName}
+              onChange={e => {
+                setNewName(e.target.value);
+                if (hasInputError) setHasInputError(false);
+              }}
+              placeholder="Escribe el nombre del alérgeno"
+              hasError={hasInputError}
+              autoFocus
+            />
+          </FormField>
           <div className="modal-actions">
             <button type="button" className="btn cancel" onClick={() => setIsCreateOpen(false)}>Cancelar</button>
             <button type="submit" className="btn add">Añadir</button>
@@ -163,13 +165,13 @@ export default function Allergens() {
         title="Editar alérgeno"
         onClose={() => setIsEditOpen(false)}
       >
-        <input
-          type="text"
-          value={editedName}
-          onChange={e => setEditedName(e.target.value)}
-          className="input-field"
-          style={{ width: '100%', marginBottom: '12px' }}
-        />
+        <FormField label="Nombre del alérgeno" required>
+          <FormInput
+            value={editedName}
+            onChange={e => setEditedName(e.target.value)}
+            placeholder="Escribe el nombre del alérgeno"
+          />
+        </FormField>
         <div className="modal-actions">
           <button className="btn cancel" onClick={() => setIsEditOpen(false)}>
             Cancelar

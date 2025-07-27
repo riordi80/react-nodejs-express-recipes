@@ -179,12 +179,16 @@ export default function EditIngredientModal({
       setEditedWastePercent(ingredient.waste_percent ? formatDecimal(ingredient.waste_percent * 100, 2) : '');
       setEditedSelectedAllergens(ingredient.allergens || []);
       loadAllergens();
-      if (activeTab === 'suppliers') {
-        loadIngredientSuppliers();
-        loadAllSuppliers();
-      }
     }
-  }, [ingredient, mode, activeTab, loadAllergens, loadIngredientSuppliers, loadAllSuppliers]);
+  }, [ingredient, mode, loadAllergens]);
+
+  // Cargar datos de proveedores solo cuando se cambia a esa pestaña
+  useEffect(() => {
+    if (activeTab === 'suppliers' && ingredient?.ingredient_id) {
+      loadIngredientSuppliers();
+      loadAllSuppliers();
+    }
+  }, [activeTab, ingredient?.ingredient_id, loadIngredientSuppliers, loadAllSuppliers]);
 
   const handleSave = async () => {
     if (!editedItem) return;

@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { FiArrowLeft, FiEdit3, FiTrash2, FiSave, FiX } from 'react-icons/fi';
 // BasePage removed - using custom layout
 import Modal from '../../components/modal/Modal';
-import Loading from '../../components/Loading';
+import Loading from '../../components/loading';
 import AddIngredientModal from './components/AddIngredientModal';
 import EditIngredientModal from './components/EditIngredientModal';
 import api from '../../api/axios';

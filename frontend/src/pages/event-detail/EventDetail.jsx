@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { FiArrowLeft, FiEdit3, FiTrash2, FiSave, FiX, FiPlus, FiEdit2 } from 'react-icons/fi';
 import { FaUtensils, FaDownload } from 'react-icons/fa';
 import Modal from '../../components/modal/Modal';
-import Loading from '../../components/Loading';
+import Loading from '../../components/loading';
 import { FormInput, FormTextarea, FormSelect } from '../../components/form/FormField';
 import api from '../../api/axios';
 import { formatCurrency } from '../../utils/formatters';

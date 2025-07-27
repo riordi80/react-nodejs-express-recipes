@@ -1,8 +1,8 @@
 // src/pages/supplier-orders/SupplierOrders.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { FaTruck, FaEuroSign, FaBoxOpen, FaExclamationTriangle, FaPlus, FaListUl, FaHistory, FaChartBar, FaChevronDown, FaCheckCircle, FaTimesCircle, FaQuestionCircle, FaDownload, FaEye, FaCalendarAlt, FaClock } from 'react-icons/fa';
-import PageHeader from '../../components/PageHeader/PageHeader';
-import Loading from '../../components/Loading';
+import PageHeader from '../../components/page-header/PageHeader';
+import Loading from '../../components/loading';
 import api from '../../api/axios';
 import { formatCurrency, formatDecimal } from '../../utils/formatters';
 import EditIngredientModal from '../../components/modals/EditIngredientModal';

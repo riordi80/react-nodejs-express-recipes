@@ -70,3 +70,20 @@ tunnel.yml
 # Archivos de configuración para Claude Code
 CLAUDE.md
 
+# Cache de herramientas de desarrollo
+**/.turbo/
+**/.next/
+**/.nuxt/
+**/vite.config.js.timestamp-*
+
+# Archivos temporales de editores
+**/*~
+**/.#*
+**/\#*\#
+
+# Archivos de OS adicionales
+*.tmp
+*.temp
+.Trashes
+ehthumbs.db
+

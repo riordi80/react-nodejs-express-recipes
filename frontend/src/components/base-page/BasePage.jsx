@@ -3,9 +3,9 @@ import React from 'react';
 import DataTable from 'react-data-table-component';
 import { StyleSheetManager } from 'styled-components';
 import isPropValid from '@emotion/is-prop-valid';
-import PageHeader from './PageHeader/PageHeader';
-import Loading from './Loading';
-import { useSettings } from '../context/SettingsContext';
+import PageHeader from '../page-header/PageHeader';
+import Loading from '../loading';
+import { useSettings } from '../../context/SettingsContext';
 
 const BasePage = ({
   // Data and table props

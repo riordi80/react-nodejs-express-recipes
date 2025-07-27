@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FaChevronDown, FaChevronUp } from 'react-icons/fa';
-import Loading from '../Loading';
+import Loading from '../loading';
 import './Widget.css';
 
 const Widget = ({

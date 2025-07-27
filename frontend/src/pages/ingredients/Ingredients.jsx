@@ -2,8 +2,8 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { FaExclamationTriangle, FaCalendarAlt, FaSeedling, FaExclamationCircle } from 'react-icons/fa';
 import TableActions from '../../components/table/TableActions';
-import BasePage from '../../components/BasePage';
-import Widget from '../../components/Widget';
+import BasePage from '../../components/base-page/BasePage';
+import Widget from '../../components/widget';
 import Modal from '../../components/modal/Modal';
 import EditIngredientModal from '../../components/modals/EditIngredientModal';
 import api from '../../api/axios';

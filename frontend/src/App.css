@@ -381,8 +381,8 @@ button {
   width: 100%;
 }
 
-button:hover {
-  background-color: rgb(236, 242, 255); /* Fondo cuando pasa el ratón */
+button:not(.btn):hover {
+  background-color: rgb(236, 242, 255); /* Fondo cuando pasa el ratón - solo para botones sin clase .btn */
 }
 
 /* Solo aplicar el estilo azul a botones de la clase .btn */
@@ -416,17 +416,35 @@ button:hover {
   flex-shrink: 0;
 }
 
-.btn.add    { background-color: #059669; color: #fff; }
-.btn.edit   { background-color: rgb(93,135,255); color: #fff; }
-.btn.view   { background-color: rgb(93,135,255); color: #fff; }
-.btn.delete { background-color: #dc3545; color: #fff; }
-.btn.cancel { background-color: #6c757d; color: #fff; }
+/* ===== SISTEMA DE BOTONES GLOBAL - NO DUPLICAR EN OTROS CSS ===== */
+.btn.add    { background-color: #059669 !important; color: #fff !important; }
+.btn.edit   { background-color: rgb(93,135,255) !important; color: #fff !important; }
+.btn.view   { background-color: rgb(93,135,255) !important; color: #fff !important; }
+.btn.delete { background-color: #dc3545 !important; color: #fff !important; }
+.btn.cancel { background-color: #6c757d !important; color: #fff !important; }
 
-.btn.add:hover    { background-color: #047857; }
-.btn.edit:hover   { background-color: rgb(73,115,235); }
-.btn.view:hover   { background-color: rgb(73,115,235); }
-.btn.delete:hover { background-color: #c82333; }
-.btn.cancel:hover { background-color: #5a6268; }
+.btn.add:hover    { background-color: #047857 !important; }
+.btn.edit:hover   { background-color: rgb(73,115,235) !important; }
+.btn.view:hover   { background-color: rgb(73,115,235) !important; }
+.btn.delete:hover { background-color: #c82333 !important; }
+.btn.cancel:hover { background-color: #5a6268 !important; }
+
+/* Selectores súper específicos para forzar estilos de cancel */
+.modal-body .btn.cancel,
+.modal-actions .btn.cancel,
+button.btn.cancel {
+  background-color: #6c757d !important;
+  color: #fff !important;
+  border: none !important;
+}
+
+.modal-body .btn.cancel:hover,
+.modal-actions .btn.cancel:hover, 
+button.btn.cancel:hover {
+  background-color: #5a6268 !important;
+  color: #fff !important;
+  border: none !important;
+}
 
 .actions {
   display: flex;

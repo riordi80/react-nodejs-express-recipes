@@ -1,7 +1,7 @@
 // src/pages/suppliers/Suppliers.jsx
 import React, { useEffect, useState, useMemo } from 'react';
 import TableActions from '../../components/table/TableActions';
-import BasePage from '../../components/BasePage';
+import BasePage from '../../components/base-page/BasePage';
 import Modal from '../../components/modal/Modal';
 import SupplierEditModal from './components/SupplierEditModal';
 import AddIngredientModal from './components/AddIngredientModal';

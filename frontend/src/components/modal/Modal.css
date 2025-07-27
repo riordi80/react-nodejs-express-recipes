@@ -292,15 +292,7 @@
   flex: 1; /* Cada botón ocupa la mitad del ancho disponible */
 }
 
-/* Colores de cada botón */
-.modal-body .btn.cancel {
-  background-color: #6c757d;
-  color: #fff;
-}
-
-.modal-body .btn.cancel:hover {
-  background-color: #5a6268;
-}
+/* Estilos de botones movidos a App.css para consistencia global */
 
 .modal-body .btn.add {
   background-color: #059669;

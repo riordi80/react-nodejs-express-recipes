@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import Modal from '../../../components/modal/Modal';
-import Loading from '../../../components/Loading';
+import Loading from '../../../components/loading';
 import api from '../../../api/axios';
 
 const UsersSection = () => {

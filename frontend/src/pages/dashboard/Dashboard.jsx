@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import PageHeader from '../../components/PageHeader/PageHeader';
+import PageHeader from '../../components/page-header/PageHeader';
 import api from '../../api/axios';
 import { useWidget } from '../../context/WidgetContext';
 import EditIngredientModal from '../../components/modals/EditIngredientModal';
