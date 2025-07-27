@@ -4,6 +4,7 @@ import DataTable from 'react-data-table-component';
 import { StyleSheetManager } from 'styled-components';
 import isPropValid from '@emotion/is-prop-valid';
 import PageHeader from './PageHeader/PageHeader';
+import Loading from './Loading';
 
 const BasePage = ({
   // Data and table props
@@ -80,11 +81,7 @@ const BasePage = ({
                 data={data}
                 progressPending={loading}
                 progressComponent={
-                  <div className="loading-overlay">
-                    <div className="loading-text">
-                      Cargando...
-                    </div>
-                  </div>
+                  <Loading message="Cargando datos..." size="medium" inline />
                 }
                 noDataComponent={noDataMessage}
                 pagination

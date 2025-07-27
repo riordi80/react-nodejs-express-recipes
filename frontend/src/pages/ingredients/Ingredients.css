@@ -6,20 +6,19 @@
   margin-bottom: 24px;
 }
 
-/* Debug temporal - asegurar alineación */
+/* Widgets de Ingredientes */
 .widgets-grid > .widget-card {
-  vertical-align: top !important;
-  margin-top: 0 !important;
-  margin-bottom: 0 !important;
+  vertical-align: top;
+  margin: 0;
 }
 
 .widgets-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr); /* 4 columnas exactas para 4 widgets */
-  grid-auto-rows: 1fr; /* Hace que todas las filas tengan la misma altura */
+  grid-auto-rows: auto; /* Permite altura automática según contenido */
   gap: 24px;
   margin-bottom: 20px;
-  align-items: stretch; /* Asegura que todos los elementos se estiren igual */
+  align-items: start; /* Alinea los elementos al inicio, no estirados */
 }
 
 /* Widget principal - mismo estilo que Dashboard */
@@ -32,12 +31,12 @@
   transition: transform 0.2s, box-shadow 0.2s;
   display: flex;
   flex-direction: column;
-  height: 100%; /* Ocupa toda la altura disponible del grid */
+  height: auto; /* Altura automática según contenido */
   margin: 0; /* Reset margin */
   padding: 0; /* Reset padding */
   position: relative; /* Reset position */
   top: 0; /* Reset top */
-  align-self: stretch; /* Stretch en el grid */
+  align-self: start; /* No stretch, alineado al inicio */
 }
 
 .widget-card:hover {
@@ -71,8 +70,14 @@
   color: #ef4444;
 }
 
-.widget-icon.warning {
-  color: #f59e0b; 
+.widget-header .widget-icon.warning {
+  color: #f59e0b;
+  font-size: 20px !important;
+  line-height: normal !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  vertical-align: middle !important;
+  align-self: center !important;
 }
 
 .widget-icon.seasonal {
@@ -80,7 +85,7 @@
 }
 
 .widget-icon.no-suppliers {
-  color: #8b5cf6;
+  color: #2563eb;
 }
 
 .widget-count {
@@ -93,11 +98,11 @@
 /* Contenido del widget - mismo estilo que Dashboard */
 .widget-content {
   padding: 24px;
-  flex: 1; /* Ocupa todo el espacio disponible después del header */
+  flex: none; /* No crece, mantiene su tamaño natural */
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  min-height: 180px; /* Altura mínima consistente para todos los widgets */
+  min-height: auto; /* Sin altura mínima forzada */
 }
 
 .widget-loading {
@@ -216,8 +221,8 @@
 }
 
 .item-value.no-suppliers {
-  background: #f3e8ff;
-  color: #7c3aed;
+  background: #dbeafe;
+  color: #2563eb;
 }
 
 .widget-more {
@@ -251,7 +256,7 @@
   
   .widget-content {
     padding: 20px;
-    min-height: 100px;
+    min-height: auto;
   }
   
   .widget-item {

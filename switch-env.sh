@@ -49,14 +49,14 @@ EOF
     # Crear config.json para producción
     cat > frontend/public/config.json << EOF
 {
-  "apiBaseUrl": "https://recipes.ordidev.com/backend/api",
+  "apiBaseUrl": "https://api-recipes.ordidev.com/api",
   "environment": "production"
 }
 EOF
     
     echo "✅ Frontend configurado para https://recipes.ordidev.com"
     echo "✅ Backend configurado para hosting en producción"
-    echo "✅ Runtime config: https://recipes.ordidev.com/backend/api"
+    echo "✅ Runtime config: https://api-recipes.ordidev.com/api"
     echo ""
     echo "⚠️  Después ejecuta 'cd frontend && npm run build' y sube los archivos al hosting"
     ;;
@@ -66,7 +66,7 @@ EOF
     echo "Configuraciones disponibles:"
     echo "  local      - http://localhost:5173 → http://localhost:4000/api"
     echo "  cloudflare - https://dev.ordidev.com → https://api.ordidev.com/api"
-    echo "  production - https://recipes.ordidev.com → https://recipes.ordidev.com/backend/api"
+    echo "  production - https://recipes.ordidev.com → https://api-recipes.ordidev.com/api"
     echo ""
     echo "📊 Estado actual:"
     
@@ -83,8 +83,8 @@ EOF
     if [ -f "frontend/public/config.json" ]; then
       if grep -q "localhost" frontend/public/config.json 2>/dev/null; then
         echo "  Runtime:  🔧 LOCAL (config.json → localhost:4000)"
-      elif grep -q "recipes.ordidev.com" frontend/public/config.json 2>/dev/null; then
-        echo "  Runtime:  🚀 PRODUCTION (config.json → recipes.ordidev.com/backend)"
+      elif grep -q "api-recipes.ordidev.com" frontend/public/config.json 2>/dev/null; then
+        echo "  Runtime:  🚀 PRODUCTION (config.json → api-recipes.ordidev.com/api)"
       else
         echo "  Runtime:  ☁️  CLOUDFLARE (config.json → api.ordidev.com)"
       fi
@@ -93,8 +93,8 @@ EOF
     fi
     
     # Verificar backend
-    if grep -q "recipes.ordidev.com" backend/.env 2>/dev/null; then
-      echo "  Backend:  🚀 PRODUCTION (acepta recipes.ordidev.com)"
+    if grep -q "api-recipes.ordidev.com" backend/.env 2>/dev/null; then
+      echo "  Backend:  🚀 PRODUCTION (acepta api-recipes.ordidev.com)"
     elif grep -q "USE_CLOUDFLARE=false" backend/.env 2>/dev/null; then
       echo "  Backend:  🔧 LOCAL (acepta localhost:5173)"
     elif grep -q "USE_CLOUDFLARE=true" backend/.env 2>/dev/null; then

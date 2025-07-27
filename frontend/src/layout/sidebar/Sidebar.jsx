@@ -5,8 +5,8 @@ import { useSidebar } from '../../context/SidebarContext';
 import './Sidebar.css';
 
 // Importamos los iconos que necesitamos
-import { FaTachometerAlt, FaTruck, FaSignOutAlt, FaAllergies, FaAlignJustify, FaCog, FaShoppingCart } from 'react-icons/fa';
-import { FaBellConcierge, FaCalendar, FaFish } from "react-icons/fa6";
+import { FaTruck, FaSignOutAlt, FaAllergies, FaAlignJustify, FaCog, FaShoppingCart } from 'react-icons/fa';
+import { FaHouse, FaBellConcierge, FaCalendar, FaFish } from "react-icons/fa6";
 
 const Sidebar = () => {
   const { logout } = useAuth();  
@@ -52,7 +52,7 @@ const Sidebar = () => {
         <li className="navbar-item flexbox-left">
           <NavLink to="/dashboard" className="navbar-item-inner flexbox-left" onClick={handleLinkClick}>
             <div className="navbar-item-inner-icon-wrapper flexbox">
-              <FaTachometerAlt />
+              <FaHouse />
             </div>
             <span className="link-text">Dashboard</span>
           </NavLink>

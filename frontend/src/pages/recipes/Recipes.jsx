@@ -5,6 +5,7 @@ import { StyleSheetManager } from 'styled-components';
 import isPropValid from '@emotion/is-prop-valid';
 import { FaTrash, FaPlus } from 'react-icons/fa';
 import BasePage from '../../components/BasePage';
+import Loading from '../../components/Loading';
 import Modal from '../../components/modal/Modal';
 import { usePageState } from '../../hooks/usePageState';
 import api from '../../api/axios';
@@ -250,7 +251,7 @@ export default function RecipesPage() {
           columns={columns}
           data={recipes}
           progressPending={loading}
-          progressComponent="Cargando..."
+          progressComponent={<Loading message="Cargando recetas..." size="medium" inline />}
           noDataComponent="No hay recetas para mostrar"
           pagination
           paginationPerPage={15}

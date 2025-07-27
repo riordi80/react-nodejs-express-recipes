@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { FaBan, FaUndo, FaExclamationTriangle, FaCalendarAlt, FaSeedling, FaExclamationCircle } from 'react-icons/fa';
 import BasePage from '../../components/BasePage';
+import Widget from '../../components/Widget';
 import Modal from '../../components/modal/Modal';
 import EditIngredientModal from '../../components/modals/EditIngredientModal';
 import api from '../../api/axios';
@@ -172,7 +173,11 @@ export default function Ingredients() {
       
       if (editIngredientModal.ingredient?.ingredient_id) {
         // Modo edición
-        await api.put(`/ingredients/${editIngredientModal.ingredient.ingredient_id}`, ingredientData);
+        const payload = {
+          ...ingredientData,
+          season: Array.isArray(ingredientData.season) ? ingredientData.season.join(',') : ingredientData.season
+        };
+        await api.put(`/ingredients/${editIngredientModal.ingredient.ingredient_id}`, payload);
         
         // Actualizar alérgenos
         if (allergens.length >= 0) {
@@ -364,177 +369,152 @@ const columns = useMemo(() => [
         <div className="ingredients-widgets" style={{ marginBottom: '24px' }}>
           <div className="widgets-grid">
             {/* Widget 1: Stock Crítico */}
-            <div className="widget-card critical">
-              <div className="widget-header">
-                <FaExclamationTriangle className="widget-icon critical" />
-                <h3>Stock Crítico</h3>
-                <span className="widget-count">{widgetsData.lowStock.length}</span>
-              </div>
-              <div className="widget-content">
-                {widgetsLoading ? (
-                  <div className="widget-loading">Cargando...</div>
-                ) : widgetsData.lowStock.length === 0 ? (
-                  <div className="widget-empty">✅ Todo en orden</div>
-                ) : (
-                  <div className="widget-list">
-                    {widgetsData.lowStock.slice(0, 4).map(ingredient => (
-                      <div 
-                        key={ingredient.ingredient_id} 
-                        className="widget-item clickable"
-                        onClick={() => handleWidgetItemClick(ingredient)}
-                      >
-                        <div className="item-info">
-                          <span className="item-name">{ingredient.name}</span>
-                          <span className="item-detail">
-                            Faltan {formatDecimal(ingredient.deficit)} {ingredient.unit}
-                          </span>
-                        </div>
-                        <div className="item-value critical">
-                          {formatDecimal(ingredient.stock)} / {formatDecimal(ingredient.stock_minimum)}
-                        </div>
-                      </div>
-                    ))}
-                    {widgetsData.lowStock.length > 4 && (
-                      <div className="widget-more">
-                        +{widgetsData.lowStock.length - 4} más...
-                      </div>
-                    )}
+            <Widget
+              icon={FaExclamationTriangle}
+              title="Bajo Stock"
+              count={widgetsData.lowStock.length}
+              type="critical"
+              loading={widgetsLoading}
+              collapsible={true}
+              emptyMessage="✅ Todo en orden"
+            >
+              <div className="widget-list">
+                {widgetsData.lowStock.slice(0, 4).map(ingredient => (
+                  <div 
+                    key={ingredient.ingredient_id} 
+                    className="widget-item clickable"
+                    onClick={() => handleWidgetItemClick(ingredient)}
+                  >
+                    <div className="item-info">
+                      <span className="item-name">{ingredient.name}</span>
+                      <span className="item-detail">
+                        Faltan {formatDecimal(ingredient.deficit)} {ingredient.unit}
+                      </span>
+                    </div>
+                    <div className="item-value critical">
+                      {formatDecimal(ingredient.stock)} / {formatDecimal(ingredient.stock_minimum)}
+                    </div>
+                  </div>
+                ))}
+                {widgetsData.lowStock.length > 4 && (
+                  <div className="widget-more">
+                    +{widgetsData.lowStock.length - 4} más...
                   </div>
                 )}
               </div>
-            </div>
+            </Widget>
 
             {/* Widget 2: Próximos a Caducar */}
-            <div className="widget-card warning">
-              <div className="widget-header">
-                <FaCalendarAlt className="widget-icon warning" />
-                <h3>Próximos a Caducar</h3>
-                <span className="widget-count">{widgetsData.expiringSoon.length}</span>
-              </div>
-              <div className="widget-content">
-                {widgetsLoading ? (
-                  <div className="widget-loading">Cargando...</div>
-                ) : widgetsData.expiringSoon.length === 0 ? (
-                  <div className="widget-empty">✅ Sin caducidades próximas</div>
-                ) : (
-                  <div className="widget-list">
-                    {widgetsData.expiringSoon.slice(0, 4).map(ingredient => {
-                      const urgency = getExpiryUrgency(ingredient.days_until_expiry);
-                      return (
-                        <div 
-                          key={ingredient.ingredient_id} 
-                          className="widget-item clickable"
-                          onClick={() => handleWidgetItemClick(ingredient)}
-                        >
-                          <div className="item-info">
-                            <span className="item-name">{ingredient.name}</span>
-                            <span className="item-detail">
-                              Stock: {formatDecimal(ingredient.stock)} {ingredient.unit}
-                            </span>
-                          </div>
-                          <div className={`item-value ${urgency.class}`}>
-                            {urgency.icon} {ingredient.days_until_expiry}d
-                          </div>
-                        </div>
-                      );
-                    })}
-                    {widgetsData.expiringSoon.length > 4 && (
-                      <div className="widget-more">
-                        +{widgetsData.expiringSoon.length - 4} más...
+            <Widget
+              icon={FaCalendarAlt}
+              title="Próximos a Caducar"
+              count={widgetsData.expiringSoon.length}
+              type="warning"
+              loading={widgetsLoading}
+              collapsible={true}
+              emptyMessage="✅ Sin caducidades próximas"
+            >
+              <div className="widget-list">
+                {widgetsData.expiringSoon.slice(0, 4).map(ingredient => {
+                  const urgency = getExpiryUrgency(ingredient.days_until_expiry);
+                  return (
+                    <div 
+                      key={ingredient.ingredient_id} 
+                      className="widget-item clickable"
+                      onClick={() => handleWidgetItemClick(ingredient)}
+                    >
+                      <div className="item-info">
+                        <span className="item-name">{ingredient.name}</span>
+                        <span className="item-detail">
+                          Stock: {formatDecimal(ingredient.stock)} {ingredient.unit}
+                        </span>
                       </div>
-                    )}
+                      <div className={`item-value ${urgency.class}`}>
+                        {urgency.icon} {ingredient.days_until_expiry}d
+                      </div>
+                    </div>
+                  );
+                })}
+                {widgetsData.expiringSoon.length > 4 && (
+                  <div className="widget-more">
+                    +{widgetsData.expiringSoon.length - 4} más...
                   </div>
                 )}
               </div>
-            </div>
+            </Widget>
 
             {/* Widget 3: Ingredientes Estacionales */}
-            <div className="widget-card seasonal">
-              <div className="widget-header">
-                <FaSeedling className="widget-icon seasonal" />
-                <h3>Ingredientes Estacionales</h3>
-                <span className="widget-count">{widgetsData.seasonal.length}</span>
-              </div>
-              <div className="widget-content">
-                {widgetsLoading ? (
-                  <div className="widget-loading">Cargando...</div>
-                ) : widgetsData.seasonal.length === 0 ? (
-                  <div className="widget-empty">Sin ingredientes estacionales</div>
-                ) : (
-                  <div className="widget-list">
-                    {widgetsData.seasonal.slice(0, 4).map(ingredient => (
-                      <div 
-                        key={ingredient.ingredient_id} 
-                        className="widget-item clickable"
-                        onClick={() => handleWidgetItemClick(ingredient)}
-                      >
-                        <div className="item-info">
-                          <span className="item-name">{ingredient.name}</span>
-                          <span className="item-detail">
-                            Temporada: {ingredient.season}
-                          </span>
-                        </div>
-                        <div className="item-value seasonal">
-                          🌱 {ingredient.is_available ? 'Disponible' : 'No disponible'}
-                        </div>
-                      </div>
-                    ))}
-                    {widgetsData.seasonal.length > 4 && (
-                      <div className="widget-more">
-                        +{widgetsData.seasonal.length - 4} más...
-                      </div>
-                    )}
+            <Widget
+              icon={FaSeedling}
+              title="Temporada"
+              count={widgetsData.seasonal.length}
+              type="seasonal"
+              loading={widgetsLoading}
+              collapsible={true}
+              emptyMessage="Sin ingredientes estacionales"
+            >
+              <div className="widget-list">
+                {widgetsData.seasonal.slice(0, 4).map(ingredient => (
+                  <div 
+                    key={ingredient.ingredient_id} 
+                    className="widget-item clickable"
+                    onClick={() => handleWidgetItemClick(ingredient)}
+                  >
+                    <div className="item-info">
+                      <span className="item-name">{ingredient.name}</span>
+                      <span className="item-detail">
+                        Temporada: {ingredient.season}
+                      </span>
+                    </div>
+                    <div className="item-value seasonal">
+                      🌱 {ingredient.is_available ? 'Disponible' : 'No disponible'}
+                    </div>
+                  </div>
+                ))}
+                {widgetsData.seasonal.length > 4 && (
+                  <div className="widget-more">
+                    +{widgetsData.seasonal.length - 4} más...
                   </div>
                 )}
               </div>
-            </div>
+            </Widget>
 
             {/* Widget 4: Sin Proveedores Asignados */}
-            <div className="widget-card no-suppliers">
-              <div className="widget-header">
-                <FaExclamationCircle className="widget-icon no-suppliers" />
-                <h3>Sin Proveedores</h3>
-                <span className="widget-count">{widgetsData.noSuppliers.length}</span>
-              </div>
-              <div className="widget-content">
-                {widgetsLoading ? (
-                  <div className="widget-loading">Cargando...</div>
-                ) : widgetsData.noSuppliers.length === 0 ? (
-                  <div className="widget-empty">✅ Todos tienen proveedores</div>
-                ) : (
-                  <div className="widget-list">
-                    {widgetsData.noSuppliers.slice(0, 4).map(ingredient => (
-                      <div 
-                        key={ingredient.ingredient_id} 
-                        className="widget-item clickable"
-                        onClick={() => handleWidgetItemClick(ingredient)}
-                      >
-                        <div className="item-info">
-                          <span className="item-name">{ingredient.name}</span>
-                          <span className="item-detail">
-                            Stock: {formatDecimal(ingredient.stock)} {ingredient.unit}
-                          </span>
-                        </div>
-                        <div className="item-value no-suppliers">
-                          {formatPrice(ingredient.base_price)}
-                        </div>
-                      </div>
-                    ))}
-                    {widgetsData.noSuppliers.length > 4 && (
-                      <div className="widget-more">
-                        +{widgetsData.noSuppliers.length - 4} más...
-                      </div>
-                    )}
+            <Widget
+              icon={FaExclamationCircle}
+              title="Sin Proveedores"
+              count={widgetsData.noSuppliers.length}
+              type="info"
+              loading={widgetsLoading}
+              collapsible={true}
+              emptyMessage="✅ Todos tienen proveedores"
+            >
+              <div className="widget-list">
+                {widgetsData.noSuppliers.slice(0, 4).map(ingredient => (
+                  <div 
+                    key={ingredient.ingredient_id} 
+                    className="widget-item clickable"
+                    onClick={() => handleWidgetItemClick(ingredient)}
+                  >
+                    <div className="item-info">
+                      <span className="item-name">{ingredient.name}</span>
+                      <span className="item-detail">
+                        Stock: {formatDecimal(ingredient.stock)} {ingredient.unit}
+                      </span>
+                    </div>
+                    <div className="item-value no-suppliers">
+                      {formatPrice(ingredient.base_price)}
+                    </div>
+                  </div>
+                ))}
+                {widgetsData.noSuppliers.length > 4 && (
+                  <div className="widget-more">
+                    +{widgetsData.noSuppliers.length - 4} más...
                   </div>
                 )}
               </div>
-            </div>
+            </Widget>
           </div>
-        </div>
-        
-        {/* Título de la sección de tabla */}
-        <div className="ingredients-table-section">
-          <h2 className="ingredients-table-title">Lista de Ingredientes</h2>
         </div>
       </BasePage>
 

@@ -1,6 +1,8 @@
 // src/pages/supplier-orders/SupplierOrders.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { FaTruck, FaEuroSign, FaBoxOpen, FaExclamationTriangle, FaPlus, FaListUl, FaHistory, FaChartBar, FaChevronDown, FaCheckCircle, FaTimesCircle, FaQuestionCircle, FaDownload, FaEye, FaCalendarAlt, FaClock } from 'react-icons/fa';
+import PageHeader from '../../components/PageHeader/PageHeader';
+import Loading from '../../components/Loading';
 import api from '../../api/axios';
 import { formatCurrency, formatDecimal } from '../../utils/formatters';
 import EditIngredientModal from '../../components/modals/EditIngredientModal';
@@ -909,7 +911,7 @@ const SupplierOrders = () => {
             </div>
 
             {eventsLoading ? (
-              <div className="loading">Cargando eventos disponibles...</div>
+              <Loading message="Cargando eventos disponibles..." size="medium" inline />
             ) : (
               <div className="events-grid">
                 {availableEvents.map(event => (
@@ -1210,7 +1212,7 @@ const SupplierOrders = () => {
             )}
 
             {ingredientsLoading && (
-              <div className="loading">Cargando ingredientes disponibles...</div>
+              <Loading message="Cargando ingredientes disponibles..." size="medium" inline />
             )}
           </div>
         )}
@@ -1218,7 +1220,7 @@ const SupplierOrders = () => {
 
       {/* Resultados */}
       {shoppingListLoading ? (
-        <div className="loading">Generando lista de compras...</div>
+        <Loading message="Generando lista de compras..." size="medium" />
       ) : showEventSelection && selectedEventIds.length === 0 ? (
         <div className="empty-state">
           <p>Selecciona uno o más eventos para generar la lista de compras</p>
@@ -1429,7 +1431,7 @@ const SupplierOrders = () => {
         </h2>
 
         {activeOrdersLoading ? (
-          <div className="loading">Cargando pedidos activos...</div>
+          <Loading message="Cargando pedidos activos..." size="medium" inline />
         ) : activeOrders.length === 0 ? (
           <div className="empty-state">
             <p>No hay pedidos activos</p>
@@ -1563,7 +1565,7 @@ const SupplierOrders = () => {
         </h2>
         
         {suppliersAnalysisLoading ? (
-          <div className="loading">Cargando análisis de proveedores...</div>
+          <Loading message="Cargando análisis de proveedores..." size="medium" inline />
         ) : suppliersAnalysis.length === 0 ? (
           <div className="empty-state">
             <p>No hay datos suficientes para generar análisis</p>
@@ -1762,7 +1764,7 @@ const SupplierOrders = () => {
         </h2>
         
         {historyLoading ? (
-          <div className="loading">Cargando datos de historial...</div>
+          <Loading message="Cargando datos de historial..." size="medium" inline />
         ) : historyMetrics ? (
           <>
             {/* Dashboard de métricas rápidas */}
@@ -1972,7 +1974,7 @@ const SupplierOrders = () => {
     return (
       <div className="common-page-container">
         <div className="common-page-content">
-          <div className="loading">Cargando datos de pedidos...</div>
+          <Loading message="Cargando datos de pedidos..." size="large" />
         </div>
       </div>
     );
@@ -1981,12 +1983,10 @@ const SupplierOrders = () => {
   return (
     <div className="common-page-container">
       <div className="common-page-content">
-        <div className="supplier-orders-header">
-          <h1 className="common-page-title">Pedidos</h1>
-          <p className="page-description">
-            Gestiona las compras de ingredientes de forma inteligente y optimizada
-          </p>
-        </div>
+        <PageHeader
+          title="Pedidos"
+          subtitle="Gestiona las compras de ingredientes de forma inteligente y optimizada"
+        />
 
         <div className="supplier-orders-tabs">
           {tabs.map(tab => {

@@ -2,17 +2,20 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FiArrowLeft, FiEdit3, FiTrash2, FiSave, FiX, FiPlus, FiEdit2 } from 'react-icons/fi';
-import { FaUtensils } from 'react-icons/fa';
+import { FaUtensils, FaDownload } from 'react-icons/fa';
 import Modal from '../../components/modal/Modal';
+import Loading from '../../components/Loading';
 import { FormInput, FormTextarea, FormSelect } from '../../components/form/FormField';
 import api from '../../api/axios';
 import { formatCurrency } from '../../utils/formatters';
+import { usePDFGenerator } from '../../hooks/usePDFGenerator';
 import './EventDetail.css';
 
 const EventDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const isNewEvent = id === 'new';
+  const { generateEventPDF } = usePDFGenerator();
   
   const [event, setEvent] = useState(null);
   const [eventRecipes, setEventRecipes] = useState([]);
@@ -331,6 +334,12 @@ const EventDetail = () => {
     return typeObj ? typeObj.label : courseType;
   };
 
+  // Función para generar PDF del evento
+  const handleDownloadPDF = () => {
+    if (!event) return;
+    generateEventPDF(event, eventRecipes);
+  };
+
   // Calcular métricas de coste del evento
   const calculateEventCostMetrics = () => {
     if (!event || !eventRecipes.length) return null;
@@ -385,6 +394,11 @@ const EventDetail = () => {
         </button>
         {!isEditing ? (
           <>
+            {!isNewEvent && (
+              <button className="btn edit" onClick={handleDownloadPDF} title="Descargar PDF">
+                <FaDownload /> <span className="btn-text">PDF</span>
+              </button>
+            )}
             <button className="btn edit" onClick={toggleEdit}>
               <FiEdit3 /> <span className="btn-text">Editar</span>
             </button>
@@ -410,7 +424,7 @@ const EventDetail = () => {
 
   const eventContent = () => {
     if (loading) {
-      return <div className="loading">Cargando evento...</div>;
+      return <Loading message="Cargando evento..." size="large" />;
     }
 
     if (!event) {

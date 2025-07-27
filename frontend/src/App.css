@@ -191,12 +191,7 @@ body {
 }
 
 /* Custom table row hover - Global */
-.rdt_Table .rdt_TableRow:hover {
-  background-color: rgb(247, 250, 255) !important;
-  cursor: pointer;
-  border-bottom: 1px solid rgb(200, 218, 255) !important;
-  border-top: 1px solid rgb(200, 218, 255) !important;
-}
+/* Estilos eliminados - ahora se usan los estilos unificados de unified-tables.css */
 
 /* Links in tables should have same font size as table content */
 .rdt_Table a,
@@ -204,7 +199,7 @@ body {
 .common-table a {
   font-size: 14px !important;
   text-decoration: underline;
-  color: #3b82f6;
+  color: #374151;
 }
 
 /* ======================
@@ -359,10 +354,12 @@ button:hover {
   background-color: rgb(236, 242, 255); /* Fondo cuando pasa el ratón */
 }
 
-button:focus, button:active {
+/* Solo aplicar el estilo azul a botones de la clase .btn */
+.btn:focus, .btn:active {
   background-color: rgb(93, 135, 255);
   box-shadow: none;
 }
+
 
 /* ===== Estilos específicos para botones de acciones ===== */
 .btn {

@@ -23,23 +23,6 @@
   flex-direction: column;
 }
 
-/* Header del Dashboard */
-.dashboard-header {
-  margin-bottom: 32px;
-}
-
-.dashboard-header h1 {
-  font-size: 30px;
-  font-weight: 700;
-  color: #1e293b;
-  margin: 0 0 8px 0;
-}
-
-.dashboard-header p {
-  font-size: 16px;
-  color: #64748b;
-  margin: 0;
-}
 
 /* Tarjetas de resumen */
 .dashboard-summary {
@@ -707,9 +690,6 @@
     padding: 0;
   }
   
-  .dashboard-header h1 {
-    font-size: 30px;
-  }
 }
 
 /* Widget: Órdenes de Compra Pendientes */

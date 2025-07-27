@@ -1,8 +1,9 @@
 // src/pages/events/Events.jsx
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaCalendarAlt, FaUsers, FaTrash } from 'react-icons/fa';
+import { FaCalendarAlt, FaUsers, FaTrash, FaExclamationTriangle, FaEuroSign } from 'react-icons/fa';
 import BasePage from '../../components/BasePage';
+import Widget from '../../components/Widget';
 import Modal from '../../components/modal/Modal';
 import TabsModal from '../../components/tabs-modal/TabsModal';
 import { FormField, FormInput, FormTextarea, FormSelect } from '../../components/form/FormField';
@@ -55,6 +56,15 @@ export default function Events() {
   const [recipeCourseTypes, setRecipeCourseTypes] = useState({});
   const [recipeNotes, setRecipeNotes] = useState({});
   const [recipeSearchText, setRecipeSearchText] = useState('');
+
+  // Widgets data
+  const [widgetsData, setWidgetsData] = useState({
+    upcomingEvents: [],
+    eventsWithoutMenu: [],
+    budgetExceeded: [],
+    largeEvents: []
+  });
+  const [widgetsLoading, setWidgetsLoading] = useState(true);
 
   // Definir las pestañas con iconos
   const tabs = [
@@ -125,6 +135,9 @@ export default function Events() {
       const response = await api.get('/events', { params });
       setEvents(response.data);
       setError(null);
+      
+      // También recargar widgets cuando se cargan eventos
+      await fetchWidgetsData();
     } catch (err) {
       setError(`Error al cargar eventos: ${err.message}`);
     } finally {
@@ -149,6 +162,19 @@ export default function Events() {
     setTimeout(() => setMessage(null), 3000);
   };
 
+  // Load widgets data
+  const fetchWidgetsData = async () => {
+    try {
+      setWidgetsLoading(true);
+      const response = await api.get('/events/dashboard-widgets');
+      setWidgetsData(response.data);
+    } catch (error) {
+      console.error('Error loading widgets data:', error);
+    } finally {
+      setWidgetsLoading(false);
+    }
+  };
+
   // Filtrar eventos por texto de búsqueda
   const filteredData = useMemo(() => {
     if (!filterText) return events;
@@ -163,7 +189,27 @@ export default function Events() {
   useEffect(() => {
     loadEvents();
     loadRecipes();
+    fetchWidgetsData();
   }, [statusFilter]);
+
+  // Widget handlers
+  const handleWidgetItemClick = (event) => {
+    navigate(`/events/${event.event_id}`);
+  };
+
+  // Helper functions for widgets
+  const formatEventDate = (dateString) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-ES');
+  };
+
+  const getDaysUntilEvent = (dateString) => {
+    const eventDate = new Date(dateString);
+    const today = new Date();
+    const diffTime = eventDate - today;
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
 
   // Obtener detalles del evento para visualización/edición
   const loadEventDetails = async (eventId) => {
@@ -456,7 +502,159 @@ export default function Events() {
         filters={pageFilters}
         enableMobileModal={true}
         onRowClicked={navigateToEventDetail}
-      />
+      >
+        {/* Widgets Dashboard específicos de Events */}
+        <div className="events-widgets" style={{ marginBottom: '24px' }}>
+          <div className="widgets-grid">
+            {/* Widget 1: Eventos Próximos (7 días) */}
+            <Widget
+              icon={FaCalendarAlt}
+              title="Eventos Próximos"
+              count={widgetsData.upcomingEvents.length}
+              type="warning"
+              loading={widgetsLoading}
+              collapsible={true}
+              emptyMessage="✅ Sin eventos próximos"
+            >
+              <div className="widget-list">
+                {widgetsData.upcomingEvents.slice(0, 4).map(event => {
+                  const daysUntil = getDaysUntilEvent(event.event_date);
+                  return (
+                    <div 
+                      key={event.event_id} 
+                      className="widget-item clickable"
+                      onClick={() => handleWidgetItemClick(event)}
+                    >
+                      <div className="item-info">
+                        <span className="item-name">{event.name}</span>
+                        <span className="item-detail">
+                          {formatEventDate(event.event_date)} • {event.guests_count} invitados
+                        </span>
+                      </div>
+                      <div className="item-value warning">
+                        {daysUntil === 0 ? 'Hoy' : daysUntil === 1 ? 'Mañana' : `${daysUntil} días`}
+                      </div>
+                    </div>
+                  );
+                })}
+                {widgetsData.upcomingEvents.length > 4 && (
+                  <div className="widget-more">
+                    +{widgetsData.upcomingEvents.length - 4} más...
+                  </div>
+                )}
+              </div>
+            </Widget>
+
+            {/* Widget 2: Sin Menú Asignado */}
+            <Widget
+              icon={FaExclamationTriangle}
+              title="Sin Menú Asignado"
+              count={widgetsData.eventsWithoutMenu.length}
+              type="critical"
+              loading={widgetsLoading}
+              collapsible={true}
+              emptyMessage="✅ Todos tienen menú"
+            >
+              <div className="widget-list">
+                {widgetsData.eventsWithoutMenu.slice(0, 4).map(event => (
+                  <div 
+                    key={event.event_id} 
+                    className="widget-item clickable"
+                    onClick={() => handleWidgetItemClick(event)}
+                  >
+                    <div className="item-info">
+                      <span className="item-name">{event.name}</span>
+                      <span className="item-detail">
+                        {formatEventDate(event.event_date)} • {event.guests_count} invitados
+                      </span>
+                    </div>
+                    <div className="item-value critical">
+                      Sin menú
+                    </div>
+                  </div>
+                ))}
+                {widgetsData.eventsWithoutMenu.length > 4 && (
+                  <div className="widget-more">
+                    +{widgetsData.eventsWithoutMenu.length - 4} más...
+                  </div>
+                )}
+              </div>
+            </Widget>
+
+            {/* Widget 3: Presupuesto Excedido */}
+            <Widget
+              icon={FaEuroSign}
+              title="Presupuesto Excedido"
+              count={widgetsData.budgetExceeded.length}
+              type="critical"
+              loading={widgetsLoading}
+              collapsible={true}
+              emptyMessage="✅ Todos dentro del presupuesto"
+            >
+              <div className="widget-list">
+                {widgetsData.budgetExceeded.slice(0, 4).map(event => (
+                  <div 
+                    key={event.event_id} 
+                    className="widget-item clickable"
+                    onClick={() => handleWidgetItemClick(event)}
+                  >
+                    <div className="item-info">
+                      <span className="item-name">{event.name}</span>
+                      <span className="item-detail">
+                        Presupuesto: {formatCurrency(event.budget)} • Costo: {formatCurrency(event.menu_cost)}
+                      </span>
+                    </div>
+                    <div className="item-value critical">
+                      +{formatCurrency(event.excess_amount)}
+                    </div>
+                  </div>
+                ))}
+                {widgetsData.budgetExceeded.length > 4 && (
+                  <div className="widget-more">
+                    +{widgetsData.budgetExceeded.length - 4} más...
+                  </div>
+                )}
+              </div>
+            </Widget>
+
+            {/* Widget 4: Eventos Grandes (>50 invitados) */}
+            <Widget
+              icon={FaUsers}
+              title="Eventos Grandes"
+              count={widgetsData.largeEvents.length}
+              type="info"
+              loading={widgetsLoading}
+              collapsible={true}
+              emptyMessage="Sin eventos grandes"
+            >
+              <div className="widget-list">
+                {widgetsData.largeEvents.slice(0, 4).map(event => (
+                  <div 
+                    key={event.event_id} 
+                    className="widget-item clickable"
+                    onClick={() => handleWidgetItemClick(event)}
+                  >
+                    <div className="item-info">
+                      <span className="item-name">{event.name}</span>
+                      <span className="item-detail">
+                        {formatEventDate(event.event_date)} • {event.location || 'Sin ubicación'}
+                      </span>
+                    </div>
+                    <div className="item-value normal">
+                      {event.guests_count} invitados
+                    </div>
+                  </div>
+                ))}
+                {widgetsData.largeEvents.length > 4 && (
+                  <div className="widget-more">
+                    +{widgetsData.largeEvents.length - 4} más...
+                  </div>
+                )}
+              </div>
+            </Widget>
+          </div>
+        </div>
+      </BasePage>
 
       {/* CREATE MODAL */}
       <Modal isOpen={isCreateOpen} title="Nuevo evento" onClose={() => setIsCreateOpen(false)} fullscreenMobile={true}>

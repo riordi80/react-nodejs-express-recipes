@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { FiArrowLeft, FiEdit3, FiTrash2, FiSave, FiX } from 'react-icons/fi';
 // BasePage removed - using custom layout
 import Modal from '../../components/modal/Modal';
+import Loading from '../../components/Loading';
 import AddIngredientModal from './components/AddIngredientModal';
 import EditIngredientModal from './components/EditIngredientModal';
 import api from '../../api/axios';
@@ -444,7 +445,7 @@ const RecipeDetail = () => {
 
   const recipeContent = () => {
     if (loading) {
-      return <div className="loading">Cargando receta...</div>;
+      return <Loading message="Cargando receta..." size="large" />;
     }
 
     if (!recipe) {
