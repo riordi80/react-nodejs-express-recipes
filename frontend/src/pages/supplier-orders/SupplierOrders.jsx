@@ -1381,7 +1381,7 @@ const SupplierOrders = () => {
                             </td>
                             <td className="real-quantity">
                               {ingredient.packagesToBuy > 0 ? (
-                                `${formatDecimal(ingredient.packagesToBuy)} ${ingredient.packageUnit || 'unidad'}`
+                                `${formatDecimal(ingredient.realQuantity)} ${ingredient.unit}`
                               ) : (
                                 `${formatDecimal(ingredient.toBuy)} ${ingredient.unit}`
                               )}
