@@ -1,6 +1,7 @@
 // src/pages/ingredients/Ingredients.jsx
 import React, { useEffect, useState, useMemo } from 'react';
-import { FaBan, FaUndo, FaExclamationTriangle, FaCalendarAlt, FaSeedling, FaExclamationCircle } from 'react-icons/fa';
+import { FaExclamationTriangle, FaCalendarAlt, FaSeedling, FaExclamationCircle } from 'react-icons/fa';
+import TableActions from '../../components/table/TableActions';
 import BasePage from '../../components/BasePage';
 import Widget from '../../components/Widget';
 import Modal from '../../components/modal/Modal';
@@ -342,26 +343,14 @@ const columns = useMemo(() => [
   {
     name: 'Disponibilidad',
     cell: row => (
-      <div className="table-actions">
-        {row.is_available ? (
-          <button 
-            className="icon-btn delete-icon" 
-            onClick={() => openDeleteModal(row)} 
-            title="Desactivar ingrediente"
-          >
-            <FaBan />
-          </button>
-        ) : (
-          <button 
-            className="icon-btn activate-icon" 
-            onClick={() => handleActivate(row)} 
-            title="Reactivar ingrediente"
-            style={{ background: '#10b981' }}
-          >
-            <FaUndo />
-          </button>
-        )}
-      </div>
+      <TableActions
+        row={row}
+        onActivate={row.is_available ? openDeleteModal : handleActivate}
+        showActivate={true}
+        activateTitle="Reactivar ingrediente"
+        deactivateTitle="Desactivar ingrediente"
+        activateField="is_available"
+      />
     ),
     ignoreRowClick: true,
     allowOverflow: true,

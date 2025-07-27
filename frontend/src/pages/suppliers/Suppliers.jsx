@@ -1,12 +1,13 @@
 // src/pages/suppliers/Suppliers.jsx
 import React, { useEffect, useState, useMemo } from 'react';
-import { FaTrash } from 'react-icons/fa';
+import TableActions from '../../components/table/TableActions';
 import BasePage from '../../components/BasePage';
 import Modal from '../../components/modal/Modal';
 import SupplierEditModal from './components/SupplierEditModal';
 import AddIngredientModal from './components/AddIngredientModal';
 import EditSupplierIngredientModal from './components/EditSupplierIngredientModal';
 import { usePageState } from '../../hooks/usePageState';
+import { useDeleteModal } from '../../hooks/useDeleteModal';
 import api from '../../api/axios';
 import { parseEuropeanNumber } from '../../utils/formatters';
 import './Suppliers.css';
@@ -23,9 +24,22 @@ export default function Suppliers() {
     setFilterText,
     createItem,
     updateItem,
-    deleteItem,
+    reload,
     notify,
   } = usePageState('/suppliers');
+
+  // Hook para modal de eliminación
+  const deleteModal = useDeleteModal({
+    endpoint: '/suppliers',
+    idField: 'supplier_id',
+    onSuccess: async () => {
+      await reload();
+      notify('Proveedor eliminado correctamente', 'success');
+    },
+    onError: (error) => {
+      notify('Error al eliminar proveedor', 'error');
+    }
+  });
 
   // Additional data needed for suppliers
   const [ingredients, setIngredients] = useState([]);
@@ -51,9 +65,7 @@ export default function Suppliers() {
   const [ingredientSearchText, setIngredientSearchText] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' });
 
-  // ---- delete modal state ----
-  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [currentItem, setCurrentItem] = useState(null);
+  // ---- delete modal state ---- (ahora manejado por useDeleteModal hook)
 
   // ---- delete supplier-ingredient modal state ----
   const [isDeleteSupplierIngredientOpen, setIsDeleteSupplierIngredientOpen] = useState(false);
@@ -165,18 +177,9 @@ export default function Suppliers() {
     setIsEditOpen(false);
   };
 
-  // Delete handlers
+  // Delete handlers (ahora usando el hook)
   const openDeleteModal = (row) => {
-    setCurrentItem(row);
-    setIsDeleteOpen(true);
-  };
-
-  const handleDelete = async () => {
-    const success = await deleteItem(currentItem.supplier_id);
-    if (success) {
-      setIsDeleteOpen(false);
-      setCurrentItem(null);
-    }
+    deleteModal.openModal(row);
   };
 
   // Add ingredients handlers
@@ -323,11 +326,12 @@ export default function Suppliers() {
     {
       name: 'Acciones',
       cell: row => (
-        <div className="table-actions">
-          <button className="icon-btn delete-icon" onClick={() => openDeleteModal(row)} title="Eliminar">
-            <FaTrash />
-          </button>
-        </div>
+        <TableActions
+          row={row}
+          onDelete={openDeleteModal}
+          showDelete={true}
+          deleteTitle="Eliminar proveedor"
+        />
       ),
       ignoreRowClick: true,
       allowOverflow: true,
@@ -433,11 +437,18 @@ export default function Suppliers() {
         />
 
         {/* DELETE MODAL */}
-        <Modal isOpen={isDeleteOpen} title="Confirmar eliminación" onClose={() => setIsDeleteOpen(false)}>
-          <p>¿Seguro que deseas eliminar <strong>{currentItem?.name}</strong>?</p>
+        <Modal isOpen={deleteModal.isOpen} title="Confirmar eliminación" onClose={deleteModal.closeModal}>
+          <p>¿Seguro que deseas eliminar <strong>{deleteModal.currentItem?.name}</strong>?</p>
           <div className="modal-actions">
-            <button type="button" className="btn cancel" onClick={() => setIsDeleteOpen(false)}>Cancelar</button>
-            <button type="button" className="btn delete" onClick={handleDelete}>Eliminar</button>
+            <button type="button" className="btn cancel" onClick={deleteModal.closeModal}>Cancelar</button>
+            <button 
+              type="button" 
+              className="btn delete" 
+              onClick={deleteModal.handleDelete}
+              disabled={deleteModal.isLoading}
+            >
+              {deleteModal.isLoading ? 'Eliminando...' : 'Eliminar'}
+            </button>
           </div>
         </Modal>
 

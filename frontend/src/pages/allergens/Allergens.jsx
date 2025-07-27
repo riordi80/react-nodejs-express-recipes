@@ -1,6 +1,6 @@
 // src/pages/allergens/Allergens.jsx
 import React, { useState, useMemo } from 'react';
-import { FaTrash } from 'react-icons/fa';
+import TableActions from '../../components/table/TableActions';
 import BasePage from '../../components/BasePage';
 import Modal from '../../components/modal/Modal';
 import { usePageState } from '../../hooks/usePageState';
@@ -94,11 +94,12 @@ export default function Allergens() {
     {
       name: 'Acciones',
       cell: row => (
-        <div className="table-actions">
-          <button className="icon-btn delete-icon" onClick={() => openDeleteModal(row)} title="Eliminar">
-            <FaTrash />
-          </button>
-        </div>
+        <TableActions
+          row={row}
+          onDelete={openDeleteModal}
+          showDelete={true}
+          deleteTitle="Eliminar alérgeno"
+        />
       ),
       ignoreRowClick: true,
       allowOverflow: true,

@@ -1,7 +1,8 @@
 // src/pages/events/Events.jsx
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaCalendarAlt, FaUsers, FaTrash, FaExclamationTriangle, FaEuroSign } from 'react-icons/fa';
+import { FaCalendarAlt, FaUsers, FaExclamationTriangle, FaEuroSign } from 'react-icons/fa';
+import TableActions from '../../components/table/TableActions';
 import BasePage from '../../components/BasePage';
 import Widget from '../../components/Widget';
 import Modal from '../../components/modal/Modal';
@@ -451,18 +452,14 @@ export default function Events() {
     {
       name: 'Acciones',
       cell: row => (
-        <div className="table-actions">
-          <button 
-            className="icon-btn delete-icon" 
-            onClick={(e) => {
-              e.stopPropagation();
-              openDeleteModal(row);
-            }} 
-            title="Eliminar evento"
-          >
-            <FaTrash />
-          </button>
-        </div>
+        <TableActions
+          row={row}
+          onDelete={(row) => {
+            openDeleteModal(row);
+          }}
+          showDelete={true}
+          deleteTitle="Eliminar evento"
+        />
       ),
       ignoreRowClick: true,
       allowOverflow: true,

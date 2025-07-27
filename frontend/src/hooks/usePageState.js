@@ -1,5 +1,6 @@
 // src/hooks/usePageState.js
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import api from '../api/axios';
 
 export const usePageState = (apiEndpoint, options = {}) => {
   const [data, setData] = useState([]);
@@ -16,9 +17,8 @@ export const usePageState = (apiEndpoint, options = {}) => {
   const fetchData = useCallback(async (customFilters = {}) => {
     setLoading(true);
     try {
-      const api = await import('../api/axios');
       const params = options.useFilters ? { ...filters, ...customFilters } : undefined;
-      const response = await api.default.get(apiEndpoint, { params });
+      const response = await api.get(apiEndpoint, { params });
       setData(response.data);
       setError(null);
     } catch (err) {
@@ -43,8 +43,7 @@ export const usePageState = (apiEndpoint, options = {}) => {
   // Reload data
   const reload = useCallback(async () => {
     try {
-      const api = await import('../api/axios');
-      const response = await api.default.get(apiEndpoint);
+      const response = await api.get(apiEndpoint);
       setData(response.data);
       setError(null);
     } catch (err) {
@@ -74,8 +73,7 @@ export const usePageState = (apiEndpoint, options = {}) => {
   // CRUD operations
   const createItem = useCallback(async (itemData) => {
     try {
-      const api = await import('../api/axios');
-      await api.default.post(apiEndpoint, itemData);
+      await api.post(apiEndpoint, itemData);
       notify('Elemento creado correctamente', 'success');
       await reload();
       return true;
@@ -87,8 +85,7 @@ export const usePageState = (apiEndpoint, options = {}) => {
 
   const updateItem = useCallback(async (id, itemData) => {
     try {
-      const api = await import('../api/axios');
-      await api.default.put(`${apiEndpoint}/${id}`, itemData);
+      await api.put(`${apiEndpoint}/${id}`, itemData);
       notify('Elemento actualizado correctamente', 'success');
       await reload();
       return true;
@@ -100,8 +97,7 @@ export const usePageState = (apiEndpoint, options = {}) => {
 
   const deleteItem = useCallback(async (id) => {
     try {
-      const api = await import('../api/axios');
-      await api.default.delete(`${apiEndpoint}/${id}`);
+      await api.delete(`${apiEndpoint}/${id}`);
       notify('Elemento eliminado correctamente', 'success');
       await reload();
       return true;

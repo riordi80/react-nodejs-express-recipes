@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import DataTable from 'react-data-table-component';
 import { StyleSheetManager } from 'styled-components';
 import isPropValid from '@emotion/is-prop-valid';
-import { FaTrash, FaPlus } from 'react-icons/fa';
+import { FaPlus } from 'react-icons/fa';
+import TableActions from '../../components/table/TableActions';
 import BasePage from '../../components/BasePage';
 import Loading from '../../components/Loading';
 import Modal from '../../components/modal/Modal';
@@ -157,23 +158,20 @@ export default function RecipesPage() {
     },
     {
       name:     'Acciones',
-      cell:     row => (
-        <div className="table-actions">
-          <button 
-            className="icon-btn delete-icon" 
-            onClick={() => openDeleteModal(row)}
-            title="Eliminar"
-          >
-            <FaTrash />
-          </button>
-        </div>
+      cell: row => (
+        <TableActions
+          row={row}
+          onDelete={openDeleteModal}
+          showDelete={true}
+          deleteTitle="Eliminar receta"
+        />
       ),
       ignoreRowClick: true,
       allowOverflow:  true,
       button:         true,
       width:          '100px'
     }
-  ], [navigate]);
+  ], []);
 
   // Delete handlers
   const openDeleteModal = (recipe) => {
