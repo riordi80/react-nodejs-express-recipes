@@ -262,10 +262,19 @@ const columns = useMemo(() => [
       const stockMinimum = parseFloat(row.stock_minimum) || 0;
       const isLowStock = stockMinimum > 0 && stock < stockMinimum;
       
-      return (
-        <span className={isLowStock ? 'table-cell-critical' : ''}>
+      return isLowStock ? (
+        <span style={{
+          backgroundColor: '#fee2e2',
+          color: '#ef4444',
+          padding: '4px 8px',
+          borderRadius: '12px',
+          fontSize: '14px',
+          fontWeight: '500'
+        }}>
           {formatDecimal(stock, 2)}
         </span>
+      ) : (
+        <span>{formatDecimal(stock, 2)}</span>
       );
     }
   },
@@ -302,10 +311,19 @@ const columns = useMemo(() => [
       
       const isExpired = date < today;
       
-      return (
-        <span className={isExpired ? 'table-cell-expired' : ''}>
-          {isExpired ? 'Caducado' : date.toLocaleDateString('es-ES')}
+      return isExpired ? (
+        <span style={{
+          backgroundColor: '#fee2e2',
+          color: '#ef4444',
+          padding: '4px 8px',
+          borderRadius: '12px',
+          fontSize: '12px',
+          fontWeight: '500'
+        }}>
+          CADUCADO
         </span>
+      ) : (
+        <span>{date.toLocaleDateString('es-ES')}</span>
       );
     }
   },
@@ -315,8 +333,7 @@ const columns = useMemo(() => [
     sortable: true,
     cell: row => (
       <span style={{ 
-        color: row.is_available ? '#10b981' : '#ef4444',
-        fontWeight: '500'
+        color: row.is_available ? '#10b981' : '#ef4444'
       }}>
         {row.is_available ? 'Activo' : 'Inactivo'}
       </span>

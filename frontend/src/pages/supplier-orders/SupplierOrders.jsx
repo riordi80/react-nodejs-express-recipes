@@ -1356,7 +1356,20 @@ const SupplierOrders = () => {
                                 />
                               </div>
                             </td>
-                            <td>{formatDecimal(ingredient.needed)} {ingredient.unit}</td>
+                            <td>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                <span>{formatDecimal(ingredient.needed)} {ingredient.unit}</span>
+                                {ingredient.wastePercent > 0 && (
+                                  <span style={{ 
+                                    fontSize: '11px', 
+                                    color: '#64748b',
+                                    fontStyle: 'italic'
+                                  }}>
+                                    Base: {formatDecimal(ingredient.neededBase)} + {(ingredient.wastePercent * 100).toFixed(1)}% merma
+                                  </span>
+                                )}
+                              </div>
+                            </td>
                             <td>{formatDecimal(ingredient.inStock)} {ingredient.unit}</td>
                             <td className="to-buy">{formatDecimal(ingredient.toBuy)} {ingredient.unit}</td>
                             <td className="package-info">

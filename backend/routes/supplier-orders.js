@@ -115,15 +115,15 @@ router.get('/shopping-list', authenticateToken, authorizeRoles('admin', 'chef'),
       WHERE ${whereClause}
     `, queryParams);
 
-    // 2. Calcular ingredientes necesarios
+    // 2. Calcular ingredientes necesarios (corregido para incluir merma en cantidades)
     const stockFormula = includeStock 
-      ? 'GREATEST(0, SUM(ri.quantity_per_serving * em.portions) - i.stock)' 
-      : 'SUM(ri.quantity_per_serving * em.portions)';
+      ? 'GREATEST(0, (SUM(ri.quantity_per_serving * em.portions) * (1 + IFNULL(i.waste_percent, 0))) - i.stock)' 
+      : 'SUM(ri.quantity_per_serving * em.portions) * (1 + IFNULL(i.waste_percent, 0))';
     
-    // Corregir el cálculo de costos: usar precio por unidad base del ingrediente cuando no hay proveedor
+    // Cálculo de costos: usar precio por unidad base del ingrediente cuando no hay proveedor
     const costFormula = includeStock
-      ? 'GREATEST(0, SUM(ri.quantity_per_serving * em.portions) - i.stock) * i.base_price * (1 + IFNULL(i.waste_percent, 0))'
-      : 'SUM(ri.quantity_per_serving * em.portions) * i.base_price * (1 + IFNULL(i.waste_percent, 0))';
+      ? 'GREATEST(0, (SUM(ri.quantity_per_serving * em.portions) * (1 + IFNULL(i.waste_percent, 0))) - i.stock) * i.base_price'
+      : 'SUM(ri.quantity_per_serving * em.portions) * (1 + IFNULL(i.waste_percent, 0)) * i.base_price';
 
     const [neededIngredients] = await pool.query(`
       SELECT 
@@ -132,7 +132,9 @@ router.get('/shopping-list', authenticateToken, authorizeRoles('admin', 'chef'),
         i.unit,
         i.base_price as price_per_unit,
         i.stock as current_stock,
-        SUM(ri.quantity_per_serving * em.portions) as total_needed,
+        i.waste_percent,
+        SUM(ri.quantity_per_serving * em.portions) as total_needed_base,
+        SUM(ri.quantity_per_serving * em.portions) * (1 + IFNULL(i.waste_percent, 0)) as total_needed_with_waste,
         ${stockFormula} as to_buy,
         ${costFormula} as total_cost,
         si.supplier_id,
@@ -188,7 +190,7 @@ router.get('/shopping-list', authenticateToken, authorizeRoles('admin', 'chef'),
       LEFT JOIN SUPPLIERS s ON si.supplier_id = s.supplier_id
       WHERE ${whereClause}
         AND i.is_available = 1
-      GROUP BY i.ingredient_id, i.name, i.unit, i.base_price, i.stock, si.supplier_id, s.name, si.package_size, si.package_unit, si.minimum_order_quantity, si.price, si.is_preferred_supplier
+      GROUP BY i.ingredient_id, i.name, i.unit, i.base_price, i.stock, i.waste_percent, si.supplier_id, s.name, si.package_size, si.package_unit, si.minimum_order_quantity, si.price, si.is_preferred_supplier
       HAVING to_buy > 0
       ORDER BY COALESCE(s.name, 'zzz'), i.name
     `, queryParams);
@@ -219,7 +221,10 @@ router.get('/shopping-list', authenticateToken, authorizeRoles('admin', 'chef'),
       const ingredientData = {
         ingredientId: ingredient.ingredient_id,
         name: ingredient.name,
-        needed: Math.round(parseFloat(ingredient.total_needed) * 10000) / 10000,
+        needed: Math.round(parseFloat(ingredient.total_needed_with_waste) * 10000) / 10000,
+        neededBase: Math.round(parseFloat(ingredient.total_needed_base) * 10000) / 10000,
+        neededWithWaste: Math.round(parseFloat(ingredient.total_needed_with_waste) * 10000) / 10000,
+        wastePercent: Math.round(parseFloat(ingredient.waste_percent || 0) * 10000) / 10000,
         inStock: Math.round(parseFloat(ingredient.current_stock) * 10000) / 10000,
         toBuy: Math.round(parseFloat(ingredient.to_buy) * 10000) / 10000,
         unit: ingredient.unit,

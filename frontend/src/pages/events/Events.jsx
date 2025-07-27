@@ -431,7 +431,12 @@ export default function Events() {
     { 
       name: 'Estado', 
       selector: r => getStatusLabel(r.status), 
-      sortable: true
+      sortable: true,
+      cell: row => (
+        <span className={`event-status ${row.status}`}>
+          {getStatusLabel(row.status)}
+        </span>
+      )
     },
     { 
       name: 'Recetas', 
