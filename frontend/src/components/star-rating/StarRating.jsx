@@ -1,4 +1,4 @@
-// src/pages/supplier-orders/components/StarRating.jsx
+// src/components/star-rating/StarRating.jsx
 import React from 'react';
 
 const StarRating = ({ rating }) => {

@@ -12,7 +12,8 @@ import { usePageState } from '../../hooks/usePageState';
 import { useSettings } from '../../context/SettingsContext';
 import api from '../../api/axios';
 import FilterBar from '@/components/recipes/FilterBar';
-import ViewToggle from '@/components/recipes/ViewToggle';
+import ViewToggle from '../../components/view-toggle';
+import { FaTable, FaTh } from 'react-icons/fa';
 import CardView from './CardView';
 import './Recipes.css';
 
@@ -302,7 +303,14 @@ export default function RecipesPage() {
         noDataMessage="No hay recetas para mostrar"
         filters={[]}
         enableMobileModal={false} // FilterBar has its own mobile modal
-        actions={<ViewToggle view={view} onChange={handleViewChange} />}
+        actions={<ViewToggle 
+          options={[
+            { value: 'list', label: 'Tabla', icon: FaTable },
+            { value: 'card', label: 'Tarjetas', icon: FaTh }
+          ]}
+          value={view}
+          onChange={handleViewChange}
+        />}
       />
 
       {/* DELETE MODAL */}

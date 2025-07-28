@@ -1,0 +1,79 @@
+/* src/components/view-toggle/ViewToggle.css */
+.view-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  width: fit-content;
+  min-width: 160px;
+  flex-shrink: 0;
+}
+
+.toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-right: 1px solid #d1d5db;
+  white-space: nowrap;
+}
+
+.toggle-btn:last-child {
+  border-right: none;
+}
+
+.toggle-btn:hover {
+  background: #f9fafb;
+  color: #374151;
+}
+
+.toggle-btn.active {
+  background: #3b82f6;
+  color: #fff;
+}
+
+.toggle-btn.active:hover {
+  background: #2563eb;
+}
+
+.toggle-label {
+  font-size: 0.875rem;
+}
+
+/* Versión compacta para espacios reducidos */
+.view-toggle.compact .toggle-btn {
+  padding: 0.375rem 0.5rem;
+}
+
+.view-toggle.compact .toggle-label {
+  display: none;
+}
+
+/* En móvil, mantener texto pero reducir padding y ocupar todo el ancho */
+@media (max-width: 640px) {
+  .view-toggle {
+    width: 100%;
+    min-width: unset;
+  }
+  
+  .toggle-btn {
+    padding: 0.375rem 0.5rem;
+    font-size: 0.75rem;
+    flex: 1;
+  }
+  
+  .toggle-label {
+    font-size: 0.75rem;
+  }
+}

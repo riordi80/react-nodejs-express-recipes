@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { FaChartBar, FaEuroSign, FaTruck, FaExclamationTriangle } from 'react-icons/fa';
 import { formatCurrency } from '../../../utils/formatters';
-import MetricCard from './MetricCard';
+import MetricCard from '../../../components/metric-card/MetricCard';
 import QuickActions from './QuickActions';
 import api from '../../../api/axios';
 

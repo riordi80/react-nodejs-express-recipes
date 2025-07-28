@@ -1,4 +1,4 @@
-// src/pages/supplier-orders/components/MetricCard.jsx
+// src/components/metric-card/MetricCard.jsx
 import React from 'react';
 
 const MetricCard = ({ 

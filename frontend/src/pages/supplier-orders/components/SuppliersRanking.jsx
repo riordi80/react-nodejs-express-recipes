@@ -1,7 +1,7 @@
 // src/pages/supplier-orders/components/SuppliersRanking.jsx
 import React from 'react';
 import { formatCurrency } from '../../../utils/formatters';
-import StarRating from './StarRating';
+import StarRating from '../../../components/star-rating/StarRating';
 
 const SuppliersRanking = ({ suppliersAnalysis }) => {
   return (

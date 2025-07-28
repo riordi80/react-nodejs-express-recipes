@@ -1,21 +1,7 @@
 // src/pages/supplier-orders/components/OrderCard.jsx
 import React from 'react';
 import { formatCurrency } from '../../../utils/formatters';
-
-const getStatusStyle = (status) => {
-  switch (status) {
-    case 'pending':
-      return { className: 'status-pending', label: 'Pendiente', icon: '📝' };
-    case 'ordered':
-      return { className: 'status-ordered', label: 'Enviado', icon: '📤' };
-    case 'delivered':
-      return { className: 'status-delivered', label: 'Entregado', icon: '✅' };
-    case 'cancelled':
-      return { className: 'status-cancelled', label: 'Cancelado', icon: '❌' };
-    default:
-      return { className: 'status-unknown', label: status, icon: '❓' };
-  }
-};
+import { getStatusStyle } from '../../../utils/orderStatusHelpers';
 
 const OrderCard = ({ order, onViewOrder, onUpdateStatus, onDeleteOrder }) => {
   const statusStyle = getStatusStyle(order.status);

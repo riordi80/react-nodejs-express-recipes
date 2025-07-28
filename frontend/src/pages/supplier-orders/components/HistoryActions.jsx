@@ -1,6 +1,7 @@
 // src/pages/supplier-orders/components/HistoryActions.jsx
 import React from 'react';
 import { FaChartBar, FaDownload } from 'react-icons/fa';
+import ActionButtonsGrid from '../../../components/action-buttons-grid';
 import api from '../../../api/axios';
 
 const HistoryActions = ({ onShowReportsModal }) => {
@@ -24,25 +25,23 @@ const HistoryActions = ({ onShowReportsModal }) => {
     }
   };
 
+  const actions = [
+    {
+      label: 'Reportes Detallados',
+      icon: FaChartBar,
+      variant: 'add',
+      onClick: onShowReportsModal
+    },
+    {
+      label: 'Exportar Todo',
+      icon: FaDownload, 
+      variant: 'edit',
+      onClick: handleExportData
+    }
+  ];
+
   return (
-    <div className="history-actions">
-      <div className="actions-grid">
-        <button 
-          className="btn add"
-          onClick={onShowReportsModal}
-        >
-          <FaChartBar />
-          Reportes Detallados
-        </button>
-        <button 
-          className="btn edit"
-          onClick={handleExportData}
-        >
-          <FaDownload />
-          Exportar Todo
-        </button>
-      </div>
-    </div>
+    <ActionButtonsGrid actions={actions} />
   );
 };
 

@@ -2,21 +2,8 @@
 import React from 'react';
 import { FaTh, FaTable } from 'react-icons/fa';
 import MultiSelectDropdown from '../../../components/multi-select-dropdown';
-
-const getStatusStyle = (status) => {
-  switch (status) {
-    case 'pending':
-      return { className: 'status-pending', label: 'Pendiente', icon: '📝' };
-    case 'ordered':
-      return { className: 'status-ordered', label: 'Enviado', icon: '📤' };
-    case 'delivered':
-      return { className: 'status-delivered', label: 'Entregado', icon: '✅' };
-    case 'cancelled':
-      return { className: 'status-cancelled', label: 'Cancelado', icon: '❌' };
-    default:
-      return { className: 'status-unknown', label: status, icon: '❓' };
-  }
-};
+import ViewToggle from '../../../components/view-toggle';
+import { getStatusStyle } from '../../../utils/orderStatusHelpers';
 
 const OrdersFilterPanel = ({ filters, onFiltersChange, viewMode, onViewModeChange }) => {
   const updateFilter = (field, value) => {
@@ -114,28 +101,35 @@ const OrdersFilterPanel = ({ filters, onFiltersChange, viewMode, onViewModeChang
             className="input-field"
           />
         </div>
+
+        {/* Vista toggle - desktop y tablet */}
+        {viewMode && onViewModeChange && (
+          <div className="filter-group desktop-view-toggle">
+            <label>Vista:</label>
+            <ViewToggle 
+              options={[
+                { value: 'table', label: 'Tabla', icon: FaTable },
+                { value: 'cards', label: 'Tarjetas', icon: FaTh }
+              ]}
+              value={viewMode}
+              onChange={onViewModeChange}
+            />
+          </div>
+        )}
       </div>
 
       {/* Toggle de vista - solo visible en móvil */}
       {viewMode && onViewModeChange && (
         <div className="mobile-view-toggle">
           <label>Vista:</label>
-          <div className="view-toggle">
-            <button
-              className={`toggle-btn ${viewMode === 'cards' ? 'active' : ''}`}
-              onClick={() => onViewModeChange('cards')}
-            >
-              <FaTh />
-              Cards
-            </button>
-            <button
-              className={`toggle-btn ${viewMode === 'table' ? 'active' : ''}`}
-              onClick={() => onViewModeChange('table')}
-            >
-              <FaTable />
-              Tabla
-            </button>
-          </div>
+          <ViewToggle 
+            options={[
+              { value: 'table', label: 'Tabla', icon: FaTable },
+              { value: 'cards', label: 'Tarjetas', icon: FaTh }
+            ]}
+            value={viewMode}
+            onChange={onViewModeChange}
+          />
         </div>
       )}
     </div>

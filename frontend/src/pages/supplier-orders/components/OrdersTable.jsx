@@ -6,21 +6,7 @@ import isPropValid from '@emotion/is-prop-valid';
 import { useSettings } from '../../../context/SettingsContext';
 import { formatCurrency } from '../../../utils/formatters';
 import Loading from '../../../components/loading';
-
-const getStatusStyle = (status) => {
-  switch (status) {
-    case 'pending':
-      return { className: 'status-pending', label: 'Pendiente', icon: '📝' };
-    case 'ordered':
-      return { className: 'status-ordered', label: 'Enviado', icon: '📤' };
-    case 'delivered':
-      return { className: 'status-delivered', label: 'Entregado', icon: '✅' };
-    case 'cancelled':
-      return { className: 'status-cancelled', label: 'Cancelado', icon: '❌' };
-    default:
-      return { className: 'status-unknown', label: status, icon: '❓' };
-  }
-};
+import { getStatusStyle } from '../../../utils/orderStatusHelpers';
 
 const OrdersTable = ({ orders, loading, onViewOrder }) => {
   const { settings } = useSettings();

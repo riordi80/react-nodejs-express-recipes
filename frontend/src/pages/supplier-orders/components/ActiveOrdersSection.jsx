@@ -2,7 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { FaTruck } from 'react-icons/fa';
 import OrdersFilterPanel from './OrdersFilterPanel';
-import OrdersViewToggle from './OrdersViewToggle';
 import OrdersTable from './OrdersTable';
 import OrdersCardView from './OrdersCardView';
 import api from '../../../api/axios';
@@ -111,11 +110,6 @@ const ActiveOrdersSection = ({
           <FaTruck />
           Pedidos Activos
         </h2>
-        
-        <OrdersViewToggle 
-          viewMode={ordersViewMode}
-          onViewModeChange={setOrdersViewMode}
-        />
       </div>
 
       {/* Filtros consistentes */}

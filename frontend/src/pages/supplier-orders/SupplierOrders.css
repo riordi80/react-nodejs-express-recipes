@@ -180,39 +180,7 @@
 }
 
 /* ===== ACCIONES RÁPIDAS ===== */
-.quick-actions {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 24px;
-}
-
-.quick-actions h3 {
-  margin: 0 0 16px 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: #1e293b;
-}
-
-.actions-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
-}
-
-.actions-grid .btn {
-  justify-content: flex-start;
-  padding: 16px 20px;
-  font-size: 14px;
-  font-weight: 500;
-  border-radius: 8px;
-  transition: all 0.2s;
-}
-
-.actions-grid .btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-}
+/* Estilos movidos a components/action-buttons-grid/ */
 
 /* ===== CONTENIDO PLACEHOLDER ===== */
 .placeholder-content {
@@ -610,18 +578,7 @@
 }
 
 /* Acciones del historial */
-.history-actions {
-  background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 16px;
-}
-
-.history-actions .actions-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
-}
+/* Estilos movidos a components/action-buttons-grid/ */
 
 /* Features del historial */
 .history-features {
@@ -2528,13 +2485,7 @@ button.pdf-download-btn:active {
     font-size: 24px;
   }
   
-  .quick-actions {
-    padding: 20px;
-  }
-  
-  .actions-grid {
-    grid-template-columns: 1fr;
-  }
+  /* quick-actions estilos movidos a componente genérico */
   
   .placeholder-content {
     padding: 40px 20px;
@@ -2549,9 +2500,9 @@ button.pdf-download-btn:active {
     grid-template-columns: repeat(2, 1fr);
   }
   
-  /* Orders filters responsive - adjust for 3 columns */
+  /* Orders filters responsive - tablet */
   .orders-filters .filters-grid {
-    grid-template-columns: 1fr 1fr !important;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) !important;
     gap: 16px;
   }
   
@@ -2705,6 +2656,11 @@ button.pdf-download-btn:active {
   
   /* Ocultar el toggle del header en móvil */
   .section-header .view-toggle {
+    display: none !important;
+  }
+  
+  /* Ocultar el toggle del grid en móvil */
+  .desktop-view-toggle {
     display: none !important;
   }
   
@@ -2915,10 +2871,11 @@ button.pdf-download-btn:active {
   
   .trends-overview,
   .recent-orders,
-  .history-actions,
   .history-features {
     padding: 20px;
   }
+  
+  /* history-actions estilos movidos a componente genérico */
   
   .supplier-mini-item {
     padding: 12px;
@@ -3207,7 +3164,7 @@ button.pdf-download-btn:active {
 
 .orders-filters .filters-grid {
   display: grid;
-  grid-template-columns: 1.8fr 1fr 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 20px;
 }
 

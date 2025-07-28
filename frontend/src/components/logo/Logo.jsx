@@ -1,4 +1,4 @@
-// src/components/common/Logo.jsx
+// src/components/logo/Logo.jsx
 import React from 'react';
 import { BRAND_COLORS, BRAND_CONFIG } from '../../config/branding';
 
