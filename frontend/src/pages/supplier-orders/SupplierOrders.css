@@ -1082,7 +1082,17 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 14px;
+  table-layout: fixed;
 }
+
+.ingredients-table th:nth-child(1), .ingredients-table td:nth-child(1) { width: 20%; } /* Ingrediente */
+.ingredients-table th:nth-child(2), .ingredients-table td:nth-child(2) { width: 10%; } /* Necesario */
+.ingredients-table th:nth-child(3), .ingredients-table td:nth-child(3) { width: 10%; } /* En Stock */
+.ingredients-table th:nth-child(4), .ingredients-table td:nth-child(4) { width: 10%; } /* A Comprar */
+.ingredients-table th:nth-child(5), .ingredients-table td:nth-child(5) { width: 12%; } /* Unidad Venta */
+.ingredients-table th:nth-child(6), .ingredients-table td:nth-child(6) { width: 12%; } /* Cantidad Real */
+.ingredients-table th:nth-child(7), .ingredients-table td:nth-child(7) { width: 13%; } /* Precio Real */
+.ingredients-table th:nth-child(8), .ingredients-table td:nth-child(8) { width: 13%; } /* Total Real */
 
 .ingredients-table th {
   background: #f1f5f9;
@@ -2519,6 +2529,12 @@ button.pdf-download-btn:active {
     grid-template-columns: repeat(2, 1fr);
   }
   
+  /* Orders filters responsive - adjust for 3 columns */
+  .orders-filters .filters-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  
   /* En tablet, filters-grid-compact también debería usar solo 2 columnas */
   .filters-grid-compact,
   .shopping-filters .filters-grid-compact {
@@ -2622,6 +2638,12 @@ button.pdf-download-btn:active {
   }
   
   .filters-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  /* Orders filters mobile - single column */
+  .orders-filters .filters-grid {
     grid-template-columns: 1fr;
     gap: 16px;
   }
@@ -3056,4 +3078,236 @@ button.pdf-download-btn:active {
   font-size: 0.875rem;
   text-align: center;
   line-height: 1.2;
+}
+
+/* ======================
+   PEDIDOS ACTIVOS - FILTROS Y VISTA TOGGLE
+   ====================== */
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.view-toggle {
+  display: flex;
+  gap: 4px;
+  background: #f1f5f9;
+  border-radius: 8px;
+  padding: 4px;
+}
+
+.toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.toggle-btn:hover {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.toggle-btn.active {
+  background: #3b82f6;
+  color: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.orders-filters {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 24px;
+}
+
+.filters-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.orders-filters .filters-grid {
+  display: grid;
+  grid-template-columns: 1.8fr 1fr 1fr 1fr;
+  gap: 20px;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filter-group label {
+  font-weight: 500;
+  color: #374151;
+  font-size: 14px;
+}
+
+.status-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* Desktop: Status filters in single row */
+@media (min-width: 768px) {
+  .status-filters {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+  }
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: #4b5563;
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  margin: 0;
+}
+
+/* Paginación estilo DataTable para Cards */
+.orders-grid + .rdt_Pagination {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.rdt_PaginationInfo {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.rdt_PaginationNav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rdt_PaginationButton {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #e2e8f0;
+  background: white;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  color: #374151;
+  transition: all 0.2s;
+}
+
+.rdt_PaginationButton:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.rdt_PaginationButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #f9fafb;
+  color: #9ca3af;
+}
+
+.rdt_PaginationPage {
+  min-width: 32px;
+  text-align: center;
+  font-weight: 500;
+  color: #374151;
+}
+
+.rdt_PaginationSelect {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.rdt_PaginationSelect select {
+  padding: 4px 8px;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  background: white;
+  font-size: 14px;
+  color: #374151;
+}
+
+/* Contenedor de tabla consistente */
+.orders-table-container {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-top: 0;
+}
+
+/* Eliminar márgenes de DataTable dentro del contenedor */
+.orders-table-container .rdt_Table {
+  margin: 0 !important;
+}
+
+.orders-table-container .rdt_TableWrapper {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Asegurar que el header de la tabla esté pegado al contenedor */
+.orders-table-container .rdt_TableHeadRow {
+  margin: 0 !important;
+  border-top: none !important;
+}
+
+.orders-table-container .rdt_TableHead {
+  margin: 0 !important;
+  border-top: none !important;
+}
+
+.orders-table-container .total-count {
+  padding: 16px 20px;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+  font-size: 14px;
+  color: #6b7280;
+  text-align: center;
+  margin: 0;
+}
+
+/* Asegurar que no hay espacios extra en StyleSheetManager */
+.orders-table-container > div {
+  margin: 0 !important;
+}
+
+/* Eliminar cualquier padding/margin del componente DataTable raíz */
+.orders-table-container .common-table {
+  margin: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
 }

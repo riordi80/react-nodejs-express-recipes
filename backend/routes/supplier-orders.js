@@ -425,9 +425,67 @@ router.post('/generate', authenticateToken, authorizeRoles('admin', 'chef'), asy
   }
 });
 
-// GET /supplier-orders/active - Obtener pedidos activos con datos reales
+// GET /supplier-orders/active - Obtener pedidos activos con filtros
 router.get('/active', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
   try {
+    // Extraer parámetros de filtro de la query
+    const {
+      status = 'pending,ordered,delivered', // Estados por defecto
+      dateFrom = null,
+      dateTo = null,
+      search = null,
+      amountMin = null,
+      amountMax = null
+    } = req.query;
+
+    // Construir condiciones WHERE dinámicamente
+    let whereConditions = ['1=1']; // Condición base
+    let queryParams = [];
+
+    // Filtro por estados
+    if (status) {
+      const statusList = status.split(',').map(s => s.trim()).filter(s => s);
+      if (statusList.length > 0) {
+        const placeholders = statusList.map(() => '?').join(',');
+        whereConditions.push(`so.status IN (${placeholders})`);
+        queryParams.push(...statusList);
+      }
+    }
+
+    // Filtro por fecha desde
+    if (dateFrom) {
+      whereConditions.push('so.order_date >= ?');
+      queryParams.push(dateFrom);
+    }
+
+    // Filtro por fecha hasta
+    if (dateTo) {
+      whereConditions.push('so.order_date <= ?');
+      queryParams.push(dateTo + ' 23:59:59'); // Incluir todo el día
+    }
+
+
+    // Filtro por búsqueda (número de pedido o nombre de proveedor)
+    if (search) {
+      whereConditions.push('(so.order_id LIKE ? OR s.name LIKE ?)');
+      const searchTerm = `%${search}%`;
+      queryParams.push(searchTerm, searchTerm);
+    }
+
+    // Filtro por importe mínimo
+    if (amountMin) {
+      whereConditions.push('so.total_amount >= ?');
+      queryParams.push(parseFloat(amountMin));
+    }
+
+    // Filtro por importe máximo
+    if (amountMax) {
+      whereConditions.push('so.total_amount <= ?');
+      queryParams.push(parseFloat(amountMax));
+    }
+
+    const whereClause = whereConditions.join(' AND ');
+
     const [orders] = await pool.query(`
       SELECT 
         so.order_id,
@@ -447,7 +505,7 @@ router.get('/active', authenticateToken, authorizeRoles('admin', 'chef'), async 
       LEFT JOIN SUPPLIERS s ON so.supplier_id = s.supplier_id
       LEFT JOIN SUPPLIER_ORDER_ITEMS soi ON so.order_id = soi.order_id
       LEFT JOIN USERS u ON so.created_by_user_id = u.user_id
-      WHERE so.status IN ('pending', 'ordered', 'delivered')
+      WHERE ${whereClause}
       GROUP BY so.order_id, so.supplier_id, s.name, so.order_date, so.delivery_date, 
                so.status, so.total_amount, so.notes, so.created_at, so.updated_at,
                u.first_name, u.last_name
@@ -459,7 +517,7 @@ router.get('/active', authenticateToken, authorizeRoles('admin', 'chef'), async 
           ELSE 4 
         END,
         so.created_at DESC
-    `);
+    `, queryParams);
 
     res.json(orders);
   } catch (error) {

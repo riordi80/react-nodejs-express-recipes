@@ -1,7 +1,11 @@
 // src/pages/supplier-orders/SupplierOrders.jsx
 import React, { useState, useEffect, useRef } from 'react';
-import { FaTruck, FaEuroSign, FaBoxOpen, FaExclamationTriangle, FaPlus, FaListUl, FaHistory, FaChartBar, FaChevronDown, FaCheckCircle, FaTimesCircle, FaQuestionCircle, FaDownload, FaEye, FaCalendarAlt, FaClock } from 'react-icons/fa';
+import { FaTruck, FaEuroSign, FaBoxOpen, FaExclamationTriangle, FaPlus, FaListUl, FaHistory, FaChartBar, FaChevronDown, FaCheckCircle, FaTimesCircle, FaQuestionCircle, FaDownload, FaEye, FaCalendarAlt, FaClock, FaTh, FaTable, FaFilter, FaSearch } from 'react-icons/fa';
 import PageHeader from '../../components/page-header/PageHeader';
+import DataTable from 'react-data-table-component';
+import { StyleSheetManager } from 'styled-components';
+import isPropValid from '@emotion/is-prop-valid';
+import { useSettings } from '../../context/SettingsContext';
 import Loading from '../../components/loading';
 import api from '../../api/axios';
 import { formatCurrency, formatDecimal } from '../../utils/formatters';
@@ -13,6 +17,7 @@ import ReportsModal from '../../components/modals/ReportsModal';
 import './SupplierOrders.css';
 
 const SupplierOrders = () => {
+  const { settings } = useSettings();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isModeDropdownOpen, setIsModeDropdownOpen] = useState(false);
@@ -62,6 +67,26 @@ const SupplierOrders = () => {
   const [activeOrdersLoading, setActiveOrdersLoading] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showOrderDetailModal, setShowOrderDetailModal] = useState(false);
+  
+  // Estados para vista y filtros de pedidos activos
+  const [ordersViewMode, setOrdersViewMode] = useState('cards'); // 'cards' o 'table'
+  const [activeOrdersFilters, setActiveOrdersFilters] = useState({
+    status: {
+      pending: true,
+      ordered: true,
+      delivered: true,
+      cancelled: false
+    },
+    dateFrom: '',
+    dateTo: '',
+    search: '',
+    amountMin: '',
+    amountMax: ''
+  });
+  
+  // Estados para paginación manual (vista cards)
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(20);
 
   // Estados para modal de advertencia de proveedores
   const [showSupplierWarningModal, setShowSupplierWarningModal] = useState(false);
@@ -120,6 +145,14 @@ const SupplierOrders = () => {
       loadHistoryMetrics();
     }
   }, [activeTab, filters]);
+
+  // Efecto para recargar pedidos cuando cambian los filtros
+  useEffect(() => {
+    if (activeTab === 'active-orders') {
+      loadActiveOrders();
+      setCurrentPage(1); // Reset pagination when filters change
+    }
+  }, [activeOrdersFilters]);
 
   useEffect(() => {
     if (showEventSelection && selectedEventIds.length > 0) {
@@ -548,11 +581,49 @@ const SupplierOrders = () => {
     }
   };
 
-  // Cargar pedidos activos
+  // Cargar pedidos activos con filtros
   const loadActiveOrders = async () => {
     try {
       setActiveOrdersLoading(true);
-      const response = await api.get('/supplier-orders/active');
+      
+      // Construir parámetros de filtro solo si tienen valores
+      const params = new URLSearchParams();
+      
+      // Filtros de estado - solo enviar si no están todos activos
+      const activeStatuses = Object.entries(activeOrdersFilters.status)
+        .filter(([_, isActive]) => isActive)
+        .map(([status, _]) => status);
+      
+      if (activeStatuses.length > 0 && activeStatuses.length < 4) {
+        params.append('status', activeStatuses.join(','));
+      }
+      
+      // Filtros de fecha
+      if (activeOrdersFilters.dateFrom) {
+        params.append('dateFrom', activeOrdersFilters.dateFrom);
+      }
+      if (activeOrdersFilters.dateTo) {
+        params.append('dateTo', activeOrdersFilters.dateTo);
+      }
+      
+      
+      // Búsqueda de texto
+      if (activeOrdersFilters.search.trim()) {
+        params.append('search', activeOrdersFilters.search.trim());
+      }
+      
+      // Filtros de importe
+      if (activeOrdersFilters.amountMin) {
+        params.append('amountMin', activeOrdersFilters.amountMin);
+      }
+      if (activeOrdersFilters.amountMax) {
+        params.append('amountMax', activeOrdersFilters.amountMax);
+      }
+      
+      const queryString = params.toString();
+      const url = queryString ? `/supplier-orders/active?${queryString}` : '/supplier-orders/active';
+      
+      const response = await api.get(url);
       setActiveOrders(response.data);
       setActiveOrdersLoading(false);
     } catch (error) {
@@ -560,6 +631,7 @@ const SupplierOrders = () => {
       setActiveOrdersLoading(false);
     }
   };
+
 
   // Actualizar estado de pedido
   const updateOrderStatus = async (orderId, newStatus, notes = '') => {
@@ -1419,29 +1491,240 @@ const SupplierOrders = () => {
     </div>
   );
 
-  const renderActiveOrders = () => {
-    // Función para obtener estilo de estado
-    const getStatusStyle = (status) => {
-      switch (status) {
-        case 'pending':
-          return { className: 'status-pending', label: 'Pendiente', icon: '📝' };
-        case 'ordered':
-          return { className: 'status-ordered', label: 'Enviado', icon: '📤' };
-        case 'delivered':
-          return { className: 'status-delivered', label: 'Entregado', icon: '✅' };
-        case 'cancelled':
-          return { className: 'status-cancelled', label: 'Cancelado', icon: '❌' };
-        default:
-          return { className: 'status-unknown', label: status, icon: '❓' };
-      }
-    };
+  // Función para obtener estilo de estado
+  const getStatusStyle = (status) => {
+    switch (status) {
+      case 'pending':
+        return { className: 'status-pending', label: 'Pendiente', icon: '📝' };
+      case 'ordered':
+        return { className: 'status-ordered', label: 'Enviado', icon: '📤' };
+      case 'delivered':
+        return { className: 'status-delivered', label: 'Entregado', icon: '✅' };
+      case 'cancelled':
+        return { className: 'status-cancelled', label: 'Cancelado', icon: '❌' };
+      default:
+        return { className: 'status-unknown', label: status, icon: '❓' };
+    }
+  };
 
+  // Columnas para vista tabla de pedidos
+  const ordersTableColumns = React.useMemo(() => [
+    {
+      name: 'Pedido',
+      selector: row => `#${row.order_id}`,
+      sortable: true,
+      width: '100px'
+    },
+    {
+      name: 'Proveedor',
+      selector: row => row.supplier_name,
+      sortable: true
+    },
+    {
+      name: 'Estado',
+      selector: row => row.status,
+      sortable: true,
+      cell: row => {
+        const statusStyle = getStatusStyle(row.status);
+        return (
+          <span className={`order-status-badge ${statusStyle.className}`}>
+            <span className="status-icon">{statusStyle.icon}</span>
+            {statusStyle.label}
+          </span>
+        );
+      }
+    },
+    {
+      name: 'Fecha Pedido',
+      selector: row => new Date(row.order_date),
+      sortable: true,
+      cell: row => new Date(row.order_date).toLocaleDateString('es-ES')
+    },
+    {
+      name: 'Fecha Entrega',
+      selector: row => row.delivery_date ? new Date(row.delivery_date) : null,
+      sortable: true,
+      cell: row => row.delivery_date ? new Date(row.delivery_date).toLocaleDateString('es-ES') : '-'
+    },
+    {
+      name: 'Total',
+      selector: row => row.total_amount,
+      sortable: true,
+      cell: row => formatCurrency(row.total_amount)
+    }
+  ], []);
+
+  // Función para manejar vista de pedido
+  const handleViewOrder = async (orderId) => {
+    await loadOrderDetail(orderId);
+    setShowOrderDetailModal(true);
+  };
+
+  // Paginar pedidos para vista cards (los datos ya vienen filtrados del backend)
+  const getFilteredAndPaginatedOrders = () => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return activeOrders.slice(startIndex, endIndex);
+  };
+
+  const renderActiveOrders = () => {
+    const paginatedOrders = getFilteredAndPaginatedOrders();
+    const totalPages = Math.ceil(activeOrders.length / itemsPerPage);
+
+    // Componente de filtros reutilizable
+    const renderFilters = () => (
+      <div className="orders-filters">
+        <div className="filters-grid">
+          {/* Filtros de estado */}
+          <div className="filter-group">
+            <label>Estados:</label>
+            <div className="status-filters">
+              {Object.entries(activeOrdersFilters.status).map(([status, isActive]) => (
+                <label key={status} className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={isActive}
+                    onChange={(e) => setActiveOrdersFilters(prev => ({
+                      ...prev,
+                      status: { ...prev.status, [status]: e.target.checked }
+                    }))}
+                  />
+                  {getStatusStyle(status).label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Búsqueda */}
+          <div className="filter-group">
+            <label>Buscar:</label>
+            <input
+              type="text"
+              placeholder="Nº pedido o proveedor..."
+              value={activeOrdersFilters.search}
+              onChange={(e) => setActiveOrdersFilters(prev => ({ ...prev, search: e.target.value }))}
+              className="input-field"
+            />
+          </div>
+
+
+          {/* Fechas */}
+          <div className="filter-group">
+            <label>Desde:</label>
+            <input
+              type="date"
+              value={activeOrdersFilters.dateFrom}
+              onChange={(e) => setActiveOrdersFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
+              className="input-field"
+            />
+          </div>
+
+          <div className="filter-group">
+            <label>Hasta:</label>
+            <input
+              type="date"
+              value={activeOrdersFilters.dateTo}
+              onChange={(e) => setActiveOrdersFilters(prev => ({ ...prev, dateTo: e.target.value }))}
+              className="input-field"
+            />
+          </div>
+        </div>
+      </div>
+    );
+
+    if (ordersViewMode === 'table') {
+      return (
+        <div className="active-orders-section">
+          {/* Header consistente */}
+          <div className="section-header">
+            <h2 className="section-title">
+              <FaTruck />
+              Pedidos Activos
+            </h2>
+            
+            <div className="view-toggle">
+              <button
+                className={`toggle-btn ${ordersViewMode === 'cards' ? 'active' : ''}`}
+                onClick={() => setOrdersViewMode('cards')}
+              >
+                <FaTh /> Cards
+              </button>
+              <button
+                className={`toggle-btn ${ordersViewMode === 'table' ? 'active' : ''}`}
+                onClick={() => setOrdersViewMode('table')}
+              >
+                <FaTable /> Tabla
+              </button>
+            </div>
+          </div>
+
+          {/* Filtros consistentes */}
+          {renderFilters()}
+
+          {/* Tabla directa sin BasePage */}
+          {activeOrdersLoading ? (
+            <Loading message="Cargando pedidos activos..." size="medium" inline />
+          ) : (
+            <div className="orders-table-container">
+              <StyleSheetManager shouldForwardProp={prop => isPropValid(prop)}>
+                <DataTable
+                  className="common-table"
+                  columns={ordersTableColumns}
+                  data={activeOrders}
+                  noDataComponent="No hay pedidos activos"
+                  pagination
+                  paginationPerPage={settings.pageSize}
+                  paginationRowsPerPageOptions={[10, 25, 50, 100]}
+                  paginationComponentOptions={{
+                    rowsPerPageText: 'Filas por página',
+                    rangeSeparatorText: 'de',
+                    noRowsPerPage: false,
+                    selectAllRowsItem: true,
+                    selectAllRowsItemText: 'Todos'
+                  }}
+                  highlightOnHover
+                  onRowClicked={row => handleViewOrder(row.order_id)}
+                />
+              </StyleSheetManager>
+              
+              {activeOrders.length > 0 && (
+                <div className="total-count">
+                  Total: {activeOrders.length} pedidos
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // Vista Cards (implementación existente mejorada)
     return (
       <div className="active-orders-section">
-        <h2 className="section-title">
-          <FaTruck />
-          Pedidos Activos
-        </h2>
+        <div className="section-header">
+          <h2 className="section-title">
+            <FaTruck />
+            Pedidos Activos
+          </h2>
+          
+          <div className="view-toggle">
+            <button
+              className={`toggle-btn ${ordersViewMode === 'cards' ? 'active' : ''}`}
+              onClick={() => setOrdersViewMode('cards')}
+            >
+              <FaTh /> Cards
+            </button>
+            <button
+              className={`toggle-btn ${ordersViewMode === 'table' ? 'active' : ''}`}
+              onClick={() => setOrdersViewMode('table')}
+            >
+              <FaTable /> Tabla
+            </button>
+          </div>
+        </div>
+
+        {/* Filtros consistentes */}
+        {renderFilters()}
 
         {activeOrdersLoading ? (
           <Loading message="Cargando pedidos activos..." size="medium" inline />
@@ -1451,101 +1734,150 @@ const SupplierOrders = () => {
             <p>Los pedidos generados desde la Lista de Compras aparecerán aquí</p>
           </div>
         ) : (
-          <div className="orders-grid">
-            {activeOrders.map(order => {
-              const statusStyle = getStatusStyle(order.status);
-              return (
-                <div 
-                  key={order.order_id} 
-                  className="order-card"
-                  onClick={() => handleOrderClick(order)}
-                >
-                  <div className="order-header">
-                    <div className="order-supplier">
-                      <h3>{order.supplier_name}</h3>
-                      <span className="order-id">#{order.order_id}</span>
-                    </div>
-                    <span className={`order-status ${statusStyle.className}`}>
-                      <span className="status-icon">{statusStyle.icon}</span>
-                      {statusStyle.label}
-                    </span>
-                  </div>
-
-                  <div className="order-details">
-                    <div className="order-meta">
-                      <span className="order-date">
-                        📅 {new Date(order.order_date).toLocaleDateString('es-ES')}
+          <>
+            <div className="orders-grid">
+              {paginatedOrders.map(order => {
+                const statusStyle = getStatusStyle(order.status);
+                return (
+                  <div 
+                    key={order.order_id} 
+                    className="order-card"
+                    onClick={() => handleViewOrder(order.order_id)}
+                  >
+                    <div className="order-header">
+                      <div className="order-supplier">
+                        <h3>{order.supplier_name}</h3>
+                        <span className="order-id">#{order.order_id}</span>
+                      </div>
+                      <span className={`order-status ${statusStyle.className}`}>
+                        <span className="status-icon">{statusStyle.icon}</span>
+                        {statusStyle.label}
                       </span>
-                      {order.delivery_date && (
-                        <span className="delivery-date">
-                          🚚 {new Date(order.delivery_date).toLocaleDateString('es-ES')}
+                    </div>
+
+                    <div className="order-details">
+                      <div className="order-meta">
+                        <span className="order-date">
+                          📅 {new Date(order.order_date).toLocaleDateString('es-ES')}
                         </span>
+                        {order.delivery_date && (
+                          <span className="delivery-date">
+                            🚚 {new Date(order.delivery_date).toLocaleDateString('es-ES')}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="order-summary">
+                        <div className="order-items">
+                          📦 {order.items_count} ingredientes
+                        </div>
+                        <div className="order-total">
+                          💰 {formatCurrency(order.total_amount)}
+                        </div>
+                      </div>
+
+                      {order.notes && (
+                        <div className="order-notes">
+                          📝 {order.notes.substring(0, 50)}
+                          {order.notes.length > 50 && '...'}
+                        </div>
+                      )}
+
+                      <div className="order-creator">
+                        👤 {order.first_name} {order.last_name}
+                      </div>
+                    </div>
+
+                    <div className="order-actions">
+                      {order.status === 'pending' && (
+                        <React.Fragment key={`actions-pending-${order.order_id}`}>
+                          <button 
+                            key={`ordered-${order.order_id}`}
+                            className="btn-small ordered"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              updateOrderStatus(order.order_id, 'ordered');
+                            }}
+                          >
+                            Marcar Enviado
+                          </button>
+                          <button 
+                            key={`delete-${order.order_id}`}
+                            className="btn-small delete"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteOrder(order.order_id);
+                            }}
+                          >
+                            Eliminar
+                          </button>
+                        </React.Fragment>
+                      )}
+                      {order.status === 'ordered' && (
+                        <button 
+                          key={`delivered-${order.order_id}`}
+                          className="btn-small delivered"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateOrderStatus(order.order_id, 'delivered');
+                          }}
+                        >
+                          Marcar Entregado
+                        </button>
                       )}
                     </div>
-
-                    <div className="order-summary">
-                      <div className="order-items">
-                        📦 {order.items_count} ingredientes
-                      </div>
-                      <div className="order-total">
-                        💰 {formatCurrency(order.total_amount)}
-                      </div>
-                    </div>
-
-                    {order.notes && (
-                      <div className="order-notes">
-                        📝 {order.notes.substring(0, 50)}
-                        {order.notes.length > 50 && '...'}
-                      </div>
-                    )}
-
-                    <div className="order-creator">
-                      👤 {order.first_name} {order.last_name}
-                    </div>
                   </div>
+                );
+              })}
+            </div>
 
-                  <div className="order-actions">
-                    {order.status === 'pending' && (
-                      <React.Fragment key={`actions-pending-${order.order_id}`}>
-                        <button 
-                          key={`ordered-${order.order_id}`}
-                          className="btn-small ordered"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            updateOrderStatus(order.order_id, 'ordered');
-                          }}
-                        >
-                          Marcar Enviado
-                        </button>
-                        <button 
-                          key={`delete-${order.order_id}`}
-                          className="btn-small delete"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteOrder(order.order_id);
-                          }}
-                        >
-                          Eliminar
-                        </button>
-                      </React.Fragment>
-                    )}
-                    {order.status === 'ordered' && (
-                      <button 
-                        key={`delivered-${order.order_id}`}
-                        className="btn-small delivered"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          updateOrderStatus(order.order_id, 'delivered');
-                        }}
-                      >
-                        Marcar Entregado
-                      </button>
-                    )}
-                  </div>
+            {/* Paginación estilo DataTable */}
+            {totalPages > 1 && (
+              <div className="rdt_Pagination">
+                <div className="rdt_PaginationInfo">
+                  {((currentPage - 1) * itemsPerPage) + 1} - {Math.min(currentPage * itemsPerPage, activeOrders.length)} de {activeOrders.length}
                 </div>
-              );
-            })}
-          </div>
+                
+                <div className="rdt_PaginationNav">
+                  <button
+                    className="rdt_PaginationButton"
+                    disabled={currentPage === 1}
+                    onClick={() => setCurrentPage(currentPage - 1)}
+                  >
+                    ←
+                  </button>
+                  
+                  <span className="rdt_PaginationPage">
+                    {currentPage}
+                  </span>
+                  
+                  <button
+                    className="rdt_PaginationButton"
+                    disabled={currentPage === totalPages}
+                    onClick={() => setCurrentPage(currentPage + 1)}
+                  >
+                    →
+                  </button>
+                </div>
+                
+                <div className="rdt_PaginationSelect">
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => {
+                      // En una implementación real cambiaríamos itemsPerPage
+                      console.log('Cambiar elementos por página:', e.target.value);
+                    }}
+                  >
+                    <option value={10}>10</option>
+                    <option value={20}>20</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                  </select>
+                  <span>filas por página</span>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     );
