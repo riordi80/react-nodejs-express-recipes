@@ -3295,8 +3295,8 @@ button.pdf-download-btn:active {
 /* Contenedor de tabla consistente */
 .orders-table-container {
   background: white;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  border: none;
+  border-radius: 0;
   overflow: hidden;
   margin-top: 0;
 }
@@ -3322,13 +3322,12 @@ button.pdf-download-btn:active {
   border-top: none !important;
 }
 
-.orders-table-container .total-count {
-  padding: 16px 20px;
-  border-top: 1px solid #e2e8f0;
-  background: #f8fafc;
-  font-size: 14px;
+/* Total count styling matching Recipes page */
+.total-count {
+  text-align: right;
   color: #6b7280;
-  text-align: center;
+  font-size: 14px;
+  padding: 16px 0;
   margin: 0;
 }
 

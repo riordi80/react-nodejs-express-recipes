@@ -134,7 +134,7 @@
 /* Paginación (si se usa) */
 .rdt_Pagination {
   background: white !important;
-  border-top: 1px solid #e2e8f0 !important;
+  border-top: none !important;
   padding: 16px !important;
 }
 

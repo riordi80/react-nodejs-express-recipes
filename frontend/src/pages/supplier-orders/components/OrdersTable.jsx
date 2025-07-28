@@ -62,7 +62,7 @@ const OrdersTable = ({ orders, loading, onViewOrder }) => {
   }
 
   return (
-    <div className="orders-table-container">
+    <div>
       <StyleSheetManager shouldForwardProp={prop => isPropValid(prop)}>
         <DataTable
           className="common-table"
@@ -79,16 +79,17 @@ const OrdersTable = ({ orders, loading, onViewOrder }) => {
             selectAllRowsItem: true,
             selectAllRowsItemText: 'Todos'
           }}
+          paginationTotalRows={orders.length}
+          paginationDefaultPage={1}
           highlightOnHover
+          pointerOnHover
+          noHeader
           onRowClicked={row => onViewOrder(row.order_id)}
         />
       </StyleSheetManager>
-      
-      {orders.length > 0 && (
-        <div className="total-count">
-          Total: {orders.length} pedidos
-        </div>
-      )}
+      <div className="total-count">
+        Total: {orders.length} pedidos
+      </div>
     </div>
   );
 };
