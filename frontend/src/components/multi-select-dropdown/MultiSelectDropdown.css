@@ -1,0 +1,152 @@
+/* src/components/multi-select-dropdown/MultiSelectDropdown.css */
+
+.multiselect-dropdown {
+  position: relative;
+  width: 100%;
+}
+
+.multiselect-dropdown.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.multiselect-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 12px;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 38px;
+  box-sizing: border-box;
+}
+
+.multiselect-trigger:hover:not(:disabled) {
+  border-color: #9ca3af;
+}
+
+.multiselect-trigger:focus,
+.multiselect-trigger.open {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.multiselect-trigger:disabled {
+  background-color: #f9fafb;
+  cursor: not-allowed;
+  color: #9ca3af;
+}
+
+.multiselect-text {
+  flex: 1;
+  text-align: left;
+  color: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.multiselect-arrow {
+  font-size: 12px;
+  color: #6b7280;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.multiselect-arrow.rotated {
+  transform: rotate(180deg);
+}
+
+.multiselect-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  max-height: 200px;
+  overflow-y: auto;
+  margin-top: 2px;
+}
+
+.multiselect-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.multiselect-option:last-child {
+  border-bottom: none;
+}
+
+.multiselect-option:hover {
+  background-color: #f8fafc;
+}
+
+.multiselect-option.selected {
+  background-color: #eff6ff;
+  color: #3b82f6;
+}
+
+.multiselect-option.selected:hover {
+  background-color: #dbeafe;
+}
+
+.option-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.option-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.option-label {
+  font-size: 14px;
+  color: inherit;
+}
+
+.option-check {
+  font-size: 12px;
+  color: #3b82f6;
+  flex-shrink: 0;
+}
+
+/* Estados especiales para mostrar cuando hay elementos seleccionados */
+.multiselect-trigger.has-selection .multiselect-text {
+  color: #1e293b;
+  font-weight: 500;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .multiselect-menu {
+    max-height: 150px;
+  }
+  
+  .multiselect-option {
+    padding: 12px;
+  }
+  
+  .option-label {
+    font-size: 15px;
+  }
+}

@@ -122,6 +122,8 @@ const ActiveOrdersSection = ({
       <OrdersFilterPanel 
         filters={activeOrdersFilters}
         onFiltersChange={setActiveOrdersFilters}
+        viewMode={ordersViewMode}
+        onViewModeChange={setOrdersViewMode}
       />
 
       {/* Vista según el modo seleccionado */}

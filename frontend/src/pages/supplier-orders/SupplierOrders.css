@@ -44,6 +44,11 @@
   color: white;
 }
 
+.tab-btn.active:hover {
+  background: #3b82f6;
+  color: white;
+}
+
 .tab-btn.active::after {
   content: '';
   position: absolute;
@@ -730,6 +735,11 @@
   background: #3b82f6;
   color: white;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.mode-btn.active:hover {
+  background: #3b82f6;
+  color: white;
 }
 
 .event-selection-section {
@@ -1457,6 +1467,11 @@
   font-weight: 600;
 }
 
+.mode-mobile-dropdown-item.active:hover {
+  background: #eff6ff;
+  color: #3b82f6;
+}
+
 .mode-mobile-dropdown-item-icon {
   font-size: 14px;
   margin-right: 10px;
@@ -1566,6 +1581,11 @@
   background: #eff6ff;
   color: #3b82f6;
   font-weight: 600;
+}
+
+.mobile-dropdown-item.active:hover {
+  background: #eff6ff;
+  color: #3b82f6;
 }
 
 .mobile-dropdown-item-icon {
@@ -2531,8 +2551,13 @@ button.pdf-download-btn:active {
   
   /* Orders filters responsive - adjust for 3 columns */
   .orders-filters .filters-grid {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr !important;
     gap: 16px;
+  }
+  
+  /* Asegurar que el dropdown se adapte correctamente en tablet */
+  .orders-filters .status-dropdown {
+    width: 100%;
   }
   
   /* En tablet, filters-grid-compact también debería usar solo 2 columnas */
@@ -2644,8 +2669,43 @@ button.pdf-download-btn:active {
   
   /* Orders filters mobile - single column */
   .orders-filters .filters-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
     gap: 16px;
+  }
+  
+  /* En móvil, priorizar espacio vertical para el dropdown */
+  .orders-filters .filter-group label {
+    margin-bottom: 4px;
+  }
+  
+  .orders-filters .status-dropdown {
+    width: 100%;
+  }
+  
+  .orders-filters .input-field {
+    width: 100%;
+    box-sizing: border-box;
+  }
+  
+  /* Toggle móvil dentro del panel de filtros - mostrar en móvil */
+  .mobile-view-toggle {
+    display: flex !important;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid #e2e8f0;
+  }
+  
+  .mobile-view-toggle label {
+    font-weight: 500;
+    color: #374151;
+    font-size: 14px;
+  }
+  
+  /* Ocultar el toggle del header en móvil */
+  .section-header .view-toggle {
+    display: none !important;
   }
   
   /* Hacer responsive también el layout compacto */
@@ -3125,6 +3185,11 @@ button.pdf-download-btn:active {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
+.toggle-btn.active:hover {
+  background: #3b82f6;
+  color: white;
+}
+
 .orders-filters {
   background: white;
   border: 1px solid #e2e8f0;
@@ -3183,6 +3248,16 @@ button.pdf-download-btn:active {
 
 .checkbox-label input[type="checkbox"] {
   margin: 0;
+}
+
+/* Toggle móvil - oculto por defecto en desktop/tablet */
+.mobile-view-toggle {
+  display: none;
+}
+
+/* Mostrar toggle del header en desktop/tablet */
+.section-header .view-toggle {
+  display: flex;
 }
 
 /* Paginación estilo DataTable para Cards */

@@ -221,6 +221,16 @@ a:visited {
 .navbar-item-inner.active .link-text {
     color: white;
 }
+.navbar-item-inner.active:hover {
+    color: white;
+    background: rgb(var(--primary));
+}
+.navbar-item-inner.active:hover .navbar-item-inner-icon-wrapper svg {
+    color: white;
+}
+.navbar-item-inner.active:hover .link-text {
+    color: white;
+}
 .navbar-item-inner-icon-wrapper {
     width: 5rem;
     position: relative;
