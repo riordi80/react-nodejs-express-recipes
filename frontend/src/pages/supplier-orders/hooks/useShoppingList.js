@@ -187,37 +187,63 @@ export const useShoppingList = () => {
       const quantity = parseFloat(item.quantity.replace(',', '.'));
       const totalCost = quantity * ingredient.base_price;
 
-      // Agrupar por "Pedido Manual"
-      if (!manualSupplierGroups[999]) {
-        manualSupplierGroups[999] = {
-          supplierId: 999,
-          supplierName: 'Pedido Manual',
+      // Agrupar por proveedor preferido del ingrediente, o "Sin Proveedor" si no tiene
+      const preferredSupplier = ingredient.preferredSupplier;
+      const supplierId = preferredSupplier?.supplier_id || 999;
+      const supplierName = preferredSupplier?.supplier_name || 'Sin Proveedor Asignado';
+
+      if (!manualSupplierGroups[supplierId]) {
+        manualSupplierGroups[supplierId] = {
+          supplierId: supplierId,
+          supplierName: supplierName,
           ingredients: [],
           supplierTotal: 0
         };
+      }
+
+      // Usar datos del proveedor preferido si está disponible
+      const packageSize = preferredSupplier?.package_size || 1;
+      const packageUnit = preferredSupplier ? (preferredSupplier.package_unit || ingredient.unit) : ingredient.unit;
+      const supplierPrice = preferredSupplier?.price || ingredient.base_price;
+      const minimumOrderQuantity = preferredSupplier?.minimum_order_quantity || 1;
+      
+      // Calcular paquetes necesarios si tiene proveedor
+      let packagesToBuy = 0;
+      let realQuantity = quantity;
+      let realTotalCost = totalCost;
+      
+      if (preferredSupplier && packageSize > 1) {
+        packagesToBuy = Math.max(minimumOrderQuantity, Math.ceil(quantity / packageSize));
+        realQuantity = packagesToBuy * packageSize;
+        realTotalCost = packagesToBuy * supplierPrice;
       }
 
       const ingredientData = {
         ingredientId: ingredient.ingredient_id,
         name: ingredient.name,
         needed: quantity,
+        neededBase: quantity,
+        wastePercent: ingredient.waste_percent || 0,
         inStock: ingredient.stock || 0,
         toBuy: quantity,
         unit: ingredient.unit,
         pricePerUnit: ingredient.base_price,
         totalCost: totalCost,
-        packageSize: 1,
-        packageUnit: 'unidad',
-        minimumOrderQuantity: 1,
-        supplierPrice: ingredient.base_price,
-        packagesToBuy: 0,
-        realQuantity: 0,
-        realTotalCost: totalCost,
+        packageSize: packageSize,
+        packageUnit: packageUnit,
+        minimumOrderQuantity: minimumOrderQuantity,
+        supplierPrice: supplierPrice,
+        packagesToBuy: packagesToBuy,
+        realQuantity: realQuantity,
+        realTotalCost: realTotalCost,
+        supplierStatus: preferredSupplier ? (supplierPrice > 0 ? 'complete' : 'incomplete') : 'missing',
         notes: item.notes
       };
 
-      manualSupplierGroups[999].ingredients.push(ingredientData);
-      manualSupplierGroups[999].supplierTotal += totalCost;
+      manualSupplierGroups[supplierId].ingredients.push(ingredientData);
+      // Usar el costo real si hay proveedor, sino usar el costo base
+      const costToAdd = realTotalCost > totalCost ? realTotalCost : totalCost;
+      manualSupplierGroups[supplierId].supplierTotal += costToAdd;
     });
 
     const totalCost = Object.values(manualSupplierGroups)
@@ -294,6 +320,7 @@ export const useShoppingList = () => {
     // Actions
     loadAvailableEvents,
     loadShoppingList,
+    loadAvailableIngredients,
     handleEventSelection,
     handleSelectAllEvents,
     handleModeChange,

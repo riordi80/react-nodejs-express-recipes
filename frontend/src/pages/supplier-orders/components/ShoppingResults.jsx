@@ -116,6 +116,7 @@ const ShoppingResults = ({
             <SupplierGroup 
               key={supplier.supplierId}
               supplier={supplier}
+              shoppingList={shoppingList}
               onIngredientRowClick={onIngredientRowClick}
             />
           ))}
@@ -129,7 +130,7 @@ const ShoppingResults = ({
   );
 };
 
-const SupplierGroup = ({ supplier, onIngredientRowClick }) => {
+const SupplierGroup = ({ supplier, shoppingList, onIngredientRowClick }) => {
   return (
     <div className="supplier-group">
       <div className="supplier-header">
@@ -163,32 +164,74 @@ const SupplierGroup = ({ supplier, onIngredientRowClick }) => {
                 >
                   <td>
                     <div className="ingredient-name-with-status">
-                      <span>{ingredient.name}</span>
-                      <StatusIcon 
-                        className={`supplier-status-icon ${statusIndicator.className}`} 
-                        title={statusIndicator.title}
-                      />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>{ingredient.name}</span>
+                        <StatusIcon 
+                          className={`supplier-status-icon ${statusIndicator.className}`} 
+                          title={statusIndicator.title}
+                        />
+                      </div>
+                      {ingredient.packageSize && ingredient.packageUnit && ingredient.packageSize !== 1 && 
+                       !['kg', 'g', 'litros', 'ml', 'unit', 'unidad', 'unidades'].includes(ingredient.packageUnit.toLowerCase()) && (
+                        <small style={{ 
+                          fontSize: '11px', 
+                          color: '#64748b',
+                          fontStyle: 'italic',
+                          display: 'block',
+                          marginTop: '2px'
+                        }}>
+                          {formatDecimal(ingredient.packageSize)} {ingredient.unit} por {ingredient.packageUnit}
+                        </small>
+                      )}
                     </div>
                   </td>
                   <td>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                      <span>{formatDecimal(ingredient.needed)} {ingredient.unit}</span>
-                      {ingredient.wastePercent > 0 && (
-                        <span style={{ 
-                          fontSize: '11px', 
-                          color: '#64748b',
-                          fontStyle: 'italic'
-                        }}>
-                          Base: {formatDecimal(ingredient.neededBase)} + {(ingredient.wastePercent * 100).toFixed(1)}% merma
-                        </span>
+                      {/* Mostrar en unidades del proveedor si existe, sino en unidades del ingrediente */}
+                      {/* Para pedidos manuales, mostrar en unidades del proveedor. Para otros, mantener comportamiento original */}
+                      {shoppingList.filters?.manual && ingredient.packageSize && ingredient.packageUnit && ingredient.packageSize > 1 ? (
+                        <div>
+                          <span>{formatDecimal(Math.ceil(ingredient.needed / ingredient.packageSize))} {ingredient.packageUnit}</span>
+                          <small style={{ 
+                            fontSize: '11px', 
+                            color: '#64748b',
+                            fontStyle: 'italic',
+                            display: 'block'
+                          }}>
+                            ({formatDecimal(Math.ceil(ingredient.needed / ingredient.packageSize) * ingredient.packageSize)} {ingredient.unit})
+                          </small>
+                        </div>
+                      ) : shoppingList.filters?.manual ? (
+                        <span>{formatDecimal(ingredient.needed)} {ingredient.packageUnit || ingredient.unit}</span>
+                      ) : (
+                        // Comportamiento original para pedidos automáticos y de eventos
+                        <div>
+                          <span>{formatDecimal(ingredient.needed)} {ingredient.unit}</span>
+                          {ingredient.wastePercent > 0 && (
+                            <span style={{ 
+                              fontSize: '11px', 
+                              color: '#64748b',
+                              fontStyle: 'italic',
+                              display: 'block'
+                            }}>
+                              Base: {formatDecimal(ingredient.neededBase)} + {(ingredient.wastePercent * 100).toFixed(1)}% merma
+                            </span>
+                          )}
+                        </div>
                       )}
                     </div>
                   </td>
                   <td>{formatDecimal(ingredient.inStock)} {ingredient.unit}</td>
-                  <td className="to-buy">{formatDecimal(ingredient.toBuy)} {ingredient.unit}</td>
+                  <td className="to-buy">
+                    {shoppingList.filters?.manual && ingredient.packageSize && ingredient.packageUnit && ingredient.packageSize > 1 ? (
+                      `${formatDecimal(Math.ceil(ingredient.toBuy / ingredient.packageSize))} ${ingredient.packageUnit}`
+                    ) : (
+                      `${formatDecimal(ingredient.toBuy)} ${ingredient.unit}`
+                    )}
+                  </td>
                   <td className="package-info">
-                    {ingredient.packageSize ? (
-                      `${formatDecimal(ingredient.packageSize)} ${ingredient.packageUnit}`
+                    {ingredient.packageSize && ingredient.packageSize > 1 ? (
+                      `${formatDecimal(ingredient.packageSize)} ${ingredient.unit}`
                     ) : (
                       `1 ${ingredient.unit}`
                     )}

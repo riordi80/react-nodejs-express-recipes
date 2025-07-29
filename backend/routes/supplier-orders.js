@@ -193,7 +193,7 @@ router.get('/shopping-list', authenticateToken, authorizeRoles('admin', 'chef'),
         AND i.is_available = 1
       GROUP BY i.ingredient_id, i.name, i.unit, i.base_price, i.stock, i.waste_percent
       HAVING to_buy > 0
-      ORDER BY COALESCE(s.name, 'zzz'), i.name
+      ORDER BY COALESCE(MAX(s.name), 'zzz'), i.name
     `, queryParams);
 
 
@@ -405,12 +405,16 @@ router.post('/generate', authenticateToken, authorizeRoles('admin', 'chef'), asy
           realQuantity = 0,
           supplierPrice = 0,
           realTotalCost = 0,
-          totalCost = 0
+          totalCost = 0,
+          packageSize = 1
         } = ingredient;
 
         // Usar cantidades reales si están disponibles, sino las básicas
         const quantity = realQuantity > 0 ? realQuantity : toBuy;
-        const unitPrice = supplierPrice > 0 ? supplierPrice : (totalCost / toBuy);
+        // Calcular precio unitario real: si hay proveedor, dividir precio del paquete por tamaño del paquete
+        const unitPrice = supplierPrice > 0 && packageSize > 1 
+          ? (supplierPrice / packageSize) 
+          : (supplierPrice > 0 ? supplierPrice : (totalCost / toBuy));
         const itemTotalPrice = realTotalCost > 0 ? realTotalCost : totalCost;
 
         await connection.execute(`

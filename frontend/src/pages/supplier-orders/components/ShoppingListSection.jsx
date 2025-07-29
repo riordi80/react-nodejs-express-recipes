@@ -35,17 +35,20 @@ const ShoppingListSection = forwardRef(({
         }
       },
       onConfirmGenerateOrders: async (deliveryDate, notes) => {
-        const success = await shoppingListHook.confirmGenerateOrders(deliveryDate, notes);
-        if (success) {
-          onNavigateToActiveOrders();
-        }
-        return success;
+        // Esta función se maneja ahora en el componente principal
+        // La redirección se hace automáticamente después de generar el pedido
+        return true;
       },
       onCloseSupplierWarningModal: () => {
         shoppingListHook.setShowSupplierWarningModal(false);
         shoppingListHook.setIngredientsWithoutProvider([]);
       }
-    })
+    }),
+    // Exponer funciones de recarga para refrescar desde el componente principal
+    refreshData: () => {
+      shoppingListHook.loadShoppingList();
+      shoppingListHook.loadAvailableIngredients();
+    }
   }), [shoppingListHook, onNavigateToActiveOrders]);
 
   // Load events when component mounts or when switching to shopping list

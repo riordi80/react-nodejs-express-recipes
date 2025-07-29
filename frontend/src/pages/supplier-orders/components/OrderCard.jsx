@@ -28,26 +28,27 @@ const OrderCard = ({ order, onViewOrder, onUpdateStatus, onDeleteOrder }) => {
   };
 
   return (
-    <div 
-      className="order-card"
-      onClick={handleCardClick}
-    >
-      <div className="order-header">
-        <div className="order-supplier">
-          <h3>{order.supplier_name}</h3>
-          <span className="order-id">#{order.order_id}</span>
-        </div>
-        <span className={`order-status ${statusStyle.className}`}>
-          {statusStyle.label.toUpperCase()}
-        </span>
-      </div>
-
-      <div className="order-details">
-        <div className="order-meta">
-          <span className="order-date">
-            📅 {new Date(order.order_date).toLocaleDateString('es-ES')}
+    <>
+      <div 
+        className="order-card"
+        onClick={handleCardClick}
+      >
+        <div className="order-header">
+          <div className="order-supplier">
+            <h3>{order.supplier_name}</h3>
+            <span className="order-id">#{order.order_id}</span>
+          </div>
+          <span className={`order-status ${statusStyle.className}`}>
+            {statusStyle.label.toUpperCase()}
           </span>
-          {order.delivery_date && (
+        </div>
+
+        <div className="order-details">
+          <div className="order-meta">
+            <span className="order-date">
+              📅 {new Date(order.order_date).toLocaleDateString('es-ES')}
+            </span>
+            {order.delivery_date && (
             <span className="delivery-date">
               🚚 {new Date(order.delivery_date).toLocaleDateString('es-ES')}
             </span>
@@ -104,8 +105,9 @@ Revisar cantidades e importes
           </button>
         )}
       </div>
+      </div>
 
-      {/* Modal de Confirmación */}
+      {/* Modal de Confirmación - Fuera de la card para correcto posicionamiento */}
       <ConfirmModal
         isOpen={showConfirmModal}
         onClose={() => setShowConfirmModal(false)}
@@ -115,7 +117,7 @@ Revisar cantidades e importes
         confirmText="Confirmar"
         cancelText="Cancelar"
       />
-    </div>
+    </>
   );
 };
 

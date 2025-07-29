@@ -141,9 +141,9 @@ const SupplierOrders = () => {
       return;
     }
 
-    // Verificar si hay ingredientes sin proveedor asignado
+    // Verificar si hay ingredientes sin proveedor asignado (excluir pedidos manuales)
     const suppliersWithoutProvider = shoppingList.ingredientsBySupplier.filter(
-      supplier => supplier.supplierId === 999 || supplier.supplierName === 'Sin Proveedor Asignado'
+      supplier => supplier.supplierName === 'Sin Proveedor Asignado'
     );
 
     if (suppliersWithoutProvider.length > 0) {
@@ -154,9 +154,9 @@ const SupplierOrders = () => {
       return;
     }
 
-    // Solo generar pedidos para proveedores reales (filtrar los de ID 999)
+    // Solo generar pedidos para proveedores reales y pedidos manuales (filtrar solo sin proveedor asignado)
     const realSuppliers = shoppingList.ingredientsBySupplier.filter(
-      supplier => supplier.supplierId !== 999 && supplier.supplierName !== 'Sin Proveedor Asignado'
+      supplier => supplier.supplierName !== 'Sin Proveedor Asignado'
     );
 
     if (realSuppliers.length === 0) {
@@ -188,6 +188,9 @@ const SupplierOrders = () => {
       });
 
       if (response.data.success) {
+        // Recargar pedidos activos antes de cambiar de tab
+        await activeOrdersHook.loadActiveOrders();
+        
         // Cambiar a la pestaña de pedidos activos para ver los pedidos creados
         setActiveTab('active-orders');
         
@@ -288,7 +291,11 @@ const SupplierOrders = () => {
             <ShoppingListSection
               ref={shoppingListRef}
               onIngredientRowClick={handleIngredientRowClick}
-              onNavigateToActiveOrders={() => setActiveTab('active-orders')}
+              onNavigateToActiveOrders={async () => {
+                // Recargar pedidos activos antes de cambiar de tab
+                await activeOrdersHook.loadActiveOrders();
+                setActiveTab('active-orders');
+              }}
               isModeDropdownOpen={isModeDropdownOpen}
               setIsModeDropdownOpen={setIsModeDropdownOpen}
               onGenerateOrders={handleGenerateOrders}
@@ -328,8 +335,10 @@ const SupplierOrders = () => {
         onSave={handleSaveIngredient}
         onIngredientUpdated={async () => {
           console.log('🔄 Ingrediente actualizado desde modal, recargando datos...');
-          // El shopping list se recargará automáticamente a través de su hook
-          // El dashboard ahora maneja su propio estado
+          // Refrescar la lista de compras y ingredientes disponibles
+          if (shoppingListRef.current?.refreshData) {
+            shoppingListRef.current.refreshData();
+          }
         }}
       />
 

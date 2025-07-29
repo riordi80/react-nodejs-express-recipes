@@ -30,7 +30,7 @@ const ConfirmModal = ({
         backgroundColor: '#fff', 
         borderRadius: '8px', 
         width: '90%', 
-        maxWidth: '400px', 
+        maxWidth: '500px', 
         boxShadow: '0 2px 10px rgba(0,0,0,0.3)' 
       }}>
         <div style={{ 
@@ -59,7 +59,7 @@ const ConfirmModal = ({
             ×
           </button>
         </div>
-        <div style={{ padding: '20px', textAlign: 'center' }}>
+        <div style={{ padding: '20px 30px', textAlign: 'center' }}>
           <p style={{ 
             fontSize: '16px', 
             color: '#374151', 

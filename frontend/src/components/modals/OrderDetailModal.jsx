@@ -4,6 +4,7 @@ import { FaTruck, FaCalendarAlt, FaStickyNote, FaEuroSign, FaPhone, FaEnvelope, 
 import { formatCurrency, formatDecimal } from '../../utils/formatters';
 import { getStatusStyle } from '../../utils/orderStatusHelpers';
 import Modal from '../modal/Modal';
+import ConfirmModal from './ConfirmModal';
 import { usePDFGenerator } from '../../hooks/usePDFGenerator';
 import api from '../../api/axios';
 
@@ -28,6 +29,7 @@ const OrderDetailModal = ({
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showUnsavedChangesModal, setShowUnsavedChangesModal] = useState(false);
   const { generateOrderPDF } = usePDFGenerator();
 
   // Inicializar datos editables cuando se abre el modal
@@ -140,10 +142,10 @@ const OrderDetailModal = ({
 
   const handleStatusUpdate = async (newStatus) => {
     try {
-      // Si hay cambios pendientes y vamos a marcar como entregado, guardar primero
+      // Si hay cambios pendientes y vamos a marcar como entregado, mostrar confirmación
       if (newStatus === 'delivered' && hasChanges) {
-        console.log('Guardando cambios antes de marcar como entregado...');
-        await saveChanges();
+        setShowUnsavedChangesModal(true);
+        return; // Salir para mostrar el modal
       }
       
       console.log(`Actualizando estado del pedido ${order.order_id} a ${newStatus}`);
@@ -160,6 +162,23 @@ const OrderDetailModal = ({
     if (confirm('¿Estás seguro de que quieres eliminar este pedido?')) {
       await onDelete(order.order_id);
       onClose();
+    }
+  };
+
+  // Función para confirmar cambios no guardados y marcar como entregado
+  const handleConfirmUnsavedChanges = async () => {
+    try {
+      setShowUnsavedChangesModal(false);
+      console.log('Guardando cambios antes de marcar como entregado...');
+      await saveChanges();
+      
+      console.log(`Actualizando estado del pedido ${order.order_id} a delivered`);
+      setUpdatingStatus(true);
+      await onStatusUpdate(order.order_id, 'delivered');
+      setUpdatingStatus(false);
+    } catch (error) {
+      console.error('Error al actualizar estado:', error);
+      setUpdatingStatus(false);
     }
   };
 
@@ -577,6 +596,18 @@ const OrderDetailModal = ({
           </div>
         </div>
       )}
+
+      {/* Modal de confirmación para cambios no guardados */}
+      <ConfirmModal
+        isOpen={showUnsavedChangesModal}
+        onClose={() => setShowUnsavedChangesModal(false)}
+        onConfirm={handleConfirmUnsavedChanges}
+        title="Cambios sin Guardar"
+        message="Hay cambios sin guardar en cantidades e importes."
+        confirmText="Guardar y Confirmar Recepción"
+        cancelText="Cancelar"
+        isLoading={updatingStatus}
+      />
     </Modal>
   );
 };

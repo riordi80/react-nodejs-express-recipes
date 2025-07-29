@@ -1,6 +1,5 @@
 import React from 'react';
 import Modal from '../../../components/modal/Modal';
-import { parseEuropeanNumber, formatDecimal } from '../../../utils/formatters';
 
 export default function EditSupplierIngredientModal({
   isOpen,
@@ -35,11 +34,24 @@ export default function EditSupplierIngredientModal({
               <input
                 type="text"
                 className="input-field-inline"
-                value={editingSupplierIngredient?.price ? formatDecimal(editingSupplierIngredient.price) : ''}
-                onChange={(e) => setEditingSupplierIngredient({
-                  ...editingSupplierIngredient,
-                  price: parseEuropeanNumber(e.target.value)
-                })}
+                value={editingSupplierIngredient?.price || ''}
+                onChange={(e) => {
+                  setEditingSupplierIngredient({
+                    ...editingSupplierIngredient,
+                    price: e.target.value
+                  });
+                }}
+                onBlur={(e) => {
+                  // Conversión solo al perder el foco
+                  const value = e.target.value.replace(',', '.');
+                  const numericValue = parseFloat(value);
+                  if (!isNaN(numericValue)) {
+                    setEditingSupplierIngredient({
+                      ...editingSupplierIngredient,
+                      price: numericValue
+                    });
+                  }
+                }}
                 placeholder="0,00"
                 required
               />
@@ -61,11 +73,29 @@ export default function EditSupplierIngredientModal({
               <input
                 type="text"
                 className="input-field-inline"
-                value={editingSupplierIngredient?.package_size ? formatDecimal(editingSupplierIngredient.package_size) : '1,0'}
-                onChange={(e) => setEditingSupplierIngredient({
-                  ...editingSupplierIngredient,
-                  package_size: parseEuropeanNumber(e.target.value)
-                })}
+                value={editingSupplierIngredient?.package_size || '1'}
+                onChange={(e) => {
+                  setEditingSupplierIngredient({
+                    ...editingSupplierIngredient,
+                    package_size: e.target.value
+                  });
+                }}
+                onBlur={(e) => {
+                  // Conversión solo al perder el foco
+                  const value = e.target.value.replace(',', '.');
+                  const numericValue = parseFloat(value);
+                  if (!isNaN(numericValue) && numericValue > 0) {
+                    setEditingSupplierIngredient({
+                      ...editingSupplierIngredient,
+                      package_size: numericValue
+                    });
+                  } else {
+                    setEditingSupplierIngredient({
+                      ...editingSupplierIngredient,
+                      package_size: 1
+                    });
+                  }
+                }}
                 placeholder="1,0"
                 required
               />
@@ -102,11 +132,29 @@ export default function EditSupplierIngredientModal({
               <input
                 type="text"
                 className="input-field-inline"
-                value={editingSupplierIngredient?.minimum_order_quantity ? formatDecimal(editingSupplierIngredient.minimum_order_quantity) : '1,0'}
-                onChange={(e) => setEditingSupplierIngredient({
-                  ...editingSupplierIngredient,
-                  minimum_order_quantity: parseEuropeanNumber(e.target.value)
-                })}
+                value={editingSupplierIngredient?.minimum_order_quantity || '1'}
+                onChange={(e) => {
+                  setEditingSupplierIngredient({
+                    ...editingSupplierIngredient,
+                    minimum_order_quantity: e.target.value
+                  });
+                }}
+                onBlur={(e) => {
+                  // Conversión solo al perder el foco
+                  const value = e.target.value.replace(',', '.');
+                  const numericValue = parseFloat(value);
+                  if (!isNaN(numericValue) && numericValue > 0) {
+                    setEditingSupplierIngredient({
+                      ...editingSupplierIngredient,
+                      minimum_order_quantity: numericValue
+                    });
+                  } else {
+                    setEditingSupplierIngredient({
+                      ...editingSupplierIngredient,
+                      minimum_order_quantity: 1
+                    });
+                  }
+                }}
                 placeholder="1,0"
                 required
               />

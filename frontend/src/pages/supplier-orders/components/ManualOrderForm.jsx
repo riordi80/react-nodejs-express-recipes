@@ -162,7 +162,15 @@ const ManualOrderItem = ({ item, availableIngredients, onUpdateItem, onRemoveIte
             Cantidad deseada
             {item.ingredientId && (() => {
               const ingredient = availableIngredients.find(ing => ing.ingredient_id === parseInt(item.ingredientId));
-              return ingredient ? ` (${ingredient.unit})` : '';
+              if (!ingredient) return '';
+              
+              // Si tiene proveedor preferido, mostrar la unidad del paquete del proveedor
+              if (ingredient.preferredSupplier) {
+                return ` (${ingredient.preferredSupplier.package_unit})`;
+              }
+              
+              // Si no tiene proveedor, mostrar la unidad del ingrediente
+              return ` (${ingredient.unit})`;
             })()}
           </label>
           <input
@@ -207,8 +215,7 @@ const ManualOrderItem = ({ item, availableIngredients, onUpdateItem, onRemoveIte
                   borderLeft: '3px solid #3b82f6'
                 }}
               >
-                💡 El proveedor vende en paquetes de {formatDecimal(packageSize)} {ingredient.unit} 
-                por {formatCurrency(supplier.price)} ({supplier.package_unit})
+                💡 El proveedor vende en paquetes de {formatDecimal(packageSize)} {ingredient.unit === 'unit' ? 'unidades' : ingredient.unit} por {formatCurrency(supplier.price)} ({supplier.package_unit})
               </small>
             );
           })()}
