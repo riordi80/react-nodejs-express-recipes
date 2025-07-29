@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { FiArrowLeft, FiEdit3, FiTrash2, FiSave, FiX } from 'react-icons/fi';
 // BasePage removed - using custom layout
-import Modal from '../../components/modal/Modal';
+import ConfirmModal from '../../components/modals/ConfirmModal';
 import Loading from '../../components/loading';
 import AddIngredientModal from './components/AddIngredientModal';
 import EditIngredientModal from './components/EditIngredientModal';
@@ -19,6 +19,7 @@ const RecipeDetail = () => {
   
   const [recipe, setRecipe] = useState(null);
   const [ingredients, setIngredients] = useState([]);
+  const [temporalIngredients, setTemporalIngredients] = useState([]); // Para nuevas recetas
   const [allergens, setAllergens] = useState([]);
   const [categories, setCategories] = useState([]);
   const [availableCategories, setAvailableCategories] = useState([]);
@@ -52,6 +53,11 @@ const RecipeDetail = () => {
     setTimeout(() => setMessage(null), 3000);
   };
 
+  // Función para obtener los ingredientes a mostrar (temporales o reales)
+  const getDisplayIngredients = () => {
+    return isNewRecipe ? temporalIngredients : ingredients;
+  };
+
 
   useEffect(() => {
     if (isNewRecipe) {
@@ -80,6 +86,7 @@ const RecipeDetail = () => {
         tax_id: 1 // Valor por defecto
       });
       setIngredients([]);
+      setTemporalIngredients([]);
       setAllergens([]);
       setCategories([]);
       setSelectedCategoryIds([]);
@@ -218,8 +225,15 @@ const RecipeDetail = () => {
         return;
       }
       if (isNewRecipe) {
+        // Sanitizar campos antes de enviar
+        const sanitizedRecipe = {
+          ...recipe,
+          prep_time: recipe.prep_time === '' ? null : recipe.prep_time,
+          difficulty: recipe.difficulty === '' ? null : recipe.difficulty
+        };
+        
         // Crear nueva receta
-        const response = await api.post('/recipes', recipe);
+        const response = await api.post('/recipes', sanitizedRecipe);
         const newRecipeId = response.data.id;
         
         // Guardar categorías seleccionadas
@@ -229,6 +243,23 @@ const RecipeDetail = () => {
           });
         } catch (categoryErr) {
           console.warn('Error saving categories:', categoryErr);
+        }
+        
+        // Añadir ingredientes temporales si los hay
+        if (temporalIngredients && temporalIngredients.length > 0) {
+          try {
+            for (const ingredient of temporalIngredients) {
+              await api.post(`/recipes/${newRecipeId}/ingredients`, {
+                ingredient_id: ingredient.ingredient_id,
+                quantity_per_serving: ingredient.quantity_per_serving,
+                section_id: ingredient.section_id
+              });
+            }
+          } catch (ingredientsErr) {
+            console.warn('Error saving ingredients:', ingredientsErr);
+            // Mostrar advertencia pero no impedir la navegación
+            notify('Receta creada, pero hubo un error al guardar algunos ingredientes', 'warning');
+          }
         }
         
         // Recalcular costes para la nueva receta
@@ -241,8 +272,15 @@ const RecipeDetail = () => {
         // Navegar a la receta creada
         navigate(`/recipes/${newRecipeId}`);
       } else {
+        // Sanitizar campos antes de enviar
+        const sanitizedRecipe = {
+          ...recipe,
+          prep_time: recipe.prep_time === '' ? null : recipe.prep_time,
+          difficulty: recipe.difficulty === '' ? null : recipe.difficulty
+        };
+        
         // Actualizar receta existente
-        await api.put(`/recipes/${id}`, recipe);
+        await api.put(`/recipes/${id}`, sanitizedRecipe);
         
         // Guardar categorías seleccionadas
         try {
@@ -280,8 +318,9 @@ const RecipeDetail = () => {
     let totalCost = 0;
     let costPerServing = 0;
     
-    if (ingredients && ingredients.length > 0) {
-      totalCost = ingredients.reduce((total, ingredient) => {
+    const displayIngredients = getDisplayIngredients();
+    if (displayIngredients && displayIngredients.length > 0) {
+      totalCost = displayIngredients.reduce((total, ingredient) => {
         const quantity = parseFloat(ingredient.quantity_per_serving) || 0;
         const price = parseFloat(ingredient.base_price) || 0;
         const wastePercent = parseFloat(ingredient.waste_percent) || 0;
@@ -384,9 +423,19 @@ const RecipeDetail = () => {
 
   const handleRemoveIngredient = async () => {
     try {
-      await api.delete(`/recipes/${id}/ingredients/${ingredientToDelete.ingredient_id}`);
-      // Recargar ingredientes después de eliminar
-      await loadRecipeData();
+      if (isNewRecipe) {
+        // Para nuevas recetas: eliminar del estado temporal
+        const updatedTemporalIngredients = temporalIngredients.filter(
+          ingredient => ingredient.ingredient_id !== ingredientToDelete.ingredient_id
+        );
+        setTemporalIngredients(updatedTemporalIngredients);
+      } else {
+        // Para recetas existentes: eliminar del backend
+        await api.delete(`/recipes/${id}/ingredients/${ingredientToDelete.ingredient_id}`);
+        // Recargar ingredientes después de eliminar
+        await loadRecipeData();
+      }
+      
       setIsDeleteIngredientOpen(false);
       setIngredientToDelete(null);
     } catch (error) {
@@ -405,6 +454,16 @@ const RecipeDetail = () => {
     await loadRecipeData();
     setIsEditIngredientOpen(false);
     setIngredientToEdit(null);
+  };
+
+  // Función para actualizar un ingrediente en el estado temporal
+  const handleTemporalIngredientUpdate = (updatedIngredient) => {
+    const updatedTemporalIngredients = temporalIngredients.map(ingredient =>
+      ingredient.ingredient_id === updatedIngredient.ingredient_id
+        ? updatedIngredient
+        : ingredient
+    );
+    setTemporalIngredients(updatedTemporalIngredients);
   };
 
   // Crear un header personalizado con título a la izquierda y botones a la derecha
@@ -571,6 +630,85 @@ const RecipeDetail = () => {
           </div>
         </div>
 
+        {/* Event Planning Section */}
+        <div className="recipe-section">
+          <h2 className="section-title">📊 Calculadora de Costos</h2>
+          <div className="section-content">
+            <div className="form-grid-3">
+              <div className="form-field">
+                <label className="required-label">Comensales</label>
+                {isEditing ? (
+                  <div>
+                    <input
+                      type="number"
+                      className="form-input"
+                      value={recipe.servings || ''}
+                      min={recipe.production_servings || 1}
+                      onChange={(e) => {
+                        setRecipe({...recipe, servings: e.target.value});
+                        if (validationErrors.servings) {
+                          setValidationErrors({...validationErrors, servings: null});
+                        }
+                      }}
+                      placeholder="Para cuántas personas"
+                    />
+                    {recipe.production_servings && parseInt(recipe.servings) < parseInt(recipe.production_servings) && (
+                      <div style={{ 
+                        fontSize: '12px', 
+                        color: '#ef4444', 
+                        marginTop: '4px',
+                        fontStyle: 'italic'
+                      }}>
+                        Debe ser mínimo {recipe.production_servings} comensales
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="form-value">{recipe.servings || 'No especificado'}</div>
+                )}
+              </div>
+              <div className="form-field">
+                <label className="required-label">Precio de venta total</label>
+                {isEditing ? (
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="form-input"
+                    value={recipe.net_price || ''}
+                    onChange={(e) => {
+                      setRecipe({...recipe, net_price: e.target.value});
+                      if (validationErrors.net_price) {
+                        setValidationErrors({...validationErrors, net_price: null});
+                      }
+                    }}
+                    placeholder="€"
+                  />
+                ) : (
+                  <div className="form-value">{recipe.net_price ? formatCurrency(recipe.net_price) : 'No especificado'}</div>
+                )}
+              </div>
+              <div className="form-field">
+                <div className="tooltip-container">
+                  <label>Precio por comensal</label>
+                  <div className="tooltip-icon">
+                    ?
+                    <div className="tooltip-text">
+                      Cálculo automático dividiendo el precio de venta total entre el número de comensales
+                    </div>
+                  </div>
+                </div>
+                <div className="form-value">
+                  {recipe.net_price && recipe.servings ? 
+                    formatCurrency(parseFloat(recipe.net_price) / parseInt(recipe.servings)) : 
+                    'Calculado automáticamente'
+                  }
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
         {/* Ingredients Section */}
         <div className="recipe-section">
           <h2 className="section-title">🥕 Ingredientes</h2>
@@ -588,7 +726,7 @@ const RecipeDetail = () => {
                 📊 Cantidades para {recipe.servings} {recipe.servings === 1 ? 'comensal' : 'comensales'}
               </div>
             )}
-            {isEditing && ingredients?.length > 0 && (
+            {isEditing && getDisplayIngredients()?.length > 0 && (
               <div className="ingredients-header" style={{ marginBottom: '16px' }}>
                 <button 
                   className="btn add ingredients-add-btn" 
@@ -600,8 +738,8 @@ const RecipeDetail = () => {
               </div>
             )}
             <div className="ingredients-list">
-              {ingredients?.length > 0 ? (
-                ingredients.map((ingredient, index) => {
+              {getDisplayIngredients()?.length > 0 ? (
+                getDisplayIngredients().map((ingredient, index) => {
                   const wastePercent = parseFloat(ingredient.waste_percent) || 0;
                   const wasteMultiplier = 1 + wastePercent;
                   const quantityPerServing = parseFloat(ingredient.quantity_per_serving) || 0;
@@ -699,85 +837,6 @@ const RecipeDetail = () => {
                 </div>
               )}
             </div>
-          </div>
-        </div>
-
-        {/* Event Planning Section */}
-        <div className="recipe-section">
-          <h2 className="section-title">📊 Calculadora de Costos</h2>
-          <div className="section-content">
-            <div className="form-grid-3">
-              <div className="form-field">
-                <label className="required-label">Comensales</label>
-                {isEditing ? (
-                  <div>
-                    <input
-                      type="number"
-                      className="form-input"
-                      value={recipe.servings || ''}
-                      min={recipe.production_servings || 1}
-                      onChange={(e) => {
-                        setRecipe({...recipe, servings: e.target.value});
-                        if (validationErrors.servings) {
-                          setValidationErrors({...validationErrors, servings: null});
-                        }
-                      }}
-                      placeholder="Para cuántas personas"
-                    />
-                    {recipe.production_servings && parseInt(recipe.servings) < parseInt(recipe.production_servings) && (
-                      <div style={{ 
-                        fontSize: '12px', 
-                        color: '#ef4444', 
-                        marginTop: '4px',
-                        fontStyle: 'italic'
-                      }}>
-                        Debe ser mínimo {recipe.production_servings} comensales
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="form-value">{recipe.servings || 'No especificado'}</div>
-                )}
-              </div>
-              <div className="form-field">
-                <label className="required-label">Precio de venta total</label>
-                {isEditing ? (
-                  <input
-                    type="number"
-                    step="0.01"
-                    className="form-input"
-                    value={recipe.net_price || ''}
-                    onChange={(e) => {
-                      setRecipe({...recipe, net_price: e.target.value});
-                      if (validationErrors.net_price) {
-                        setValidationErrors({...validationErrors, net_price: null});
-                      }
-                    }}
-                    placeholder="€"
-                  />
-                ) : (
-                  <div className="form-value">{recipe.net_price ? formatCurrency(recipe.net_price) : 'No especificado'}</div>
-                )}
-              </div>
-              <div className="form-field">
-                <div className="tooltip-container">
-                  <label>Precio por comensal</label>
-                  <div className="tooltip-icon">
-                    ?
-                    <div className="tooltip-text">
-                      Cálculo automático dividiendo el precio de venta total entre el número de comensales
-                    </div>
-                  </div>
-                </div>
-                <div className="form-value">
-                  {recipe.net_price && recipe.servings ? 
-                    formatCurrency(parseFloat(recipe.net_price) / parseInt(recipe.servings)) : 
-                    'Calculado automáticamente'
-                  }
-                </div>
-              </div>
-            </div>
-
           </div>
         </div>
 
@@ -932,13 +991,15 @@ const RecipeDetail = () => {
       </div>
 
       {/* DELETE MODAL */}
-      <Modal isOpen={isDeleteOpen} title="Confirmar eliminación" onClose={() => setIsDeleteOpen(false)}>
-        <p>¿Seguro que deseas eliminar la receta <strong>{recipe?.name}</strong>?</p>
-        <div className="modal-actions">
-          <button type="button" className="btn cancel" onClick={() => setIsDeleteOpen(false)}>Cancelar</button>
-          <button type="button" className="btn delete" onClick={handleDelete}>Eliminar</button>
-        </div>
-      </Modal>
+      <ConfirmModal
+        isOpen={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        onConfirm={handleDelete}
+        title="Confirmar eliminación"
+        message={`¿Seguro que deseas eliminar la receta "${recipe?.name}"?`}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+      />
 
       {/* ADD INGREDIENT MODAL */}
       <AddIngredientModal
@@ -946,18 +1007,22 @@ const RecipeDetail = () => {
         onClose={() => setIsAddIngredientOpen(false)}
         recipeId={id}
         recipeName={recipe?.name || 'la receta'}
-        existingIngredients={ingredients}
+        existingIngredients={getDisplayIngredients()}
         onSave={handleAddIngredientSave}
+        isNewRecipe={isNewRecipe}
+        onTemporalSave={setTemporalIngredients}
       />
 
       {/* DELETE INGREDIENT MODAL */}
-      <Modal isOpen={isDeleteIngredientOpen} title="Confirmar eliminación" onClose={() => setIsDeleteIngredientOpen(false)}>
-        <p>¿Estás seguro de que deseas eliminar el ingrediente <strong>{ingredientToDelete?.name}</strong> de esta receta?</p>
-        <div className="modal-actions">
-          <button type="button" className="btn cancel" onClick={() => setIsDeleteIngredientOpen(false)}>Cancelar</button>
-          <button type="button" className="btn delete" onClick={handleRemoveIngredient}>Eliminar</button>
-        </div>
-      </Modal>
+      <ConfirmModal
+        isOpen={isDeleteIngredientOpen}
+        onClose={() => setIsDeleteIngredientOpen(false)}
+        onConfirm={handleRemoveIngredient}
+        title="Confirmar eliminación"
+        message={`¿Estás seguro de que deseas eliminar el ingrediente "${ingredientToDelete?.name}" de esta receta?`}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+      />
 
       {/* EDIT INGREDIENT MODAL */}
       <EditIngredientModal
@@ -966,6 +1031,8 @@ const RecipeDetail = () => {
         recipeId={id}
         ingredient={ingredientToEdit}
         onSave={handleEditIngredientSave}
+        isNewRecipe={isNewRecipe}
+        onTemporalUpdate={handleTemporalIngredientUpdate}
       />
     </>
   );

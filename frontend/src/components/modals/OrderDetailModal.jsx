@@ -491,7 +491,7 @@ const OrderDetailModal = ({
               onClick={() => handleStatusUpdate('ordered')}
               disabled={updatingStatus}
             >
-              Confirmar envío
+              Confirmar Pedido
             </button>
             <button 
               key={`delete-order-${order.order_id}`}

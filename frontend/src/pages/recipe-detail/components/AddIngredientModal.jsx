@@ -9,7 +9,9 @@ export default function AddIngredientModal({
   recipeId,
   recipeName,
   existingIngredients = [],
-  onSave
+  onSave,
+  isNewRecipe = false,
+  onTemporalSave
 }) {
   const [ingredientSearchText, setIngredientSearchText] = useState('');
   const [availableIngredients, setAvailableIngredients] = useState([]);
@@ -85,20 +87,49 @@ export default function AddIngredientModal({
       setLoading(true);
       setError('');
 
-      // Añadir cada ingrediente seleccionado
-      for (const ingredientId of selectedIngredients) {
-        const quantity = parseFloat(ingredientDetails[ingredientId].quantity);
+      if (isNewRecipe) {
+        // Para nuevas recetas: guardar en estado temporal
+        const newTemporalIngredients = [];
         
-        await api.post(`/recipes/${recipeId}/ingredients`, {
-          ingredient_id: ingredientId,
-          quantity_per_serving: quantity,
-          section_id: null
-        });
-      }
+        for (const ingredientId of selectedIngredients) {
+          const quantity = parseFloat(ingredientDetails[ingredientId].quantity);
+          const ingredient = availableIngredients.find(ing => ing.ingredient_id === ingredientId);
+          
+          if (ingredient) {
+            newTemporalIngredients.push({
+              ingredient_id: ingredientId,
+              name: ingredient.name,
+              unit: ingredient.unit,
+              base_price: ingredient.base_price,
+              waste_percent: ingredient.waste_percent || 0,
+              quantity_per_serving: quantity,
+              section_id: null
+            });
+          }
+        }
 
-      // Informar al componente padre y cerrar modal
-      onSave();
-      onClose();
+        // Combinar con ingredientes existentes en el estado temporal
+        const updatedTemporalIngredients = [...existingIngredients, ...newTemporalIngredients];
+        onTemporalSave(updatedTemporalIngredients);
+        
+        // Cerrar modal
+        onClose();
+      } else {
+        // Para recetas existentes: comportamiento original
+        for (const ingredientId of selectedIngredients) {
+          const quantity = parseFloat(ingredientDetails[ingredientId].quantity);
+          
+          await api.post(`/recipes/${recipeId}/ingredients`, {
+            ingredient_id: ingredientId,
+            quantity_per_serving: quantity,
+            section_id: null
+          });
+        }
+
+        // Informar al componente padre y cerrar modal
+        onSave();
+        onClose();
+      }
     } catch (err) {
       console.error('Error adding ingredients:', err);
       setError(err.response?.data?.message || 'Error al añadir ingredientes');

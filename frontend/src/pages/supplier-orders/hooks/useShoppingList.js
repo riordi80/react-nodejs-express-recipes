@@ -150,7 +150,7 @@ export const useShoppingList = () => {
       quantity: '',
       notes: ''
     };
-    setManualOrderItems([...manualOrderItems, newItem]);
+    setManualOrderItems([newItem, ...manualOrderItems]);
   };
 
   const updateManualOrderItem = (id, field, value) => {

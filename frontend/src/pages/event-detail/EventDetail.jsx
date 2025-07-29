@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { FiArrowLeft, FiEdit3, FiTrash2, FiSave, FiX, FiPlus, FiEdit2 } from 'react-icons/fi';
 import { FaUtensils, FaDownload } from 'react-icons/fa';
 import Modal from '../../components/modal/Modal';
+import ConfirmModal from '../../components/modals/ConfirmModal';
 import Loading from '../../components/loading';
 import { FormInput, FormTextarea, FormSelect } from '../../components/form/FormField';
 import api from '../../api/axios';
@@ -825,20 +826,15 @@ const EventDetail = () => {
       </div>
 
       {/* Delete Event Modal */}
-      <Modal isOpen={isDeleteOpen} title="Confirmar eliminación" onClose={() => setIsDeleteOpen(false)}>
-        <p>¿Seguro que deseas eliminar el evento <strong>{event?.name}</strong>?</p>
-        <p style={{ fontSize: '14px', color: '#64748b', marginTop: '8px' }}>
-          Esta acción no se puede deshacer. Se eliminará el evento y todo su menú asociado.
-        </p>
-        <div className="modal-actions">
-          <button type="button" className="btn cancel" onClick={() => setIsDeleteOpen(false)}>
-            Cancelar
-          </button>
-          <button type="button" className="btn delete" onClick={handleDelete}>
-            Eliminar
-          </button>
-        </div>
-      </Modal>
+      <ConfirmModal
+        isOpen={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        onConfirm={handleDelete}
+        title="Confirmar eliminación"
+        message={`¿Seguro que deseas eliminar el evento "${event?.name}"?`}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+      />
 
       {/* Add Recipe Modal */}
       <Modal isOpen={isAddRecipeOpen} title="Añadir recetas al menú" onClose={() => setIsAddRecipeOpen(false)} fullscreenMobile={true}>
@@ -1089,17 +1085,15 @@ const EventDetail = () => {
       </Modal>
 
       {/* Delete Recipe from Menu Modal */}
-      <Modal isOpen={isDeleteRecipeOpen} title="Confirmar eliminación" onClose={() => setIsDeleteRecipeOpen(false)}>
-        <p>¿Seguro que deseas eliminar <strong>{recipeToDelete?.recipe_name || recipeToDelete?.name}</strong> del menú?</p>
-        <div className="modal-actions">
-          <button type="button" className="btn cancel" onClick={() => setIsDeleteRecipeOpen(false)}>
-            Cancelar
-          </button>
-          <button type="button" className="btn delete" onClick={handleRemoveRecipe}>
-            Eliminar
-          </button>
-        </div>
-      </Modal>
+      <ConfirmModal
+        isOpen={isDeleteRecipeOpen}
+        onClose={() => setIsDeleteRecipeOpen(false)}
+        onConfirm={handleRemoveRecipe}
+        title="Confirmar eliminación"
+        message={`¿Seguro que deseas eliminar "${recipeToDelete?.recipe_name || recipeToDelete?.name}" del menú?`}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+      />
     </>
   );
 };

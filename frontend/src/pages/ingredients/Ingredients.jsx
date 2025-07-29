@@ -4,7 +4,7 @@ import { FaExclamationTriangle, FaCalendarAlt, FaSeedling, FaExclamationCircle }
 import TableActions from '../../components/table/TableActions';
 import BasePage from '../../components/base-page/BasePage';
 import Widget from '../../components/widget';
-import Modal from '../../components/modal/Modal';
+import ConfirmModal from '../../components/modals/ConfirmModal';
 import EditIngredientModal from '../../components/modals/EditIngredientModal';
 import api from '../../api/axios';
 import { formatDecimal, formatPrice } from '../../utils/formatters';
@@ -555,16 +555,15 @@ const columns = useMemo(() => [
 
 
       {/* DELETE MODAL */}
-      <Modal isOpen={isDeleteOpen} title="Confirmar desactivación" onClose={() => setIsDeleteOpen(false)}>
-        <p>¿Seguro que deseas desactivar <strong>{currentItem?.name}</strong>?</p>
-        <p style={{ fontSize: '14px', color: '#64748b', marginTop: '8px' }}>
-          El ingrediente se marcará como no disponible pero se mantendrá en las recetas existentes.
-        </p>
-        <div className="modal-actions">
-          <button type="button" className="btn cancel" onClick={() => setIsDeleteOpen(false)}>Cancelar</button>
-          <button type="button" className="btn delete" onClick={handleDelete}>Desactivar</button>
-        </div>
-      </Modal>
+      <ConfirmModal
+        isOpen={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        onConfirm={handleDelete}
+        title="Confirmar desactivación"
+        message={`¿Seguro que deseas desactivar "${currentItem?.name}"?\n\nEl ingrediente se marcará como no disponible pero se mantendrá en las recetas existentes.`}
+        confirmText="Desactivar"
+        cancelText="Cancelar"
+      />
 
       {/* EDIT INGREDIENT MODAL - Componente reutilizable */}
       <EditIngredientModal

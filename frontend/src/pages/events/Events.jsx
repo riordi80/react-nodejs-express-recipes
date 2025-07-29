@@ -6,6 +6,7 @@ import TableActions from '../../components/table/TableActions';
 import BasePage from '../../components/base-page/BasePage';
 import Widget from '../../components/widget';
 import Modal from '../../components/modal/Modal';
+import ConfirmModal from '../../components/modals/ConfirmModal';
 import TabsModal from '../../components/tabs-modal/TabsModal';
 import { FormField, FormInput, FormTextarea, FormSelect } from '../../components/form/FormField';
 import api from '../../api/axios';
@@ -896,20 +897,15 @@ export default function Events() {
       </Modal>
 
       {/* DELETE MODAL */}
-      <Modal isOpen={isDeleteOpen} title="Confirmar eliminación" onClose={() => setIsDeleteOpen(false)}>
-        <p>¿Seguro que deseas eliminar el evento <strong>{currentItem?.name}</strong>?</p>
-        <p style={{ fontSize: '14px', color: '#64748b', marginTop: '8px' }}>
-          Esta acción no se puede deshacer. Se eliminará el evento y todo su menú asociado.
-        </p>
-        <div className="modal-actions">
-          <button type="button" className="btn cancel" onClick={() => setIsDeleteOpen(false)}>
-            Cancelar
-          </button>
-          <button type="button" className="btn delete" onClick={handleDelete}>
-            Eliminar
-          </button>
-        </div>
-      </Modal>
+      <ConfirmModal
+        isOpen={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        onConfirm={handleDelete}
+        title="Confirmar eliminación"
+        message={`¿Seguro que deseas eliminar el evento "${currentItem?.name}"?`}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+      />
     </>
   );
 }

@@ -1,7 +1,12 @@
 // src/pages/supplier-orders/components/ManualOrderForm.jsx
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Loading from '../../../components/loading';
 import { formatCurrency, formatDecimal } from '../../../utils/formatters';
+
+// Función helper para filtrado insensible a acentos
+const normalizeText = (text) => {
+  return text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+};
 
 const ManualOrderForm = ({ 
   manualOrderItems,
@@ -82,6 +87,46 @@ const ManualOrderForm = ({
 };
 
 const ManualOrderItem = ({ item, availableIngredients, onUpdateItem, onRemoveItem }) => {
+  const [searchText, setSearchText] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef(null);
+
+  // Obtener el ingrediente seleccionado actual
+  const selectedIngredient = availableIngredients.find(ing => ing.ingredient_id === parseInt(item.ingredientId));
+
+  // Cerrar dropdown al hacer clic fuera
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowDropdown(false);
+        setSearchText('');
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  // Filtrar ingredientes basado en la búsqueda
+  const filteredIngredients = availableIngredients.filter(ingredient => {
+    if (!searchText) return true;
+    return normalizeText(ingredient.name).includes(normalizeText(searchText));
+  });
+
+  const handleIngredientSelect = (ingredientId) => {
+    onUpdateItem(item.id, 'ingredientId', ingredientId);
+    setSearchText('');
+    setShowDropdown(false);
+  };
+
+  const handleSearchChange = (e) => {
+    const value = e.target.value;
+    setSearchText(value);
+    setShowDropdown(value.length > 0);
+  };
+
   return (
     <div 
       className="manual-item"
@@ -104,10 +149,12 @@ const ManualOrderItem = ({ item, availableIngredients, onUpdateItem, onRemoveIte
       >
         <div 
           className="field-group"
+          ref={dropdownRef}
           style={{
             display: 'flex',
             flexDirection: 'column',
-            gap: '6px'
+            gap: '6px',
+            position: 'relative'
           }}
         >
           <label style={{
@@ -115,35 +162,169 @@ const ManualOrderItem = ({ item, availableIngredients, onUpdateItem, onRemoveIte
             color: '#1e293b',
             fontSize: '14px'
           }}>Ingrediente</label>
-          <select
-            value={item.ingredientId}
-            onChange={(e) => onUpdateItem(item.id, 'ingredientId', e.target.value)}
-            className="ingredient-select"
-            style={{
-              padding: '8px 12px',
-              border: '1px solid #d1d5db',
-              borderRadius: '6px',
-              fontSize: '14px',
-              background: 'white',
-              width: '100%'
-            }}
-          >
-            <option value="">Seleccionar ingrediente...</option>
-            {availableIngredients.map(ingredient => {
-              const supplier = ingredient.preferredSupplier;
-              const supplierInfo = supplier 
-                ? ` | Proveedor: ${formatCurrency(supplier.price)}/${supplier.package_unit} (paquete ${formatDecimal(supplier.package_size)} ${ingredient.unit})`
-                : ' | Sin proveedor asignado';
+          
+          {/* Mostrar ingrediente seleccionado o input de búsqueda */}
+          {selectedIngredient && !showDropdown ? (
+            <div 
+              style={{
+                padding: '8px 32px 8px 12px',
+                border: '1px solid #d1d5db',
+                borderRadius: '6px',
+                fontSize: '14px',
+                background: '#f8fafc',
+                width: '100%',
+                cursor: 'pointer',
+                minHeight: '36px',
+                position: 'relative',
+                boxSizing: 'border-box'
+              }}
+              onClick={() => setShowDropdown(true)}
+            >
+              {selectedIngredient.name}
+              <button 
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onUpdateItem(item.id, 'ingredientId', '');
+                }}
+                style={{
+                  position: 'absolute',
+                  right: '8px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  color: '#ef4444',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  padding: '2px',
+                  lineHeight: 1
+                }}
+                title="Quitar selección"
+              >
+                ×
+              </button>
+            </div>
+          ) : (
+            <>
+              <input
+                type="text"
+                value={searchText}
+                onChange={handleSearchChange}
+                onFocus={() => setShowDropdown(true)}
+                placeholder="Buscar ingrediente..."
+                className="ingredient-search"
+                style={{
+                  padding: '8px 12px',
+                  border: '1px solid #d1d5db',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  background: 'white',
+                  width: '100%'
+                }}
+              />
               
-              return (
-                <option key={ingredient.ingredient_id} value={ingredient.ingredient_id}>
-                  {ingredient.name} - Base: {formatCurrency(ingredient.base_price)}/{ingredient.unit}
-                  {ingredient.stock > 0 ? ` | Stock: ${formatDecimal(ingredient.stock)} ${ingredient.unit}` : ' | Sin stock'}
-                  {supplierInfo}
-                </option>
-              );
-            })}
-          </select>
+              {/* Lista de ingredientes filtrada */}
+              {showDropdown && (
+                <div 
+                  className="ingredients-dropdown"
+                  style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: '0',
+                    right: '0',
+                    zIndex: 1000,
+                    background: 'white',
+                    border: '1px solid #d1d5db',
+                    borderRadius: '6px',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                    maxHeight: '200px',
+                    overflowY: 'auto',
+                    marginTop: '2px'
+                  }}
+                >
+                  {filteredIngredients.length > 0 ? (
+                    filteredIngredients.map(ingredient => {
+                      const supplier = ingredient.preferredSupplier;
+                      return (
+                        <div
+                          key={ingredient.ingredient_id}
+                          onClick={() => handleIngredientSelect(ingredient.ingredient_id)}
+                          style={{
+                            padding: '8px 12px',
+                            cursor: 'pointer',
+                            borderBottom: '1px solid #f1f5f9',
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            justifyContent: 'space-between',
+                            minHeight: '40px',
+                            gap: '12px'
+                          }}
+                          onMouseEnter={(e) => e.target.style.background = '#f8fafc'}
+                          onMouseLeave={(e) => e.target.style.background = 'white'}
+                        >
+                          <div style={{ 
+                            fontWeight: '500', 
+                            flex: '1',
+                            minWidth: '0',
+                            color: '#1e293b',
+                            paddingTop: '2px'
+                          }}>
+                            {ingredient.name}
+                          </div>
+                          <div style={{ 
+                            fontSize: '12px', 
+                            color: '#64748b',
+                            textAlign: 'right',
+                            lineHeight: '1.3',
+                            flexShrink: 0,
+                            whiteSpace: 'nowrap'
+                          }}>
+                            <div>
+                              Base: {formatCurrency(ingredient.base_price)}/{ingredient.unit}
+                              {ingredient.stock > 0 ? ` | Stock: ${formatDecimal(ingredient.stock)} ${ingredient.unit}` : ' | Sin stock'}
+                            </div>
+                            {supplier && (
+                              <div style={{ color: '#059669', marginTop: '2px' }}>
+                                Proveedor: {formatCurrency(supplier.price)}/{supplier.package_unit} (paquete {formatDecimal(supplier.package_size)} {ingredient.unit})
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div style={{ padding: '12px', color: '#64748b', textAlign: 'center' }}>
+                      No se encontraron ingredientes
+                    </div>
+                  )}
+                  
+                  {/* Botón para cerrar */}
+                  <div 
+                    style={{
+                      padding: '8px',
+                      borderTop: '1px solid #f1f5f9',
+                      textAlign: 'center'
+                    }}
+                  >
+                    <button 
+                      type="button"
+                      onClick={() => setShowDropdown(false)}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#64748b',
+                        cursor: 'pointer',
+                        fontSize: '12px'
+                      }}
+                    >
+                      Cerrar
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
 
         <div 
@@ -193,32 +374,6 @@ const ManualOrderItem = ({ item, availableIngredients, onUpdateItem, onRemoveIte
               maxWidth: '120px'
             }}
           />
-          {item.ingredientId && (() => {
-            const ingredient = availableIngredients.find(ing => ing.ingredient_id === parseInt(item.ingredientId));
-            if (!ingredient?.preferredSupplier) return null;
-            
-            const supplier = ingredient.preferredSupplier;
-            const packageSize = supplier.package_size;
-            
-            return (
-              <small 
-                className="quantity-note"
-                style={{
-                  color: '#64748b',
-                  fontSize: '12px',
-                  lineHeight: '1.3',
-                  marginTop: '4px',
-                  display: 'block',
-                  background: '#f8fafc',
-                  padding: '6px 8px',
-                  borderRadius: '4px',
-                  borderLeft: '3px solid #3b82f6'
-                }}
-              >
-                💡 El proveedor vende en paquetes de {formatDecimal(packageSize)} {ingredient.unit === 'unit' ? 'unidades' : ingredient.unit} por {formatCurrency(supplier.price)} ({supplier.package_unit})
-              </small>
-            );
-          })()}
         </div>
 
         <div 
@@ -282,6 +437,34 @@ const ManualOrderItem = ({ item, availableIngredients, onUpdateItem, onRemoveIte
           </button>
         </div>
       </div>
+
+      {/* Mensaje del proveedor fuera del grid */}
+      {item.ingredientId && (() => {
+        const ingredient = availableIngredients.find(ing => ing.ingredient_id === parseInt(item.ingredientId));
+        if (!ingredient?.preferredSupplier) return null;
+        
+        const supplier = ingredient.preferredSupplier;
+        const packageSize = supplier.package_size;
+        
+        return (
+          <small 
+            className="quantity-note"
+            style={{
+              color: '#64748b',
+              fontSize: '12px',
+              lineHeight: '1.3',
+              marginTop: '12px',
+              display: 'block',
+              background: '#f8fafc',
+              padding: '8px 12px',
+              borderRadius: '6px',
+              borderLeft: '3px solid #3b82f6'
+            }}
+          >
+            💡 El proveedor vende en paquetes de {formatDecimal(packageSize)} {ingredient.unit === 'unit' ? 'unidades' : ingredient.unit} por {formatCurrency(supplier.price)} ({supplier.package_unit})
+          </small>
+        );
+      })()}
     </div>
   );
 };

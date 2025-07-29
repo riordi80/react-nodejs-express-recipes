@@ -9,7 +9,9 @@ export default function EditIngredientModal({
   onClose,
   recipeId,
   ingredient,
-  onSave
+  onSave,
+  isNewRecipe = false,
+  onTemporalUpdate
 }) {
   const [quantity, setQuantity] = useState('');
   const [loading, setLoading] = useState(false);
@@ -56,15 +58,27 @@ export default function EditIngredientModal({
       setLoading(true);
       setError('');
 
-      // Llamar al API para actualizar el ingrediente
-      await api.put(`/recipes/${recipeId}/ingredients/${ingredient.ingredient_id}`, {
-        quantity_per_serving: quantityNum,
-        section_id: null // Por ahora sin secciones
-      });
+      if (isNewRecipe) {
+        // Para nuevas recetas: actualizar en estado temporal
+        const updatedIngredient = {
+          ...ingredient,
+          quantity_per_serving: quantityNum
+        };
+        onTemporalUpdate(updatedIngredient);
+        
+        // Cerrar modal
+        onClose();
+      } else {
+        // Para recetas existentes: comportamiento original
+        await api.put(`/recipes/${recipeId}/ingredients/${ingredient.ingredient_id}`, {
+          quantity_per_serving: quantityNum,
+          section_id: null // Por ahora sin secciones
+        });
 
-      // Informar al componente padre y cerrar modal
-      onSave();
-      onClose();
+        // Informar al componente padre y cerrar modal
+        onSave();
+        onClose();
+      }
     } catch (err) {
       console.error('Error updating ingredient:', err);
       setError(err.response?.data?.message || 'Error al actualizar ingrediente');

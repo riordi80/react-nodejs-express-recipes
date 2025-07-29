@@ -11,6 +11,7 @@ import OrderDetailModal from '../../components/modals/OrderDetailModal';
 import SupplierWarningModal from '../../components/modals/SupplierWarningModal';
 import ReportsModal from '../../components/modals/ReportsModal';
 import Modal from '../../components/modal/Modal';
+import ConfirmModal from '../../components/modals/ConfirmModal';
 import ActiveOrdersSection from './components/ActiveOrdersSection';
 import DashboardSection from './components/DashboardSection';
 import ShoppingListSection from './components/ShoppingListSection';
@@ -388,31 +389,19 @@ const SupplierOrders = () => {
       />
 
       {/* Modal de confirmación de eliminación de pedido */}
-      <Modal
+      <ConfirmModal
         isOpen={activeOrdersHook.isDeleteModalOpen}
-        title="Confirmar eliminación"
         onClose={activeOrdersHook.closeDeleteModal}
-      >
-        {activeOrdersHook.orderToDelete && (
-          <p>
-            ¿Estás seguro de que deseas eliminar el pedido{' '}
-            <strong>#{activeOrdersHook.orderToDelete.order_id}</strong>{' '}
-            del proveedor{' '}
-            <strong>{activeOrdersHook.orderToDelete.supplier_name}</strong>?
-          </p>
-        )}
-        <p style={{ color: '#64748b', fontSize: '14px', marginTop: '12px' }}>
-          Esta acción no se puede deshacer.
-        </p>
-        <div className="modal-actions">
-          <button className="btn cancel" onClick={activeOrdersHook.closeDeleteModal}>
-            Cancelar
-          </button>
-          <button className="btn delete" onClick={activeOrdersHook.confirmDeleteOrder}>
-            Eliminar
-          </button>
-        </div>
-      </Modal>
+        onConfirm={activeOrdersHook.confirmDeleteOrder}
+        title="Confirmar Eliminación"
+        message={
+          activeOrdersHook.orderToDelete 
+            ? `¿Estás seguro de que deseas eliminar el pedido #${activeOrdersHook.orderToDelete.order_id} del proveedor ${activeOrdersHook.orderToDelete.supplier_name}? Esta acción no se puede deshacer.`
+            : '¿Estás seguro de que deseas eliminar este pedido?'
+        }
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+      />
     </div>
   );
 };
