@@ -1,9 +1,11 @@
 // src/components/modals/OrderDetailModal.jsx
-import React, { useState } from 'react';
-import { FaTruck, FaCalendarAlt, FaStickyNote, FaEuroSign, FaPhone, FaEnvelope, FaUser, FaBox, FaDownload } from 'react-icons/fa';
+import React, { useState, useEffect } from 'react';
+import { FaTruck, FaCalendarAlt, FaStickyNote, FaEuroSign, FaPhone, FaEnvelope, FaUser, FaBox, FaDownload, FaPlus, FaSave, FaTimes } from 'react-icons/fa';
 import { formatCurrency, formatDecimal } from '../../utils/formatters';
+import { getStatusStyle } from '../../utils/orderStatusHelpers';
 import Modal from '../modal/Modal';
 import { usePDFGenerator } from '../../hooks/usePDFGenerator';
+import api from '../../api/axios';
 
 const OrderDetailModal = ({ 
   isOpen, 
@@ -13,30 +15,145 @@ const OrderDetailModal = ({
   onDelete
 }) => {
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [editableItems, setEditableItems] = useState([]);
+  const [isEditing, setIsEditing] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [availableIngredients, setAvailableIngredients] = useState([]);
+  const [showAddIngredient, setShowAddIngredient] = useState(false);
+  const [newIngredient, setNewIngredient] = useState({
+    ingredient_id: '',
+    quantity: '',
+    unit_price: ''
+  });
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const { generateOrderPDF } = usePDFGenerator();
+
+  // Inicializar datos editables cuando se abre el modal
+  useEffect(() => {
+    if (isOpen && order && order.items) {
+      setEditableItems(order.items.map(item => ({
+        ...item,
+        original_quantity: item.quantity,
+        original_unit_price: item.unit_price,
+        edited_quantity: item.quantity,
+        edited_unit_price: item.unit_price,
+        edited_total_price: item.quantity * item.unit_price
+      })));
+      // Activar automáticamente el modo edición si el pedido está confirmado
+      setIsEditing(order.status === 'ordered');
+      setHasChanges(false);
+      
+      // Cargar ingredientes disponibles si el pedido puede ser editado
+      if (order.status === 'ordered') {
+        loadAvailableIngredients();
+      }
+    }
+  }, [isOpen, order]);
+
+  // Cargar ingredientes disponibles
+  const loadAvailableIngredients = async () => {
+    try {
+      const response = await api.get('/ingredients');
+      setAvailableIngredients(response.data);
+    } catch (error) {
+      console.error('Error loading ingredients:', error);
+    }
+  };
 
   if (!isOpen || !order) return null;
 
-  // Función para obtener estilo de estado
-  const getStatusStyle = (status) => {
-    switch (status) {
-      case 'pending':
-        return { className: 'status-pending', label: 'Pendiente', icon: '📝' };
-      case 'ordered':
-        return { className: 'status-ordered', label: 'Enviado', icon: '📤' };
-      case 'delivered':
-        return { className: 'status-delivered', label: 'Entregado', icon: '✅' };
-      case 'cancelled':
-        return { className: 'status-cancelled', label: 'Cancelado', icon: '❌' };
-      default:
-        return { className: 'status-unknown', label: status, icon: '❓' };
+  // Funciones para manejar la edición
+  const handleItemChange = (itemId, field, value) => {
+    setEditableItems(prev => prev.map(item => {
+      if (item.ingredient_id === itemId) {
+        const updatedItem = { ...item, [field]: value };
+        
+        // Calcular nuevo total siempre que cambie cantidad o precio
+        updatedItem.edited_total_price = updatedItem.edited_quantity * updatedItem.edited_unit_price;
+        
+        return updatedItem;
+      }
+      return item;
+    }));
+    setHasChanges(true);
+  };
+
+  const discardChanges = () => {
+    // Restaurar valores originales
+    setEditableItems(prev => prev.map(item => ({
+      ...item,
+      edited_quantity: item.original_quantity,
+      edited_unit_price: item.original_unit_price,
+      edited_total_price: item.original_quantity * item.original_unit_price
+    })));
+    setIsEditing(false);
+    setHasChanges(false);
+    setShowConfirmModal(false);
+  };
+
+  const toggleEditMode = () => {
+    if (isEditing && hasChanges) {
+      setShowConfirmModal(true);
+    } else {
+      setIsEditing(!isEditing);
+      setHasChanges(false);
+    }
+  };
+
+  const saveChanges = async () => {
+    try {
+      setUpdatingStatus(true);
+      
+      // Preparar datos para enviar al backend
+      const updatedItems = editableItems.map(item => ({
+        ingredient_id: item.ingredient_id,
+        quantity: item.edited_quantity,
+        unit_price: item.edited_unit_price
+      }));
+
+      console.log('Guardando cambios en items:', updatedItems);
+
+      const response = await api.put(`/supplier-orders/${order.order_id}/items`, {
+        items: updatedItems
+      });
+
+      console.log('Respuesta del servidor:', response.data);
+
+      setIsEditing(false);
+      setHasChanges(false);
+      
+      // Mostrar modal de éxito
+      setShowSuccessModal(true);
+      
+      // Recargar datos del pedido para reflejar los cambios guardados
+      await onStatusUpdate(order.order_id, order.status);
+      
+    } catch (error) {
+      console.error('Error saving changes:', error);
+      alert('Error al guardar los cambios. Por favor, inténtalo de nuevo.');
+    } finally {
+      setUpdatingStatus(false);
     }
   };
 
   const handleStatusUpdate = async (newStatus) => {
-    setUpdatingStatus(true);
-    await onStatusUpdate(order.order_id, newStatus);
-    setUpdatingStatus(false);
+    try {
+      // Si hay cambios pendientes y vamos a marcar como entregado, guardar primero
+      if (newStatus === 'delivered' && hasChanges) {
+        console.log('Guardando cambios antes de marcar como entregado...');
+        await saveChanges();
+      }
+      
+      console.log(`Actualizando estado del pedido ${order.order_id} a ${newStatus}`);
+      setUpdatingStatus(true);
+      await onStatusUpdate(order.order_id, newStatus);
+      setUpdatingStatus(false);
+    } catch (error) {
+      console.error('Error al actualizar estado:', error);
+      setUpdatingStatus(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -64,8 +181,7 @@ const OrderDetailModal = ({
             Pedido #{order.order_id}
           </span>
           <span className={`order-status-badge ${statusStyle.className}`}>
-            <span className="status-icon">{statusStyle.icon}</span>
-            {statusStyle.label}
+            {statusStyle.label.toUpperCase()}
           </span>
         </div>
       }
@@ -157,12 +273,46 @@ const OrderDetailModal = ({
 
       {/* Items del Pedido */}
       <div className="order-items-section">
-        <h4 style={{ fontSize: '16px', fontWeight: '600' }}>
-          <FaBox style={{ marginRight: '8px' }} /> 
-          Ingredientes ({order.items?.length || 0})
-        </h4>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <h4 style={{ fontSize: '16px', fontWeight: '600', margin: 0 }}>
+            <FaBox style={{ marginRight: '8px' }} /> 
+            Ingredientes ({editableItems?.length || 0})
+          </h4>
+          
+          {order.status === 'ordered' && (
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {!isEditing ? (
+                <button 
+                  className="btn edit" 
+                  onClick={toggleEditMode}
+                  style={{ fontSize: '12px', padding: '6px 12px' }}
+                >
+                  Revisar Pedido
+                </button>
+              ) : (
+                <>
+                  <button 
+                    className="btn add" 
+                    onClick={saveChanges}
+                    disabled={!hasChanges || updatingStatus}
+                    style={{ fontSize: '12px', padding: '6px 12px' }}
+                  >
+                    <FaSave /> Guardar
+                  </button>
+                  <button 
+                    className="btn cancel" 
+                    onClick={toggleEditMode}
+                    style={{ fontSize: '12px', padding: '6px 12px' }}
+                  >
+                    <FaTimes /> Cancelar
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
         
-        {order.items && order.items.length > 0 ? (
+        {editableItems && editableItems.length > 0 ? (
           <div className="items-table">
             <table>
               <thead>
@@ -175,19 +325,69 @@ const OrderDetailModal = ({
                 </tr>
               </thead>
               <tbody>
-                {order.items.map(item => (
+                {editableItems.map(item => (
                   <tr key={item.ingredient_id}>
                     <td className="ingredient-name">
                       {item.ingredient_name}
                     </td>
                     <td className="quantity">
-                      {formatDecimal(item.quantity)} {item.unit}
+                      {isEditing ? (
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={item.edited_quantity}
+                          onChange={(e) => handleItemChange(item.ingredient_id, 'edited_quantity', parseFloat(e.target.value) || 0)}
+                          style={{ 
+                            width: '80px', 
+                            padding: '4px', 
+                            border: '1px solid #ccc', 
+                            borderRadius: '4px',
+                            backgroundColor: hasChanges && item.edited_quantity !== item.original_quantity ? '#fff3cd' : 'white'
+                          }}
+                        />
+                      ) : (
+                        <span style={{ 
+                          backgroundColor: item.edited_quantity !== item.original_quantity ? '#d4edda' : 'transparent',
+                          padding: '2px 4px',
+                          borderRadius: '3px'
+                        }}>
+                          {formatDecimal(item.edited_quantity)}
+                        </span>
+                      )} {item.unit}
                     </td>
                     <td className="unit-price">
-                      {formatCurrency(item.unit_price)}
+                      {isEditing ? (
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={item.edited_unit_price}
+                          onChange={(e) => handleItemChange(item.ingredient_id, 'edited_unit_price', parseFloat(e.target.value) || 0)}
+                          style={{ 
+                            width: '80px', 
+                            padding: '4px', 
+                            border: '1px solid #ccc', 
+                            borderRadius: '4px',
+                            backgroundColor: hasChanges && item.edited_unit_price !== item.original_unit_price ? '#fff3cd' : 'white'
+                          }}
+                        />
+                      ) : (
+                        <span style={{ 
+                          backgroundColor: item.edited_unit_price !== item.original_unit_price ? '#d4edda' : 'transparent',
+                          padding: '2px 4px',
+                          borderRadius: '3px'
+                        }}>
+                          {formatCurrency(item.edited_unit_price)}
+                        </span>
+                      )}
                     </td>
                     <td className="total-price">
-                      {formatCurrency(item.total_price)}
+                      <span style={{ 
+                        backgroundColor: (item.edited_quantity !== item.original_quantity || item.edited_unit_price !== item.original_unit_price) ? '#d4edda' : 'transparent',
+                        padding: '2px 4px',
+                        borderRadius: '3px'
+                      }}>
+                        {formatCurrency(item.edited_quantity * item.edited_unit_price)}
+                      </span>
                     </td>
                     <td className="current-stock">
                       {formatDecimal(item.current_stock)} {item.unit}
@@ -199,7 +399,13 @@ const OrderDetailModal = ({
                 <tr className="total-row">
                   <td colSpan="3"><strong>Total del Pedido:</strong></td>
                   <td className="total-amount">
-                    <strong>{formatCurrency(order.total_amount)}</strong>
+                    <strong>
+                      {formatCurrency(
+                        editableItems.reduce((sum, item) => 
+                          sum + (item.edited_quantity * item.edited_unit_price), 0
+                        )
+                      )}
+                    </strong>
                   </td>
                   <td></td>
                 </tr>
@@ -229,7 +435,7 @@ const OrderDetailModal = ({
             <div className="timeline-item completed">
               <span className="timeline-icon">📤</span>
               <div className="timeline-content">
-                <strong>Pedido Enviado</strong>
+                <strong>Pedido Confirmado</strong>
                 <small>{new Date(order.updated_at).toLocaleString('es-ES')}</small>
               </div>
             </div>
@@ -239,7 +445,7 @@ const OrderDetailModal = ({
             <div className="timeline-item completed">
               <span className="timeline-icon">✅</span>
               <div className="timeline-content">
-                <strong>Pedido Entregado</strong>
+                <strong>Pedido Recibido</strong>
                 <small>{new Date(order.updated_at).toLocaleString('es-ES')}</small>
               </div>
             </div>
@@ -285,10 +491,92 @@ const OrderDetailModal = ({
             onClick={() => handleStatusUpdate('delivered')}
             disabled={updatingStatus}
           >
-            Marcar entregado
+{hasChanges ? 'Guardar y Confirmar Recepción' : 'Confirmar Recepción'}
+          </button>
+        )}
+        
+        {order.status === 'ordered' && hasChanges && (
+          <button 
+            className="btn edit"
+            onClick={saveChanges}
+            disabled={updatingStatus}
+          >
+            <FaSave /> Solo Guardar Cambios
           </button>
         )}
       </div>
+
+      {/* Modal de Confirmación para Descartar Cambios */}
+      {showConfirmModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+          <div style={{ backgroundColor: '#fff', borderRadius: '8px', width: '90%', maxWidth: '400px', boxShadow: '0 2px 10px rgba(0,0,0,0.3)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid #eee', backgroundColor: '#f7f7f7', borderTopLeftRadius: '8px', borderTopRightRadius: '8px' }}>
+              <h3 style={{ margin: 0, fontSize: '18px' }}>Confirmar Acción</h3>
+              <button 
+                onClick={() => setShowConfirmModal(false)}
+                style={{ background: 'transparent', border: 'none', fontSize: '18px', cursor: 'pointer', width: '32px', height: '32px', borderRadius: '50%' }}
+              >
+                ×
+              </button>
+            </div>
+            <div style={{ padding: '20px', textAlign: 'center' }}>
+              <p style={{ 
+                fontSize: '16px', 
+                color: '#374151', 
+                marginBottom: '24px'
+              }}>
+                ¿Descartar los cambios realizados?
+              </p>
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                <button 
+                  className="btn cancel"
+                  onClick={() => setShowConfirmModal(false)}
+                >
+                  Cancelar
+                </button>
+                <button 
+                  className="btn delete"
+                  onClick={discardChanges}
+                >
+                  Descartar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Éxito */}
+      {showSuccessModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+          <div style={{ backgroundColor: '#fff', borderRadius: '8px', width: '90%', maxWidth: '400px', boxShadow: '0 2px 10px rgba(0,0,0,0.3)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid #eee', backgroundColor: '#f7f7f7', borderTopLeftRadius: '8px', borderTopRightRadius: '8px' }}>
+              <h3 style={{ margin: 0, fontSize: '18px' }}>Cambios Guardados</h3>
+              <button 
+                onClick={() => setShowSuccessModal(false)}
+                style={{ background: 'transparent', border: 'none', fontSize: '18px', cursor: 'pointer', width: '32px', height: '32px', borderRadius: '50%' }}
+              >
+                ×
+              </button>
+            </div>
+            <div style={{ padding: '20px', textAlign: 'center' }}>
+              <p style={{ 
+                fontSize: '16px', 
+                color: '#374151', 
+                marginBottom: '24px'
+              }}>
+                Los cambios se han guardado con éxito.
+              </p>
+              <button 
+                className="btn add"
+                onClick={() => setShowSuccessModal(false)}
+              >
+                Aceptar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </Modal>
   );
 };

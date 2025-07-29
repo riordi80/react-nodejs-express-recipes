@@ -25,14 +25,6 @@ export const useShoppingList = () => {
   const [availableIngredients, setAvailableIngredients] = useState([]);
   const [ingredientsLoading, setIngredientsLoading] = useState(false);
 
-  // Estados para generación de pedidos
-  const [isGeneratingOrders, setIsGeneratingOrders] = useState(false);
-  const [showGenerateOrderModal, setShowGenerateOrderModal] = useState(false);
-  const [orderGenerationData, setOrderGenerationData] = useState(null);
-
-  // Estados para modal de advertencia de proveedores
-  const [showSupplierWarningModal, setShowSupplierWarningModal] = useState(false);
-  const [ingredientsWithoutProvider, setIngredientsWithoutProvider] = useState([]);
 
   const loadAvailableEvents = async () => {
     try {
@@ -263,75 +255,6 @@ export const useShoppingList = () => {
     }
   };
 
-  // Función para preparar datos para generar pedidos
-  const handleGenerateOrders = () => {
-    if (!shoppingList || !shoppingList.ingredientsBySupplier || shoppingList.ingredientsBySupplier.length === 0) {
-      return;
-    }
-
-    // Verificar si hay ingredientes sin proveedor asignado
-    const suppliersWithoutProvider = shoppingList.ingredientsBySupplier.filter(
-      supplier => supplier.supplierId === 999 || supplier.supplierName === 'Sin Proveedor Asignado'
-    );
-
-    if (suppliersWithoutProvider.length > 0) {
-      // Mostrar modal de advertencia con los ingredientes sin proveedor
-      setIngredientsWithoutProvider(suppliersWithoutProvider);
-      setShowSupplierWarningModal(true);
-      return;
-    }
-
-    // Solo generar pedidos para proveedores reales (filtrar los de ID 999)
-    const realSuppliers = shoppingList.ingredientsBySupplier.filter(
-      supplier => supplier.supplierId !== 999 && supplier.supplierName !== 'Sin Proveedor Asignado'
-    );
-
-    if (realSuppliers.length === 0) {
-      alert('❌ No hay ingredientes con proveedores asignados para generar pedidos.');
-      return;
-    }
-
-    setOrderGenerationData({
-      suppliers: realSuppliers,
-      totalCost: realSuppliers.reduce((total, supplier) => total + supplier.supplierTotal, 0),
-      generatedFrom: shoppingList.filters?.manual ? 'manual' : 
-                    (showEventSelection ? 'events' : 'shopping-list')
-    });
-    setShowGenerateOrderModal(true);
-  };
-
-  // Función para confirmar generación de pedidos
-  const confirmGenerateOrders = async (deliveryDate, notes) => {
-    if (!orderGenerationData) return;
-
-    try {
-      setIsGeneratingOrders(true);
-      
-      const response = await api.post('/supplier-orders/generate', {
-        suppliers: orderGenerationData.suppliers,
-        deliveryDate: deliveryDate || null,
-        notes: notes || '',
-        generatedFrom: orderGenerationData.generatedFrom
-      });
-
-      if (response.data.success) {
-        // Limpiar la lista de compras
-        setShoppingList(null);
-        
-        // Cerrar modal
-        setShowGenerateOrderModal(false);
-        setOrderGenerationData(null);
-        
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.error('Error al generar pedidos:', error);
-      return false;
-    } finally {
-      setIsGeneratingOrders(false);
-    }
-  };
 
   // Effects
   useEffect(() => {
@@ -363,19 +286,10 @@ export const useShoppingList = () => {
     manualOrderItems,
     availableIngredients,
     ingredientsLoading,
-    isGeneratingOrders,
-    showGenerateOrderModal,
-    orderGenerationData,
-    showSupplierWarningModal,
-    ingredientsWithoutProvider,
 
     // Setters
     setFilters,
     setShoppingList,
-    setShowGenerateOrderModal,
-    setOrderGenerationData,
-    setShowSupplierWarningModal,
-    setIngredientsWithoutProvider,
 
     // Actions
     loadAvailableEvents,
@@ -386,8 +300,6 @@ export const useShoppingList = () => {
     addManualOrderItem,
     updateManualOrderItem,
     removeManualOrderItem,
-    generateManualShoppingList,
-    handleGenerateOrders,
-    confirmGenerateOrders
+    generateManualShoppingList
   };
 };

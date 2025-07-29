@@ -41,12 +41,41 @@ router.get('/dashboard', authenticateToken, authorizeRoles('admin', 'chef'), asy
         AND is_available = 1
     `);
     
-    // 4. Calcular ahorro potencial (pedidos pendientes que podrían consolidarse)
+    // 4. Calcular ahorro potencial - versión simplificada y directa
     const [potentialSavingsResult] = await pool.query(`
-      SELECT COUNT(*) * 25 as potential_savings
-      FROM SUPPLIER_ORDERS 
-      WHERE status = 'pending'
-        AND order_date >= CURDATE()
+      WITH pedidos_pendientes AS (
+        -- Obtener todos los pedidos pendientes y sus totales
+        SELECT 
+          order_id,
+          total_amount,
+          COUNT(*) OVER() as total_pedidos
+        FROM SUPPLIER_ORDERS 
+        WHERE status = 'pending'
+          AND order_date >= CURDATE()
+      ),
+      ingredientes_duplicados AS (
+        -- Verificar si hay ingredientes repetidos entre pedidos
+        SELECT 
+          soi.ingredient_id,
+          COUNT(DISTINCT soi.order_id) as pedidos_con_ingrediente
+        FROM SUPPLIER_ORDER_ITEMS soi
+        JOIN SUPPLIER_ORDERS so ON soi.order_id = so.order_id
+        WHERE so.status = 'pending'
+          AND so.order_date >= CURDATE()
+        GROUP BY soi.ingredient_id
+        HAVING COUNT(DISTINCT soi.order_id) > 1
+      )
+      SELECT 
+        CASE 
+          WHEN EXISTS(SELECT 1 FROM ingredientes_duplicados) THEN
+            -- Si hay ingredientes duplicados, ahorro = todos los pedidos menos el más caro
+            COALESCE(
+              (SELECT SUM(total_amount) FROM pedidos_pendientes) - 
+              (SELECT MAX(total_amount) FROM pedidos_pendientes), 
+              0
+            )
+          ELSE 0
+        END as potential_savings
     `);
 
     const dashboardData = {
@@ -137,51 +166,23 @@ router.get('/shopping-list', authenticateToken, authorizeRoles('admin', 'chef'),
         SUM(ri.quantity_per_serving * em.portions) * (1 + IFNULL(i.waste_percent, 0)) as total_needed_with_waste,
         ${stockFormula} as to_buy,
         ${costFormula} as total_cost,
-        si.supplier_id,
-        s.name as supplier_name,
-        si.package_size,
-        si.package_unit,
-        si.minimum_order_quantity,
-        si.price as supplier_price,
-        -- Calcular cantidad real de paquetes necesarios (solo si hay proveedor)
-        CASE 
-          WHEN si.supplier_id IS NOT NULL AND si.package_size > 0 THEN 
-            GREATEST(
-              si.minimum_order_quantity,
-              CEIL(${stockFormula} / si.package_size)
-            )
-          ELSE 0
-        END as packages_to_buy,
-        -- Calcular cantidad total real (en unidades base)
-        CASE 
-          WHEN si.supplier_id IS NOT NULL AND si.package_size > 0 THEN 
-            GREATEST(
-              si.minimum_order_quantity,
-              CEIL(${stockFormula} / si.package_size)
-            ) * si.package_size
-          ELSE ${stockFormula}
-        END as real_quantity,
-        -- Calcular costo real basado en precio del proveedor
-        CASE 
-          WHEN si.supplier_id IS NOT NULL AND si.price IS NOT NULL AND si.price > 0 THEN 
-            GREATEST(
-              si.minimum_order_quantity,
-              CEIL(${stockFormula} / si.package_size)
-            ) * si.price
-          ELSE ${costFormula}
-        END as real_total_cost,
+        MAX(si.supplier_id) as supplier_id,
+        MAX(s.name) as supplier_name,
+        MAX(si.package_size) as package_size,
+        MAX(si.package_unit) as package_unit,
+        MAX(si.minimum_order_quantity) as minimum_order_quantity,
+        MAX(si.price) as supplier_price,
+        -- Cálculos simplificados - se harán en JavaScript
+        0 as packages_to_buy,
+        0 as real_quantity,
+        0 as real_total_cost,
         
-        -- Indicadores de configuración del proveedor
-        CASE 
-          WHEN si.supplier_id IS NOT NULL AND si.price IS NOT NULL AND si.price > 0 THEN 'complete'
-          WHEN si.supplier_id IS NOT NULL AND (si.price IS NULL OR si.price <= 0) THEN 'incomplete' 
-          ELSE 'missing'
-        END as supplier_status,
+        'unknown' as supplier_status,
         
         -- Campos de debug
-        si.supplier_id as debug_supplier_id,
-        si.price as debug_price,
-        si.is_preferred_supplier as debug_preferred
+        MAX(si.supplier_id) as debug_supplier_id,
+        MAX(si.price) as debug_price,
+        MAX(si.is_preferred_supplier) as debug_preferred
       FROM EVENTS e
       JOIN EVENT_MENUS em ON e.event_id = em.event_id
       JOIN RECIPE_INGREDIENTS ri ON em.recipe_id = ri.recipe_id
@@ -190,7 +191,7 @@ router.get('/shopping-list', authenticateToken, authorizeRoles('admin', 'chef'),
       LEFT JOIN SUPPLIERS s ON si.supplier_id = s.supplier_id
       WHERE ${whereClause}
         AND i.is_available = 1
-      GROUP BY i.ingredient_id, i.name, i.unit, i.base_price, i.stock, i.waste_percent, si.supplier_id, s.name, si.package_size, si.package_unit, si.minimum_order_quantity, si.price, si.is_preferred_supplier
+      GROUP BY i.ingredient_id, i.name, i.unit, i.base_price, i.stock, i.waste_percent
       HAVING to_buy > 0
       ORDER BY COALESCE(s.name, 'zzz'), i.name
     `, queryParams);
@@ -218,6 +219,35 @@ router.get('/shopping-list', authenticateToken, authorizeRoles('admin', 'chef'),
         };
       }
 
+      // Calcular campos del proveedor correctamente en JavaScript
+      const toBuy = Math.round(parseFloat(ingredient.to_buy) * 10000) / 10000;
+      const packageSize = Math.round(parseFloat(ingredient.package_size || 1) * 10000) / 10000;
+      const minimumOrderQuantity = Math.round(parseFloat(ingredient.minimum_order_quantity || 1) * 100) / 100;
+      const supplierPrice = Math.round(parseFloat(ingredient.supplier_price || ingredient.price_per_unit) * 10000) / 10000;
+      
+      // Calcular cantidad real de paquetes necesarios
+      let packagesToBuy = 0;
+      let realQuantity = toBuy;
+      let realTotalCost = Math.round(parseFloat(ingredient.total_cost || 0) * 100) / 100;
+      
+      if (ingredient.supplier_id && packageSize > 0) {
+        packagesToBuy = Math.max(
+          minimumOrderQuantity,
+          Math.ceil(toBuy / packageSize)
+        );
+        realQuantity = packagesToBuy * packageSize;
+        
+        if (supplierPrice > 0) {
+          realTotalCost = Math.round((packagesToBuy * supplierPrice) * 100) / 100;
+        }
+      }
+      
+      // Determinar estado del proveedor
+      let supplierStatus = 'missing';
+      if (ingredient.supplier_id) {
+        supplierStatus = (supplierPrice > 0) ? 'complete' : 'incomplete';
+      }
+
       const ingredientData = {
         ingredientId: ingredient.ingredient_id,
         name: ingredient.name,
@@ -226,19 +256,19 @@ router.get('/shopping-list', authenticateToken, authorizeRoles('admin', 'chef'),
         neededWithWaste: Math.round(parseFloat(ingredient.total_needed_with_waste) * 10000) / 10000,
         wastePercent: Math.round(parseFloat(ingredient.waste_percent || 0) * 10000) / 10000,
         inStock: Math.round(parseFloat(ingredient.current_stock) * 10000) / 10000,
-        toBuy: Math.round(parseFloat(ingredient.to_buy) * 10000) / 10000,
+        toBuy: toBuy,
         unit: ingredient.unit,
         pricePerUnit: Math.round(parseFloat(ingredient.price_per_unit) * 10000) / 10000,
         totalCost: Math.round(parseFloat(ingredient.total_cost || 0) * 100) / 100,
-        // Nuevos campos para cantidades reales
-        packageSize: Math.round(parseFloat(ingredient.package_size || 1) * 10000) / 10000,
+        // Campos del proveedor calculados correctamente
+        packageSize: packageSize,
         packageUnit: ingredient.package_unit || 'unidad',
-        minimumOrderQuantity: Math.round(parseFloat(ingredient.minimum_order_quantity || 1) * 100) / 100,
-        supplierPrice: Math.round(parseFloat(ingredient.supplier_price || ingredient.price_per_unit) * 10000) / 10000,
-        packagesToBuy: Math.round(parseFloat(ingredient.packages_to_buy || 0) * 100) / 100,
-        realQuantity: Math.round(parseFloat(ingredient.real_quantity || 0) * 10000) / 10000,
-        realTotalCost: Math.round(parseFloat(ingredient.real_total_cost || 0) * 100) / 100,
-        supplierStatus: ingredient.supplier_status || 'missing',
+        minimumOrderQuantity: minimumOrderQuantity,
+        supplierPrice: supplierPrice,
+        packagesToBuy: Math.round(packagesToBuy * 100) / 100,
+        realQuantity: Math.round(realQuantity * 10000) / 10000,
+        realTotalCost: realTotalCost,
+        supplierStatus: supplierStatus,
         // Campos de debug
         debugSupplierId: ingredient.debug_supplier_id,
         debugPrice: ingredient.debug_price,
@@ -1018,6 +1048,110 @@ router.get('/:id', authenticateToken, authorizeRoles('admin', 'chef'), async (re
   }
 });
 
+// PUT /supplier-orders/:id/items - Actualizar items de un pedido
+router.put('/:id/items', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
+  const { id } = req.params;
+  const { items } = req.body;
+
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ message: 'Los items son obligatorios' });
+  }
+
+  const connection = await pool.getConnection();
+  
+  try {
+    await connection.beginTransaction();
+
+    // Verificar que el pedido existe y está en estado 'ordered'
+    const [existing] = await connection.query(
+      'SELECT status, supplier_id FROM SUPPLIER_ORDERS WHERE order_id = ?', 
+      [id]
+    );
+    
+    if (existing.length === 0) {
+      return res.status(404).json({ message: 'Pedido no encontrado' });
+    }
+
+    if (existing[0].status !== 'ordered') {
+      return res.status(400).json({ 
+        message: 'Solo se pueden editar pedidos en estado "enviado"' 
+      });
+    }
+
+    // Obtener información del pedido para saber el proveedor
+    const [orderInfo] = await connection.query(
+      'SELECT supplier_id FROM SUPPLIER_ORDERS WHERE order_id = ?', 
+      [id]
+    );
+    const supplierId = orderInfo[0]?.supplier_id;
+
+    // Actualizar cada item
+    for (const item of items) {
+      const { ingredient_id, quantity, unit_price } = item;
+      const total_price = quantity * unit_price;
+
+      // Actualizar el item del pedido
+      await connection.execute(`
+        UPDATE SUPPLIER_ORDER_ITEMS 
+        SET quantity = ?, unit_price = ?, total_price = ?
+        WHERE order_id = ? AND ingredient_id = ?
+      `, [quantity, unit_price, total_price, id, ingredient_id]);
+
+      // Si el pedido tiene proveedor, actualizar el precio en SUPPLIER_INGREDIENTS
+      if (supplierId) {
+        await connection.execute(`
+          UPDATE SUPPLIER_INGREDIENTS 
+          SET price = ?
+          WHERE supplier_id = ? AND ingredient_id = ?
+        `, [unit_price, supplierId, ingredient_id]);
+        
+      }
+
+      // Actualizar también el precio base del ingrediente
+      await connection.execute(`
+        UPDATE INGREDIENTS 
+        SET base_price = ?
+        WHERE ingredient_id = ?
+      `, [unit_price, ingredient_id]);
+      
+    }
+
+    // Recalcular el total del pedido
+    const [newTotal] = await connection.query(`
+      SELECT SUM(total_price) as new_total
+      FROM SUPPLIER_ORDER_ITEMS 
+      WHERE order_id = ?
+    `, [id]);
+
+    // Actualizar el total del pedido
+    await connection.execute(`
+      UPDATE SUPPLIER_ORDERS 
+      SET total_amount = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE order_id = ?
+    `, [newTotal[0].new_total || 0, id]);
+
+    // Registrar auditoría
+    const priceUpdatesCount = supplierId ? items.length : 0;
+    await logAudit(req.user.user_id, 'UPDATE', 'SUPPLIER_ORDER_ITEMS', id, 
+      `Items del pedido actualizados - Nuevo total: €${newTotal[0].new_total || 0} - ${items.length} precios base actualizados${priceUpdatesCount > 0 ? ` - ${priceUpdatesCount} precios de relación proveedor-ingrediente actualizados` : ''}`, connection);
+
+    await connection.commit();
+
+    res.json({ 
+      success: true, 
+      message: 'Items del pedido actualizados exitosamente',
+      newTotal: newTotal[0].new_total || 0
+    });
+
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error al actualizar items del pedido:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  } finally {
+    connection.release();
+  }
+});
+
 // PUT /supplier-orders/:id/status - Actualizar estado de un pedido
 router.put('/:id/status', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
   const { id } = req.params;
@@ -1068,6 +1202,7 @@ router.put('/:id/status', authenticateToken, authorizeRoles('admin', 'chef'), as
           SET stock = stock + ? 
           WHERE ingredient_id = ?
         `, [item.quantity, item.ingredient_id]);
+        
       }
     }
 

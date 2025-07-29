@@ -18,8 +18,7 @@ const OrdersFilterPanel = ({ filters, onFiltersChange, viewMode, onViewModeChang
     const statusData = getStatusStyle(status);
     return {
       value: status,
-      label: statusData.label,
-      icon: statusData.icon
+      label: statusData.label
     };
   });
 
@@ -48,9 +47,14 @@ const OrdersFilterPanel = ({ filters, onFiltersChange, viewMode, onViewModeChang
     }
     if (selectedValues.length === 1) {
       const status = statusOptions.find(opt => opt.value === selectedValues[0]);
-      return `${status.icon} ${status.label}`;
+      return status.label;
     }
-    return `${selectedValues.length} estados seleccionados`;
+    // Mostrar nombres de estados seleccionados separados por comas
+    const selectedNames = selectedValues
+      .map(value => statusOptions.find(opt => opt.value === value)?.label)
+      .filter(Boolean)
+      .join(', ');
+    return selectedNames;
   };
 
   return (

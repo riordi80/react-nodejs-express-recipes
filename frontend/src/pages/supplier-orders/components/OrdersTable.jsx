@@ -31,8 +31,7 @@ const OrdersTable = ({ orders, loading, onViewOrder }) => {
         const statusStyle = getStatusStyle(row.status);
         return (
           <span className={`order-status-badge ${statusStyle.className}`}>
-            <span className="status-icon">{statusStyle.icon}</span>
-            {statusStyle.label}
+            {statusStyle.label.toUpperCase()}
           </span>
         );
       }

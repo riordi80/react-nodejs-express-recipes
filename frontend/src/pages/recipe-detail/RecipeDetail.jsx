@@ -571,85 +571,6 @@ const RecipeDetail = () => {
           </div>
         </div>
 
-        {/* Event Planning Section */}
-        <div className="recipe-section">
-          <h2 className="section-title">📊 Planificación de Eventos</h2>
-          <div className="section-content">
-            <div className="form-grid-3">
-              <div className="form-field">
-                <label className="required-label">Comensales</label>
-                {isEditing ? (
-                  <div>
-                    <input
-                      type="number"
-                      className="form-input"
-                      value={recipe.servings || ''}
-                      min={recipe.production_servings || 1}
-                      onChange={(e) => {
-                        setRecipe({...recipe, servings: e.target.value});
-                        if (validationErrors.servings) {
-                          setValidationErrors({...validationErrors, servings: null});
-                        }
-                      }}
-                      placeholder="Para cuántas personas"
-                    />
-                    {recipe.production_servings && parseInt(recipe.servings) < parseInt(recipe.production_servings) && (
-                      <div style={{ 
-                        fontSize: '12px', 
-                        color: '#ef4444', 
-                        marginTop: '4px',
-                        fontStyle: 'italic'
-                      }}>
-                        Debe ser mínimo {recipe.production_servings} comensales
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="form-value">{recipe.servings || 'No especificado'}</div>
-                )}
-              </div>
-              <div className="form-field">
-                <label className="required-label">Precio de venta total</label>
-                {isEditing ? (
-                  <input
-                    type="number"
-                    step="0.01"
-                    className="form-input"
-                    value={recipe.net_price || ''}
-                    onChange={(e) => {
-                      setRecipe({...recipe, net_price: e.target.value});
-                      if (validationErrors.net_price) {
-                        setValidationErrors({...validationErrors, net_price: null});
-                      }
-                    }}
-                    placeholder="€"
-                  />
-                ) : (
-                  <div className="form-value">{recipe.net_price ? formatCurrency(recipe.net_price) : 'No especificado'}</div>
-                )}
-              </div>
-              <div className="form-field">
-                <div className="tooltip-container">
-                  <label>Precio por comensal</label>
-                  <div className="tooltip-icon">
-                    ?
-                    <div className="tooltip-text">
-                      Cálculo automático dividiendo el precio de venta total entre el número de comensales
-                    </div>
-                  </div>
-                </div>
-                <div className="form-value">
-                  {recipe.net_price && recipe.servings ? 
-                    formatCurrency(parseFloat(recipe.net_price) / parseInt(recipe.servings)) : 
-                    'Calculado automáticamente'
-                  }
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </div>
-
         {/* Ingredients Section */}
         <div className="recipe-section">
           <h2 className="section-title">🥕 Ingredientes</h2>
@@ -778,6 +699,85 @@ const RecipeDetail = () => {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+
+        {/* Event Planning Section */}
+        <div className="recipe-section">
+          <h2 className="section-title">📊 Calculadora de Costos</h2>
+          <div className="section-content">
+            <div className="form-grid-3">
+              <div className="form-field">
+                <label className="required-label">Comensales</label>
+                {isEditing ? (
+                  <div>
+                    <input
+                      type="number"
+                      className="form-input"
+                      value={recipe.servings || ''}
+                      min={recipe.production_servings || 1}
+                      onChange={(e) => {
+                        setRecipe({...recipe, servings: e.target.value});
+                        if (validationErrors.servings) {
+                          setValidationErrors({...validationErrors, servings: null});
+                        }
+                      }}
+                      placeholder="Para cuántas personas"
+                    />
+                    {recipe.production_servings && parseInt(recipe.servings) < parseInt(recipe.production_servings) && (
+                      <div style={{ 
+                        fontSize: '12px', 
+                        color: '#ef4444', 
+                        marginTop: '4px',
+                        fontStyle: 'italic'
+                      }}>
+                        Debe ser mínimo {recipe.production_servings} comensales
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="form-value">{recipe.servings || 'No especificado'}</div>
+                )}
+              </div>
+              <div className="form-field">
+                <label className="required-label">Precio de venta total</label>
+                {isEditing ? (
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="form-input"
+                    value={recipe.net_price || ''}
+                    onChange={(e) => {
+                      setRecipe({...recipe, net_price: e.target.value});
+                      if (validationErrors.net_price) {
+                        setValidationErrors({...validationErrors, net_price: null});
+                      }
+                    }}
+                    placeholder="€"
+                  />
+                ) : (
+                  <div className="form-value">{recipe.net_price ? formatCurrency(recipe.net_price) : 'No especificado'}</div>
+                )}
+              </div>
+              <div className="form-field">
+                <div className="tooltip-container">
+                  <label>Precio por comensal</label>
+                  <div className="tooltip-icon">
+                    ?
+                    <div className="tooltip-text">
+                      Cálculo automático dividiendo el precio de venta total entre el número de comensales
+                    </div>
+                  </div>
+                </div>
+                <div className="form-value">
+                  {recipe.net_price && recipe.servings ? 
+                    formatCurrency(parseFloat(recipe.net_price) / parseInt(recipe.servings)) : 
+                    'Calculado automáticamente'
+                  }
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
 

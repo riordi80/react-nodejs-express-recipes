@@ -207,8 +207,8 @@ const ReportsModal = ({ isOpen, onClose }) => {
   const getStatusLabel = (status) => {
     const statusMap = {
       pending: 'Pendiente',
-      ordered: 'Enviado',
-      delivered: 'Entregado',
+      ordered: 'Confirmado',
+      delivered: 'Recibido',
       cancelled: 'Cancelado'
     };
     return statusMap[status] || status;
@@ -282,8 +282,8 @@ const ReportsModal = ({ isOpen, onClose }) => {
           >
             <option value="all">Todos</option>
             <option value="pending">Pendiente</option>
-            <option value="ordered">Enviado</option>
-            <option value="delivered">Entregado</option>
+            <option value="ordered">Confirmado</option>
+            <option value="delivered">Recibido</option>
             <option value="cancelled">Cancelado</option>
           </select>
         </div>
@@ -375,7 +375,7 @@ const ReportsModal = ({ isOpen, onClose }) => {
             <span className="stat-value">{formatCurrency(historyData.statistics.averageAmount)}</span>
           </div>
           <div className="stat-card">
-            <h4>Entregados</h4>
+            <h4>Recibidos</h4>
             <span className="stat-value">{historyData.statistics.statusBreakdown.delivered}</span>
           </div>
         </div>

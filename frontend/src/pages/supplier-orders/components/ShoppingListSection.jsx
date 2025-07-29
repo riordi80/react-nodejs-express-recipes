@@ -13,7 +13,8 @@ const ShoppingListSection = forwardRef(({
   onIngredientRowClick,
   onNavigateToActiveOrders,
   isModeDropdownOpen,
-  setIsModeDropdownOpen
+  setIsModeDropdownOpen,
+  onGenerateOrders
 }, ref) => {
   const shoppingListHook = useShoppingList();
 
@@ -120,9 +121,9 @@ const ShoppingListSection = forwardRef(({
       ) : shoppingListHook.shoppingList ? (
         <ShoppingResults
           shoppingList={shoppingListHook.shoppingList}
-          isGeneratingOrders={shoppingListHook.isGeneratingOrders}
+          isGeneratingOrders={false} // Ahora se maneja en el componente principal
           onIngredientRowClick={onIngredientRowClick}
-          onGenerateOrders={shoppingListHook.handleGenerateOrders}
+          onGenerateOrders={() => onGenerateOrders(shoppingListHook.shoppingList, shoppingListHook.showEventSelection)}
         />
       ) : null}
     </div>

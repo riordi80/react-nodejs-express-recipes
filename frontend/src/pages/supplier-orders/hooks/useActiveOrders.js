@@ -6,6 +6,10 @@ export const useActiveOrders = () => {
   const [activeOrders, setActiveOrders] = useState([]);
   const [activeOrdersLoading, setActiveOrdersLoading] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [orderToDelete, setOrderToDelete] = useState(null);
+  const [message, setMessage] = useState(null);
+  const [messageType, setMessageType] = useState('success');
   const [activeOrdersFilters, setActiveOrdersFilters] = useState({
     status: {
       pending: true,
@@ -105,26 +109,53 @@ export const useActiveOrders = () => {
     }
   };
 
-  // Eliminar pedido
-  const deleteOrder = async (orderId) => {
-    if (!confirm('¿Estás seguro de que quieres eliminar este pedido?')) {
-      return false;
-    }
+  // Abrir modal de eliminación
+  const openDeleteModal = (order) => {
+    setOrderToDelete(order);
+    setIsDeleteModalOpen(true);
+  };
+
+  // Función para mostrar mensajes
+  const notify = (msg, type = 'success') => {
+    setMessage(msg);
+    setMessageType(type);
+    setTimeout(() => setMessage(null), 3000);
+  };
+
+  // Cerrar modal de eliminación
+  const closeDeleteModal = () => {
+    setIsDeleteModalOpen(false);
+    setOrderToDelete(null);
+  };
+
+  // Confirmar eliminación del pedido
+  const confirmDeleteOrder = async () => {
+    if (!orderToDelete) return false;
 
     try {
-      await api.delete(`/supplier-orders/${orderId}`);
+      await api.delete(`/supplier-orders/${orderToDelete.order_id}`);
       await loadActiveOrders();
       
       // Limpiar pedido seleccionado si coincide
-      if (selectedOrder && selectedOrder.order_id === orderId) {
+      if (selectedOrder && selectedOrder.order_id === orderToDelete.order_id) {
         setSelectedOrder(null);
       }
       
+      // Mostrar mensaje de confirmación con el número del pedido
+      notify(`Pedido #${orderToDelete.order_id} eliminado correctamente`, 'success');
+      
+      closeDeleteModal();
       return true;
     } catch (error) {
       console.error('Error deleting order:', error);
+      notify(`Error al eliminar el pedido #${orderToDelete.order_id}`, 'error');
       return false;
     }
+  };
+
+  // Función legacy para mantener compatibilidad (será reemplazada)
+  const deleteOrder = (order) => {
+    openDeleteModal(order);
   };
 
   // Efecto para recargar pedidos cuando cambian los filtros
@@ -138,6 +169,10 @@ export const useActiveOrders = () => {
     activeOrdersLoading,
     selectedOrder,
     activeOrdersFilters,
+    isDeleteModalOpen,
+    orderToDelete,
+    message,
+    messageType,
     
     // Setters
     setActiveOrdersFilters,
@@ -147,6 +182,10 @@ export const useActiveOrders = () => {
     loadActiveOrders,
     loadOrderDetail,
     updateOrderStatus,
-    deleteOrder
+    deleteOrder,
+    openDeleteModal,
+    closeDeleteModal,
+    confirmDeleteOrder,
+    notify
   };
 };

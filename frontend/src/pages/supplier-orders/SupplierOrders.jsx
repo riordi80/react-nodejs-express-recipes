@@ -10,6 +10,7 @@ import GenerateOrderModal from '../../components/modals/GenerateOrderModal';
 import OrderDetailModal from '../../components/modals/OrderDetailModal';
 import SupplierWarningModal from '../../components/modals/SupplierWarningModal';
 import ReportsModal from '../../components/modals/ReportsModal';
+import Modal from '../../components/modal/Modal';
 import ActiveOrdersSection from './components/ActiveOrdersSection';
 import DashboardSection from './components/DashboardSection';
 import ShoppingListSection from './components/ShoppingListSection';
@@ -40,6 +41,11 @@ const SupplierOrders = () => {
 
   // Estados para modal de reportes
   const [showReportsModal, setShowReportsModal] = useState(false);
+
+  // Estados para generación de pedidos (movidos desde el hook)
+  const [isGeneratingOrders, setIsGeneratingOrders] = useState(false);
+  const [showGenerateOrderModal, setShowGenerateOrderModal] = useState(false);
+  const [orderGenerationData, setOrderGenerationData] = useState(null);
 
 
   // Definición de tabs
@@ -129,6 +135,77 @@ const SupplierOrders = () => {
     }
   };
 
+  // Función para manejar la generación de pedidos (restaurada del archivo original)
+  const handleGenerateOrders = (shoppingList, showEventSelection) => {
+    if (!shoppingList || !shoppingList.ingredientsBySupplier || shoppingList.ingredientsBySupplier.length === 0) {
+      return;
+    }
+
+    // Verificar si hay ingredientes sin proveedor asignado
+    const suppliersWithoutProvider = shoppingList.ingredientsBySupplier.filter(
+      supplier => supplier.supplierId === 999 || supplier.supplierName === 'Sin Proveedor Asignado'
+    );
+
+    if (suppliersWithoutProvider.length > 0) {
+      // TODO: Mostrar modal de advertencia con los ingredientes sin proveedor
+      // setIngredientsWithoutProvider(suppliersWithoutProvider);
+      // setShowSupplierWarningModal(true);
+      alert('⚠️ Hay ingredientes sin proveedor asignado. Configura los proveedores primero.');
+      return;
+    }
+
+    // Solo generar pedidos para proveedores reales (filtrar los de ID 999)
+    const realSuppliers = shoppingList.ingredientsBySupplier.filter(
+      supplier => supplier.supplierId !== 999 && supplier.supplierName !== 'Sin Proveedor Asignado'
+    );
+
+    if (realSuppliers.length === 0) {
+      alert('❌ No hay ingredientes con proveedores asignados para generar pedidos.');
+      return;
+    }
+
+    setOrderGenerationData({
+      suppliers: realSuppliers,
+      totalCost: realSuppliers.reduce((total, supplier) => total + supplier.supplierTotal, 0),
+      generatedFrom: shoppingList.filters?.manual ? 'manual' : 
+                    (showEventSelection ? 'events' : 'shopping-list')
+    });
+    setShowGenerateOrderModal(true);
+  };
+
+  // Función para confirmar generación de pedidos (restaurada del archivo original)
+  const confirmGenerateOrders = async (deliveryDate, notes) => {
+    if (!orderGenerationData) return false;
+
+    try {
+      setIsGeneratingOrders(true);
+      
+      const response = await api.post('/supplier-orders/generate', {
+        suppliers: orderGenerationData.suppliers,
+        deliveryDate: deliveryDate || null,
+        notes: notes || '',
+        generatedFrom: orderGenerationData.generatedFrom
+      });
+
+      if (response.data.success) {
+        // Cambiar a la pestaña de pedidos activos para ver los pedidos creados
+        setActiveTab('active-orders');
+        
+        // Cerrar modal y limpiar datos
+        setShowGenerateOrderModal(false);
+        setOrderGenerationData(null);
+        
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error al generar pedidos:', error);
+      return false;
+    } finally {
+      setIsGeneratingOrders(false);
+    }
+  };
+
 
 
 
@@ -214,6 +291,7 @@ const SupplierOrders = () => {
               onNavigateToActiveOrders={() => setActiveTab('active-orders')}
               isModeDropdownOpen={isModeDropdownOpen}
               setIsModeDropdownOpen={setIsModeDropdownOpen}
+              onGenerateOrders={handleGenerateOrders}
             />
           )}
           {activeTab === 'active-orders' && (
@@ -221,6 +299,12 @@ const SupplierOrders = () => {
               onOrderClick={handleOrderClick}
               onUpdateOrderStatus={activeOrdersHook.updateOrderStatus}
               onDeleteOrder={activeOrdersHook.deleteOrder}
+              activeOrders={activeOrdersHook.activeOrders}
+              activeOrdersLoading={activeOrdersHook.activeOrdersLoading}
+              activeOrdersFilters={activeOrdersHook.activeOrdersFilters}
+              setActiveOrdersFilters={activeOrdersHook.setActiveOrdersFilters}
+              message={activeOrdersHook.message}
+              messageType={activeOrdersHook.messageType}
             />
           )}
           {activeTab === 'suppliers' && <SuppliersSection />}
@@ -251,22 +335,16 @@ const SupplierOrders = () => {
 
       {/* Modal de generación de pedidos */}
       <GenerateOrderModal
-        isOpen={shoppingListRef.current?.getModalStates()?.showGenerateOrderModal || false}
+        isOpen={showGenerateOrderModal}
         onClose={() => {
-          const handlers = shoppingListRef.current?.getModalHandlers();
-          if (handlers) {
-            handlers.onCloseGenerateOrderModal();
+          if (!isGeneratingOrders) {
+            setShowGenerateOrderModal(false);
+            setOrderGenerationData(null);
           }
         }}
-        onConfirm={async (deliveryDate, notes) => {
-          const handlers = shoppingListRef.current?.getModalHandlers();
-          if (handlers) {
-            return await handlers.onConfirmGenerateOrders(deliveryDate, notes);
-          }
-          return false;
-        }}
-        orderData={shoppingListRef.current?.getModalStates()?.orderGenerationData || null}
-        isGenerating={shoppingListRef.current?.getModalStates()?.isGeneratingOrders || false}
+        onConfirm={confirmGenerateOrders}
+        orderData={orderGenerationData}
+        isGenerating={isGeneratingOrders}
       />
 
       {/* Modal de detalle de pedido */}
@@ -299,6 +377,33 @@ const SupplierOrders = () => {
         isOpen={showReportsModal}
         onClose={() => setShowReportsModal(false)}
       />
+
+      {/* Modal de confirmación de eliminación de pedido */}
+      <Modal
+        isOpen={activeOrdersHook.isDeleteModalOpen}
+        title="Confirmar eliminación"
+        onClose={activeOrdersHook.closeDeleteModal}
+      >
+        {activeOrdersHook.orderToDelete && (
+          <p>
+            ¿Estás seguro de que deseas eliminar el pedido{' '}
+            <strong>#{activeOrdersHook.orderToDelete.order_id}</strong>{' '}
+            del proveedor{' '}
+            <strong>{activeOrdersHook.orderToDelete.supplier_name}</strong>?
+          </p>
+        )}
+        <p style={{ color: '#64748b', fontSize: '14px', marginTop: '12px' }}>
+          Esta acción no se puede deshacer.
+        </p>
+        <div className="modal-actions">
+          <button className="btn cancel" onClick={activeOrdersHook.closeDeleteModal}>
+            Cancelar
+          </button>
+          <button className="btn delete" onClick={activeOrdersHook.confirmDeleteOrder}>
+            Eliminar
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 };

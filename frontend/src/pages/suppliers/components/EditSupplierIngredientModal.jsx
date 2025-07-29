@@ -23,6 +23,7 @@ export default function EditSupplierIngredientModal({
       isOpen={isOpen} 
       title="Editar relación proveedor-ingrediente" 
       onClose={onClose}
+      fullscreenMobile={true}
     >
       <div className="edit-supplier-ingredient-modal">
         <p>Editando ingrediente: <strong>{editingSupplierIngredient?.name}</strong></p>

@@ -15,7 +15,7 @@
   height: 36px;
   padding: 6px 8px;
   border: 1px solid #ccc;
-  border-radius: 4px;
+  border-radius: 8px;
   box-sizing: border-box;
   font-size: inherit;
   font-family: inherit;
@@ -37,6 +37,7 @@ select.filter-select {
   background-size: 16px 16px !important;
   color: #333 !important;
   cursor: pointer !important;
+  border-radius: 8px !important;
   -webkit-appearance: none !important;
   -moz-appearance: none !important;
   appearance: none !important;
@@ -47,6 +48,7 @@ select.filter-select {
   flex: 1;         /* ocupa todo el espacio disponible */
   min-width: 200px; /* ancho mínimo */
   line-height: 30px;
+  border-radius: 8px !important;
 }
 
 .filter-input:focus {
@@ -73,7 +75,7 @@ select.filter-select {
   background-image: linear-gradient(to bottom, #fff, #f0f0f0) !important;
   color: #333 !important; /* texto oscuro */
   border: 1px solid #ccc !important;
-  border-radius: 4px !important;
+  border-radius: 8px !important;
   padding: 6px 8px !important;
   font-size: inherit !important;
   font-family: inherit !important;
@@ -189,7 +191,7 @@ select.filter-select {
   width: 100%;
   background: #fff;
   border: 1px solid #ccc;
-  border-radius: 4px;
+  border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.15);
   max-height: min(300px, calc(100vh - 100px - var(--menu-top, 0px)));    /* altura adaptativa */
   overflow-y: auto;     /* scroll interno si hay muchos alérgenos */
@@ -427,7 +429,7 @@ select.filter-select {
   gap: 8px;
   padding: 8px;
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: 8px;
   transition: background-color 0.2s;
   font-size: 14px;
   margin: 0;

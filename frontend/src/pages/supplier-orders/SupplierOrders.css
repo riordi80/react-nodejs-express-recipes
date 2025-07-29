@@ -1052,6 +1052,23 @@
   table-layout: fixed;
 }
 
+/* Asegurar scroll horizontal en móvil */
+@media (max-width: 768px) {
+  .ingredients-table table {
+    min-width: 800px; /* Forzar scroll horizontal */
+  }
+  
+  /* Usar anchos fijos en píxeles para móvil */
+  .ingredients-table th:nth-child(1), .ingredients-table td:nth-child(1) { width: 140px; } /* Ingrediente */
+  .ingredients-table th:nth-child(2), .ingredients-table td:nth-child(2) { width: 80px; } /* Necesario */
+  .ingredients-table th:nth-child(3), .ingredients-table td:nth-child(3) { width: 80px; } /* En Stock */
+  .ingredients-table th:nth-child(4), .ingredients-table td:nth-child(4) { width: 80px; } /* A Comprar */
+  .ingredients-table th:nth-child(5), .ingredients-table td:nth-child(5) { width: 90px; } /* Unidad Venta */
+  .ingredients-table th:nth-child(6), .ingredients-table td:nth-child(6) { width: 90px; } /* Cantidad Real */
+  .ingredients-table th:nth-child(7), .ingredients-table td:nth-child(7) { width: 100px; } /* Precio Real */
+  .ingredients-table th:nth-child(8), .ingredients-table td:nth-child(8) { width: 100px; } /* Total Real */
+}
+
 .ingredients-table th:nth-child(1), .ingredients-table td:nth-child(1) { width: 20%; } /* Ingrediente */
 .ingredients-table th:nth-child(2), .ingredients-table td:nth-child(2) { width: 10%; } /* Necesario */
 .ingredients-table th:nth-child(3), .ingredients-table td:nth-child(3) { width: 10%; } /* En Stock */
@@ -2052,6 +2069,9 @@
   cursor: pointer;
   transition: all 0.2s ease;
   position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 280px;
 }
 
 .order-card:hover {
@@ -2111,6 +2131,7 @@
 
 .order-details {
   margin-bottom: 16px;
+  flex-grow: 1;
 }
 
 .order-meta {
@@ -2149,6 +2170,7 @@
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  margin-top: auto;
 }
 
 .btn-small {
@@ -2875,6 +2897,12 @@ button.pdf-download-btn:active {
     padding: 20px;
   }
   
+  /* Ajustar grid de pedidos recientes para tablet */
+  .recent-orders-grid {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 12px;
+  }
+  
   /* history-actions estilos movidos a componente genérico */
   
   .supplier-mini-item {
@@ -3012,6 +3040,52 @@ button.pdf-download-btn:active {
   
   .recent-order-item .items {
     font-size: 11px;
+  }
+  
+  /* Pedidos recientes responsive para móvil */
+  .recent-orders-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .recent-order-card {
+    min-width: 0; /* Permite que las tarjetas se contraigan completamente */
+  }
+  
+  .order-card-header {
+    padding: 12px 16px 10px;
+  }
+  
+  .order-card-body {
+    padding: 12px 16px;
+  }
+  
+  .order-card-footer {
+    padding: 10px 16px 12px;
+  }
+  
+  .order-number {
+    font-size: 14px;
+    padding: 3px 10px;
+  }
+  
+  .status-indicator {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+  
+  .metric-value {
+    font-size: 16px;
+  }
+  
+  .metric-label {
+    font-size: 11px;
+  }
+  
+  .view-details-btn {
+    font-size: 12px;
+    padding: 8px 16px;
   }
   
   
@@ -3166,6 +3240,18 @@ button.pdf-download-btn:active {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 20px;
+}
+
+/* Hacer el input de búsqueda más ancho en desktop */
+@media (min-width: 1024px) {
+  .orders-filters .filter-group:nth-child(2) {
+    grid-column: span 2;
+  }
+  
+  .orders-filters .filter-group:nth-child(2) .input-field {
+    width: 100%;
+    max-width: none;
+  }
 }
 
 .filter-group {
