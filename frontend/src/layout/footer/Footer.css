@@ -1,8 +1,9 @@
 /* src/layout/footer/Footer.css */
+@import '../../styles/brand-colors.css';
 
 .app-footer {
-  background-color: #fff;
-  border-top: 1px solid #eeeeee;
+  background-color: var(--brand-footer-bg);
+  border-top: 1px solid var(--brand-footer-border);
   padding: 10px 24px;
   margin-top: auto;
   width: 100%;
@@ -28,40 +29,40 @@
 .footer-app-name {
   font-size: 16px;
   font-weight: 600;
-  color: #2c3e50;
+  /* Color aplicado desde LogoText component usando branding config */
 }
 
 .footer-version {
   font-size: 12px;
-  background: linear-gradient(135deg, rgb(93, 135, 255), rgb(66, 101, 204));
-  color: white;
+  background: var(--brand-footer-version-bg);
+  color: var(--brand-footer-version-color);
   padding: 2px 8px;
   border-radius: 12px;
   font-weight: 500;
 }
 
 .footer-copyright {
-  color: #6c757d;
+  color: var(--brand-footer-copyright);
   font-size: 14px;
 }
 
 /* Variante para página de login - Desktop mantiene estilos normales */
 .app-footer.login-footer {
-  background-color: #fff;
-  border-top: 1px solid #eeeeee;
+  background-color: var(--brand-footer-bg);
+  border-top: 1px solid var(--brand-footer-border);
 }
 
 .app-footer.login-footer .footer-app-name {
-  color: #2c3e50;
+  /* Color aplicado desde LogoText component usando branding config */
 }
 
 .app-footer.login-footer .footer-version {
-  background: linear-gradient(135deg, rgb(93, 135, 255), rgb(66, 101, 204));
-  color: white;
+  background: var(--brand-footer-version-bg);
+  color: var(--brand-footer-version-color);
 }
 
 .app-footer.login-footer .footer-copyright {
-  color: #6c757d;
+  color: var(--brand-footer-copyright);
 }
 
 /* Responsive Design */
@@ -82,24 +83,24 @@
   
   /* Estilos específicos para móvil en Login */
   .app-footer.login-footer {
-    background: linear-gradient(135deg, rgb(66, 101, 204), rgb(93, 135, 255));
+    background: var(--brand-footer-login-mobile-bg);
     border-top: none;
   }
   
   .app-footer.login-footer .footer-app-name {
-    color: white;
+    /* Color aplicado desde LogoText component con override para móvil */
     font-weight: 700;
   }
   
   .app-footer.login-footer .footer-version {
-    background: rgba(255, 255, 255, 0.3);
-    color: white;
-    border: 1px solid rgba(255, 255, 255, 0.4);
+    background: var(--brand-footer-login-mobile-version-bg);
+    color: var(--brand-footer-login-mobile-version-color);
+    border: var(--brand-footer-login-mobile-version-border);
     font-weight: 600;
   }
   
   .app-footer.login-footer .footer-copyright {
-    color: white;
+    color: var(--brand-footer-login-mobile-copyright);
     font-weight: 500;
   }
 }

@@ -764,6 +764,12 @@ export default function EditIngredientModal({
                                           // Recargar sin mostrar loading para evitar el efecto visual
                                           await loadIngredientSuppliers(false);
                                           
+                                          // Plegar el contenedor del proveedor después de guardar
+                                          setExpandedSuppliers(prev => ({
+                                            ...prev,
+                                            [supplier.supplier_id]: false
+                                          }));
+                                          
                                           // Notificar al componente padre que hubo cambios
                                           if (onIngredientUpdated) {
                                             onIngredientUpdated({ ...ingredient, supplier_updated: true });

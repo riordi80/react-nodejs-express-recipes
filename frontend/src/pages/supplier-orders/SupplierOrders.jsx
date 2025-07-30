@@ -48,6 +48,10 @@ const SupplierOrders = () => {
   const [showGenerateOrderModal, setShowGenerateOrderModal] = useState(false);
   const [orderGenerationData, setOrderGenerationData] = useState(null);
 
+  // Estados para modal de confirmación de ingredientes sin proveedor
+  const [showNoProviderModal, setShowNoProviderModal] = useState(false);
+  const [showNoSuppliersModal, setShowNoSuppliersModal] = useState(false);
+
 
   // Definición de tabs
   const tabs = [
@@ -148,10 +152,7 @@ const SupplierOrders = () => {
     );
 
     if (suppliersWithoutProvider.length > 0) {
-      // TODO: Mostrar modal de advertencia con los ingredientes sin proveedor
-      // setIngredientsWithoutProvider(suppliersWithoutProvider);
-      // setShowSupplierWarningModal(true);
-      alert('⚠️ Hay ingredientes sin proveedor asignado. Configura los proveedores primero.');
+      setShowNoProviderModal(true);
       return;
     }
 
@@ -161,7 +162,7 @@ const SupplierOrders = () => {
     );
 
     if (realSuppliers.length === 0) {
-      alert('❌ No hay ingredientes con proveedores asignados para generar pedidos.');
+      setShowNoSuppliersModal(true);
       return;
     }
 
@@ -402,6 +403,68 @@ const SupplierOrders = () => {
         confirmText="Eliminar"
         cancelText="Cancelar"
       />
+
+      {/* Modal de advertencia: ingredientes sin proveedor */}
+      <Modal
+        isOpen={showNoProviderModal}
+        onClose={() => setShowNoProviderModal(false)}
+        title="⚠️ Ingredientes sin proveedor"
+      >
+        <div style={{ textAlign: 'center', padding: '20px 0' }}>
+          <div style={{ 
+            background: '#fef3c7',
+            border: '1px solid #f59e0b',
+            borderRadius: '8px',
+            padding: '16px',
+            marginBottom: '24px',
+            textAlign: 'left'
+          }}>
+            <p style={{ margin: 0, color: '#92400e', fontSize: '14px' }}>
+              Todos los ingredientes deben tener proveedor asignado. Corrige los ingredientes que faltan.
+            </p>
+          </div>
+          
+          <button 
+            type="button" 
+            className="btn edit" 
+            onClick={() => setShowNoProviderModal(false)}
+            style={{ minWidth: '120px' }}
+          >
+            Entendido
+          </button>
+        </div>
+      </Modal>
+
+      {/* Modal de advertencia: no hay proveedores asignados */}
+      <Modal
+        isOpen={showNoSuppliersModal}
+        onClose={() => setShowNoSuppliersModal(false)}
+        title="❌ Sin proveedores"
+      >
+        <div style={{ textAlign: 'center', padding: '20px 0' }}>
+          <div style={{ 
+            background: '#fee2e2',
+            border: '1px solid #ef4444',
+            borderRadius: '8px',
+            padding: '16px',
+            marginBottom: '24px',
+            textAlign: 'left'
+          }}>
+            <p style={{ margin: 0, color: '#b91c1c', fontSize: '14px' }}>
+              No hay ingredientes con proveedores asignados para generar pedidos.
+            </p>
+          </div>
+          
+          <button 
+            type="button" 
+            className="btn edit" 
+            onClick={() => setShowNoSuppliersModal(false)}
+            style={{ minWidth: '120px' }}
+          >
+            Entendido
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 };

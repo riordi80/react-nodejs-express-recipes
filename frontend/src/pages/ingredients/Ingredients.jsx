@@ -22,7 +22,7 @@ export default function Ingredients() {
 
   const expiryStatusOptions = [
     { value: '', label: 'Todas las caducidades' },
-    { value: 'critical', label: 'Critical (≤ 3 días)' },
+    { value: 'critical', label: 'Crítico (≤ 3 días)' },
     { value: 'warning', label: 'Próximo a caducar (4-7 días)' },
     { value: 'expired', label: 'Caducado' },
     { value: 'normal', label: 'Normal (> 7 días)' }

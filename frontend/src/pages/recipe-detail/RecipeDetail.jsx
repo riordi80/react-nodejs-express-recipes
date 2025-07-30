@@ -636,7 +636,9 @@ const RecipeDetail = () => {
           <div className="section-content">
             <div className="form-grid-3">
               <div className="form-field">
-                <label className="required-label">Comensales</label>
+                <label className="required-label">
+                  Comensales {recipe.production_servings ? `(mínimo ${recipe.production_servings})` : ''}
+                </label>
                 {isEditing ? (
                   <div>
                     <input

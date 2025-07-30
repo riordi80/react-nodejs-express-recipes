@@ -30,6 +30,11 @@ export default function Events() {
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [currentItem, setCurrentItem] = useState(null);
+  
+  // Modal messages states
+  const [modalError, setModalError] = useState(null);
+  const [modalMessage, setModalMessage] = useState(null);
+  const [modalMessageType, setModalMessageType] = useState('success');
 
   // Tab states for modals
   const [createModalTab, setCreateModalTab] = useState('info');
@@ -113,17 +118,11 @@ export default function Events() {
   const handleCreateTabChange = (tabId) => {
     setCreateModalTab(tabId);
     setIsCreateDropdownOpen(false);
+    // Limpiar mensajes al cambiar de pestaña
+    setModalError(null);
+    setModalMessage(null);
   };
 
-  const handleEditTabChange = (tabId) => {
-    setEditModalTab(tabId);
-    setIsEditDropdownOpen(false);
-  };
-
-
-  const toggleEditDropdown = () => {
-    setIsEditDropdownOpen(!isEditDropdownOpen);
-  };
 
   // Cargar eventos
   const loadEvents = async () => {
@@ -225,9 +224,31 @@ export default function Events() {
     }
   };
 
+
   // Crear evento
   const handleCreate = async (e) => {
     e.preventDefault();
+    
+    // Limpiar mensajes previos
+    setModalError(null);
+    setModalMessage(null);
+    
+    // Validación del lado cliente
+    if (!newEvent.name?.trim()) {
+      setModalError('El nombre del evento es obligatorio');
+      return;
+    }
+    
+    if (!newEvent.event_date) {
+      setModalError('La fecha del evento es obligatoria');
+      return;
+    }
+    
+    if (!newEvent.guests_count || newEvent.guests_count < 1) {
+      setModalError('Debe especificar al menos 1 invitado');
+      return;
+    }
+    
     try {
       // Crear evento
       const eventResponse = await api.post('/events', newEvent);
@@ -263,13 +284,18 @@ export default function Events() {
       setRecipeNotes({});
       setRecipeSearchText('');
       setCreateModalTab('info');
+      
+      // Limpiar mensajes del modal
+      setModalError(null);
+      setModalMessage(null);
+      
       setIsCreateOpen(false);
       
       await loadEvents();
       notify('Evento creado correctamente', 'success');
     } catch (err) {
       console.error('Error creating event:', err);
-      notify(err.response?.data?.message || 'Error al crear evento', 'error');
+      setModalError(err.response?.data?.message || 'Error al crear evento');
     }
   };
 
@@ -500,7 +526,11 @@ export default function Events() {
         onFilterChange={setFilterText}
         showSearch={true}
         autoFocusSearch={true}
-        onAdd={() => setIsCreateOpen(true)}
+        onAdd={() => {
+          setIsCreateOpen(true);
+          setModalError(null);
+          setModalMessage(null);
+        }}
         addButtonText="Nuevo evento"
         searchPlaceholder="Buscar evento..."
         noDataMessage="No hay eventos para mostrar"
@@ -662,7 +692,16 @@ export default function Events() {
       </BasePage>
 
       {/* CREATE MODAL */}
-      <Modal isOpen={isCreateOpen} title="Nuevo evento" onClose={() => setIsCreateOpen(false)} fullscreenMobile={true}>
+      <Modal 
+        isOpen={isCreateOpen} 
+        title="Nuevo evento" 
+        onClose={() => {
+          setIsCreateOpen(false);
+          setModalError(null);
+          setModalMessage(null);
+        }} 
+        fullscreenMobile={true}
+      >
         <div className="event-modal">
           <div className="event-modal-content">
             <div className="event-modal-scrollable">
@@ -674,9 +713,21 @@ export default function Events() {
               >
             {createModalTab === 'info' ? (
               <form onSubmit={handleCreate} className="modal-body-form event-info-form">
+                {/* Mostrar mensajes de error/éxito en el modal */}
+                {modalError && (
+                  <div className="notification error" style={{ marginBottom: '16px' }}>
+                    {modalError}
+                  </div>
+                )}
+                {modalMessage && (
+                  <div className={`notification ${modalMessageType}`} style={{ marginBottom: '16px' }}>
+                    {modalMessage}
+                  </div>
+                )}
+
                 <div className="form-fields-two-columns">
                   <div className="column-left">
-                    <FormField label="Nombre del evento *">
+                    <FormField label="Nombre del evento" labelClassName="required-label">
                       <FormInput 
                         type="text" 
                         value={newEvent.name} 
@@ -685,7 +736,7 @@ export default function Events() {
                       />
                     </FormField>
 
-                    <FormField label="Fecha del evento *">
+                    <FormField label="Fecha del evento" labelClassName="required-label">
                       <FormInput 
                         type="date" 
                         value={newEvent.event_date} 
@@ -702,7 +753,7 @@ export default function Events() {
                       />
                     </FormField>
 
-                    <FormField label="Número de invitados *">
+                    <FormField label="Número de invitados" labelClassName="required-label">
                       <FormInput 
                         type="number" 
                         min="1" 
@@ -818,14 +869,39 @@ export default function Events() {
                               <div>
                                 <label style={{ fontSize: '12px' }}>Porciones</label>
                                 <input
-                                  type="number"
-                                  min="1"
+                                  type="text"
                                   className="detail-input"
                                   value={recipePortions[recipe.recipe_id] || 1}
-                                  onChange={(e) => setRecipePortions({
-                                    ...recipePortions,
-                                    [recipe.recipe_id]: parseInt(e.target.value) || 1
-                                  })}
+                                  onChange={(e) => {
+                                    // Permitir cualquier cambio temporalmente
+                                    setRecipePortions({
+                                      ...recipePortions,
+                                      [recipe.recipe_id]: e.target.value
+                                    });
+                                  }}
+                                  onKeyDown={(e) => {
+                                    // Solo bloquear caracteres obviamente inválidos
+                                    if (!/[0-9]/.test(e.key) && !['Backspace', 'Delete', 'Tab', 'Enter', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) {
+                                      e.preventDefault();
+                                    }
+                                  }}
+                                  onBlur={(e) => {
+                                    // Validar solo al perder el foco
+                                    const value = e.target.value.trim();
+                                    const numValue = parseInt(value);
+                                    
+                                    if (value === '' || isNaN(numValue) || numValue < 1) {
+                                      setRecipePortions({
+                                        ...recipePortions,
+                                        [recipe.recipe_id]: 1
+                                      });
+                                    } else {
+                                      setRecipePortions({
+                                        ...recipePortions,
+                                        [recipe.recipe_id]: numValue
+                                      });
+                                    }
+                                  }}
                                 />
                               </div>
                               <div>

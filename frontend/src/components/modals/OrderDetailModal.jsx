@@ -510,7 +510,7 @@ const OrderDetailModal = ({
             onClick={() => handleStatusUpdate('delivered')}
             disabled={updatingStatus}
           >
-{hasChanges ? 'Guardar y Confirmar Recepción' : 'Confirmar Recepción'}
+{hasChanges ? 'Guardar y Recibir Pedido' : 'Recibir Pedido'}
           </button>
         )}
         
@@ -604,7 +604,7 @@ const OrderDetailModal = ({
         onConfirm={handleConfirmUnsavedChanges}
         title="Cambios sin Guardar"
         message="Hay cambios sin guardar en cantidades e importes."
-        confirmText="Guardar y Confirmar Recepción"
+        confirmText="Guardar cambios y Recibir pedido"
         cancelText="Cancelar"
         isLoading={updatingStatus}
       />

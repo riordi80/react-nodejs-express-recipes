@@ -8,6 +8,20 @@ const OrderCard = ({ order, onViewOrder, onUpdateStatus, onDeleteOrder }) => {
   const statusStyle = getStatusStyle(order.status);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
+  // Función para obtener el color de fondo según el estado
+  const getBackgroundColor = (status) => {
+    switch (status) {
+      case 'pending':
+        return '#fefce8'; // Amarillo muy claro
+      case 'ordered':
+        return '#eff6ff'; // Azul muy claro
+      case 'delivered':
+        return '#f0fdf4'; // Verde muy claro
+      default:
+        return '#ffffff'; // Blanco por defecto
+    }
+  };
+
   const handleCardClick = () => {
     onViewOrder(order.order_id);
   };
@@ -32,6 +46,7 @@ const OrderCard = ({ order, onViewOrder, onUpdateStatus, onDeleteOrder }) => {
       <div 
         className="order-card"
         onClick={handleCardClick}
+        style={{ backgroundColor: getBackgroundColor(order.status) }}
       >
         <div className="order-header">
           <div className="order-supplier">

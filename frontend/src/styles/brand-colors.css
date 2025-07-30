@@ -1,0 +1,30 @@
+/* src/styles/brand-colors.css */
+/* Variables CSS para colores de branding centralizados */
+
+:root {
+  /* Colores principales del logo */
+  --brand-logo-recipes: #3b82f6;
+  --brand-logo-api: #000000;
+  
+  /* Colores principales de la aplicación */
+  --brand-primary: #3b82f6;
+  --brand-secondary: #64748b;
+  --brand-topbar: rgb(90, 106, 133);
+  --brand-accent: rgb(93, 135, 255);
+  
+  /* Colores del footer */
+  --brand-footer-bg: #fff;
+  --brand-footer-border: #eeeeee;
+  --brand-footer-app-name: #2c3e50;
+  --brand-footer-version-bg: linear-gradient(135deg, rgb(93, 135, 255), rgb(66, 101, 204));
+  --brand-footer-version-color: white;
+  --brand-footer-copyright: #6c757d;
+  
+  /* Colores del footer en móvil (login) */
+  --brand-footer-login-mobile-bg: linear-gradient(135deg, rgb(66, 101, 204), rgb(93, 135, 255));
+  --brand-footer-login-mobile-app-name: white;
+  --brand-footer-login-mobile-version-bg: rgba(255, 255, 255, 0.3);
+  --brand-footer-login-mobile-version-color: white;
+  --brand-footer-login-mobile-version-border: 1px solid rgba(255, 255, 255, 0.4);
+  --brand-footer-login-mobile-copyright: white;
+}

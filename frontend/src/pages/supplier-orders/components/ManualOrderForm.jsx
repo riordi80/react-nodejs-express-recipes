@@ -128,25 +128,8 @@ const ManualOrderItem = ({ item, availableIngredients, onUpdateItem, onRemoveIte
   };
 
   return (
-    <div 
-      className="manual-item"
-      style={{
-        background: 'white',
-        border: '1px solid #e2e8f0',
-        borderRadius: '8px',
-        padding: '16px',
-        marginBottom: '16px'
-      }}
-    >
-      <div 
-        className="manual-item-fields"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '2fr 1fr 2fr auto',
-          gap: '16px',
-          alignItems: 'end'
-        }}
-      >
+    <div className="manual-item">
+      <div className="manual-item-fields">
         <div 
           className="field-group"
           ref={dropdownRef}

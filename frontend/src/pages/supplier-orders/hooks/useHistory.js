@@ -10,7 +10,7 @@ export const useHistory = () => {
     try {
       setHistoryLoading(true);
       
-      const recentOrdersRes = await api.get('/supplier-orders/history?limit=5&orderBy=created_at&sortDirection=DESC');
+      const recentOrdersRes = await api.get('/supplier-orders/history?limit=4&orderBy=created_at&sortDirection=DESC');
 
       const trendsRes = await api.get('/supplier-orders/trends?period=month&months=3');
 

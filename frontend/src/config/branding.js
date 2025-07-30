@@ -14,11 +14,34 @@ export const BRAND_COLORS = {
     api: [0, 0, 0]            // RGB equivalente de #000000
   },
   
-  // Otros colores de la aplicación que podrían reutilizarse
+  // Colores principales de la aplicación
   primary: '#3b82f6',
   secondary: '#64748b',
   topbar: 'rgb(90, 106, 133)',
-  accent: 'rgb(93, 135, 255)'
+  accent: 'rgb(93, 135, 255)',
+  
+  // Colores específicos del footer
+  footer: {
+    background: '#fff',
+    border: '#eeeeee',
+    appName: '#2c3e50',
+    version: {
+      background: 'linear-gradient(135deg, rgb(93, 135, 255), rgb(66, 101, 204))',
+      color: 'white'
+    },
+    copyright: '#6c757d',
+    // Para versión móvil del login
+    loginMobile: {
+      background: 'linear-gradient(135deg, rgb(66, 101, 204), rgb(93, 135, 255))',
+      appName: 'white',
+      version: {
+        background: 'rgba(255, 255, 255, 0.3)',
+        color: 'white',
+        border: '1px solid rgba(255, 255, 255, 0.4)'
+      },
+      copyright: 'white'
+    }
+  }
 };
 
 export const BRAND_CONFIG = {
