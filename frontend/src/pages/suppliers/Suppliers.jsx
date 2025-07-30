@@ -360,6 +360,7 @@ export default function Suppliers() {
         noDataMessage="No hay proveedores registrados"
         onRowClicked={openEditModal}
         showSearch={true}
+        autoFocusSearch={true}
         filters={[]}
         enableMobileModal={true}
       />

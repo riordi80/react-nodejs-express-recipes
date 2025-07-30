@@ -499,6 +499,7 @@ export default function Events() {
         filterText={filterText}
         onFilterChange={setFilterText}
         showSearch={true}
+        autoFocusSearch={true}
         onAdd={() => setIsCreateOpen(true)}
         addButtonText="Nuevo evento"
         searchPlaceholder="Buscar evento..."

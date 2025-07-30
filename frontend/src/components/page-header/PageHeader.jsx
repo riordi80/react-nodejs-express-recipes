@@ -1,5 +1,5 @@
 // src/components/PageHeader/PageHeader.jsx
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { FaPlus, FaFilter, FaTimes } from 'react-icons/fa';
 import './PageHeader.css';
@@ -12,6 +12,7 @@ export default function PageHeader({
   onSearchChange,
   searchPlaceholder = 'Buscar...',
   showSearch = true,
+  autoFocusSearch = false,
   
   // Simple filters (select dropdowns)
   filters = [],
@@ -40,6 +41,28 @@ export default function PageHeader({
   children
 }) {
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const searchInputRef = useRef(null);
+
+  // Detectar tamaño de pantalla
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
+
+  // Auto-enfocar el input de búsqueda si está habilitado
+  useEffect(() => {
+    if (autoFocusSearch && searchInputRef.current && !isMobile && showSearch && onSearchChange) {
+      // Solo enfocar en desktop para evitar problemas con teclado móvil
+      searchInputRef.current.focus();
+    }
+  }, [autoFocusSearch, isMobile, showSearch, onSearchChange]);
   
   // Count active filters for mobile badge
   const activeFiltersCount = filters.filter(filter => {
@@ -168,6 +191,7 @@ export default function PageHeader({
           {/* Search */}
           {showSearch && onSearchChange && (
             <input
+              ref={searchInputRef}
               type="text"
               className="page-header-input page-header-search"
               placeholder={searchPlaceholder}
@@ -252,6 +276,7 @@ PageHeader.propTypes = {
   onSearchChange: PropTypes.func,
   searchPlaceholder: PropTypes.string,
   showSearch: PropTypes.bool,
+  autoFocusSearch: PropTypes.bool,
   
   // Simple filters
   filters: PropTypes.arrayOf(PropTypes.shape({

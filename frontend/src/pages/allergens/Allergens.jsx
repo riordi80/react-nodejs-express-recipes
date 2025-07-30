@@ -124,12 +124,13 @@ export default function Allergens() {
         messageType={messageType}
         filterText={filterText}
         onFilterChange={setFilterText}
+        showSearch={true}
+        autoFocusSearch={true}
         onAdd={openCreateModal}
         addButtonText="Añadir alérgeno"
         searchPlaceholder="Buscar alérgeno..."
         noDataMessage="No hay alérgenos para mostrar"
         onRowClicked={openEditModal}
-        showSearch={true}
         filters={[]}
         enableMobileModal={true}
       />

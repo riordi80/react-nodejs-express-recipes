@@ -386,7 +386,7 @@
 
 .recipe-search-input:focus {
   outline: none;
-  border-color: #007bff;
+  border-color: #d1d5db;
   box-shadow: none;
 }
 

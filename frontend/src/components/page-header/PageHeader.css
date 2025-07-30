@@ -121,7 +121,13 @@
 .page-header-input:focus,
 .page-header-select:focus {
   outline: none;
-  border-color: #007bff;
+  border-color: #d1d5db;
+  box-shadow: none;
+}
+
+/* Específicamente para inputs de búsqueda - sin destacar el focus */
+.page-header-search:focus {
+  border-color: #d1d5db;
   box-shadow: none;
 }
 

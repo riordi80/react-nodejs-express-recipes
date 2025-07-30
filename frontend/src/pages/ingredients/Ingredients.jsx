@@ -6,18 +6,78 @@ import BasePage from '../../components/base-page/BasePage';
 import Widget from '../../components/widget';
 import ConfirmModal from '../../components/modals/ConfirmModal';
 import EditIngredientModal from '../../components/modals/EditIngredientModal';
+import IngredientsFilterBar from './components/IngredientsFilterBar';
+import { usePageState } from '../../hooks/usePageState';
 import api from '../../api/axios';
 import { formatDecimal, formatPrice } from '../../utils/formatters';
 import './Ingredients.css';
 
 export default function Ingredients() {
-  const [ingredients, setIngredients] = useState([]);
-  const [availabilityFilter, setAvailabilityFilter] = useState('available'); // 'available', 'all', 'unavailable'
-  const [filterText, setFilterText] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [message, setMessage] = useState(null);
-  const [messageType, setMessageType] = useState('success');
+  // Opciones para los filtros
+  const availabilityOptions = [
+    { value: '', label: 'Todas las disponibilidades' },
+    { value: 'available', label: 'Solo disponibles' },
+    { value: 'unavailable', label: 'Solo no disponibles' }
+  ];
+
+  const expiryStatusOptions = [
+    { value: '', label: 'Todas las caducidades' },
+    { value: 'critical', label: 'Critical (≤ 3 días)' },
+    { value: 'warning', label: 'Próximo a caducar (4-7 días)' },
+    { value: 'expired', label: 'Caducado' },
+    { value: 'normal', label: 'Normal (> 7 días)' }
+  ];
+
+  const stockStatusOptions = [
+    { value: '', label: 'Todos los stocks' },
+    { value: 'low', label: 'Stock bajo' },
+    { value: 'withStock', label: 'Con stock' },
+    { value: 'noStock', label: 'Sin stock' }
+  ];
+
+  const seasonOptions = [
+    { value: 'enero', label: 'Enero' },
+    { value: 'febrero', label: 'Febrero' },
+    { value: 'marzo', label: 'Marzo' },
+    { value: 'abril', label: 'Abril' },
+    { value: 'mayo', label: 'Mayo' },
+    { value: 'junio', label: 'Junio' },
+    { value: 'julio', label: 'Julio' },
+    { value: 'agosto', label: 'Agosto' },
+    { value: 'septiembre', label: 'Septiembre' },
+    { value: 'octubre', label: 'Octubre' },
+    { value: 'noviembre', label: 'Noviembre' },
+    { value: 'diciembre', label: 'Diciembre' },
+    { value: 'todo_año', label: 'Todo el año' }
+  ];
+
+  // Using usePageState with complex filters - similar to recipes
+  const {
+    data: ingredients,
+    loading,
+    error,
+    message,
+    messageType,
+    setFilters,
+    reload: reloadIngredients,
+    notify
+  } = usePageState('/ingredients', {
+    useFilters: true,
+    initialFilters: {
+      search: '',
+      available: 'available', // Valor por defecto: solo disponibles
+      expiryStatus: '',
+      stockStatus: '',
+      season: ''
+    }
+  });
+
+  // Individual filter states for easier management
+  const [searchText, setSearchText] = useState('');
+  const [selectedAvailability, setSelectedAvailability] = useState('available'); // Cambiar nombre para consistencia
+  const [selectedExpiryStatus, setSelectedExpiryStatus] = useState('');
+  const [selectedStockStatus, setSelectedStockStatus] = useState('');
+  const [selectedSeason, setSelectedSeason] = useState('');
 
   // Modal states
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -38,46 +98,23 @@ export default function Ingredients() {
   });
   const [widgetsLoading, setWidgetsLoading] = useState(true);
 
+  // Update filters when individual states change
+  useEffect(() => {
+    setFilters({
+      search: searchText,
+      available: selectedAvailability,
+      expiryStatus: selectedExpiryStatus,
+      stockStatus: selectedStockStatus,
+      season: selectedSeason
+    });
+  }, [searchText, selectedAvailability, selectedExpiryStatus, selectedStockStatus, selectedSeason, setFilters]);
 
 
 
 
-  // Load ingredients with availability filter
-  const loadIngredients = async () => {
-    try {
-      setLoading(true);
-      const params = {};
-      if (availabilityFilter === 'available') {
-        params.available = 'true';
-      } else if (availabilityFilter === 'unavailable') {
-        params.available = 'false';
-      }
-      // For 'all', don't add any parameter
-      
-      const response = await api.get('/ingredients', { params });
-      setIngredients(response.data);
-      setError(null);
-    } catch (err) {
-      setError(`Error al cargar ingredientes: ${err.message}`);
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  // Notification function
-  const notify = (msg, type = 'success') => {
-    setMessage(msg);
-    setMessageType(type);
-    setTimeout(() => setMessage(null), 3000);
-  };
-
-  // Filter ingredients by search text
-  const filteredData = useMemo(() => {
-    if (!filterText) return ingredients;
-    return ingredients.filter(ingredient => 
-      ingredient.name.toLowerCase().includes(filterText.toLowerCase())
-    );
-  }, [ingredients, filterText]);
+  // Los datos ya vienen filtrados desde el backend via usePageState
+  const filteredData = ingredients;
 
 
 
@@ -101,16 +138,10 @@ export default function Ingredients() {
   // Función para recargar todo (ingredientes + widgets)
   const reloadAllData = async () => {
     await Promise.all([
-      loadIngredients(),
+      reloadIngredients(),
       fetchWidgetsData()
     ]);
   };
-
-
-  // Load ingredients when filter changes
-  useEffect(() => {
-    loadIngredients();
-  }, [availabilityFilter]);
 
 
   // Edit handlers que usan el nuevo sistema
@@ -311,21 +342,54 @@ const columns = useMemo(() => [
       date.setHours(0, 0, 0, 0);
       
       const isExpired = date < today;
+      const daysDiff = Math.ceil((date - today) / (1000 * 60 * 60 * 24));
       
-      return isExpired ? (
-        <span style={{
-          backgroundColor: '#fee2e2',
-          color: '#ef4444',
-          padding: '4px 8px',
-          borderRadius: '12px',
-          fontSize: '12px',
-          fontWeight: '500'
-        }}>
-          CADUCADO
-        </span>
-      ) : (
-        <span>{date.toLocaleDateString('es-ES')}</span>
-      );
+      if (isExpired) {
+        return (
+          <span style={{
+            backgroundColor: '#f1f5f9',
+            color: '#374151',
+            padding: '4px 8px',
+            borderRadius: '12px',
+            fontSize: '12px',
+            fontWeight: '500'
+          }}>
+            CADUCADO
+          </span>
+        );
+      } else if (daysDiff <= 3) {
+        // Critical: 3 días o menos (rojo, igual que el widget)
+        return (
+          <span style={{
+            backgroundColor: '#fee2e2',
+            color: '#dc2626',
+            padding: '4px 8px',
+            borderRadius: '12px',
+            fontSize: '12px',
+            fontWeight: '500'
+          }}>
+            {date.toLocaleDateString('es-ES')}
+          </span>
+        );
+      } else if (daysDiff <= 7) {
+        // Warning: 4-7 días (amarillo, igual que el widget)
+        return (
+          <span style={{
+            backgroundColor: '#fef3c7',
+            color: '#d97706',
+            padding: '4px 8px',
+            borderRadius: '12px',
+            fontSize: '12px',
+            fontWeight: '500'
+          }}>
+            {date.toLocaleDateString('es-ES')}
+          </span>
+        );
+      } else {
+        return (
+          <span>{date.toLocaleDateString('es-ES')}</span>
+        );
+      }
     }
   },
   { 
@@ -360,22 +424,8 @@ const columns = useMemo(() => [
 ], []);
 
 
-  // Define availability filter options for PageHeader
-  const availabilityFilterOptions = [
-    { value: 'available', label: 'Solo disponibles' },
-    { value: 'all', label: 'Todos los ingredientes' },
-    { value: 'unavailable', label: 'Solo no disponibles' }
-  ];
-
-  const pageFilters = [
-    {
-      key: 'availability',
-      label: 'Estado',
-      value: availabilityFilter,
-      options: availabilityFilterOptions,
-      onChange: setAvailabilityFilter
-    }
-  ];
+  // Sin filtros adicionales en BasePage, todos están en IngredientsFilterBar
+  const pageFilters = [];
 
   return (
     <>
@@ -388,9 +438,7 @@ const columns = useMemo(() => [
         error={error}
         message={message}
         messageType={messageType}
-        filterText={filterText}
-        onFilterChange={setFilterText}
-        showSearch={true}
+        showSearch={false}
         onAdd={handleCreateIngredient}
         onRowClicked={openEditModal}
         addButtonText="Añadir ingrediente"
@@ -550,6 +598,28 @@ const columns = useMemo(() => [
             </Widget>
           </div>
         </div>
+
+        {/* FilterBar específico para ingredientes */}
+        <IngredientsFilterBar
+          searchText={searchText}
+          onSearchTextChange={setSearchText}
+          
+          availabilityOptions={availabilityOptions}
+          selectedAvailability={selectedAvailability}
+          onAvailabilityChange={setSelectedAvailability}
+          
+          expiryStatusOptions={expiryStatusOptions}
+          selectedExpiryStatus={selectedExpiryStatus}
+          onExpiryStatusChange={setSelectedExpiryStatus}
+          
+          stockStatusOptions={stockStatusOptions}
+          selectedStockStatus={selectedStockStatus}
+          onStockStatusChange={setSelectedStockStatus}
+          
+          seasonOptions={seasonOptions}
+          selectedSeason={selectedSeason}
+          onSeasonChange={setSelectedSeason}
+        />
       </BasePage>
 
 

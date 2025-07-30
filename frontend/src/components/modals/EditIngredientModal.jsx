@@ -135,15 +135,17 @@ export default function EditIngredientModal({
       setEditedSelectedAllergens([]);
       loadAllergens();
     } else if (ingredient) {
-      // Convertir fecha ISO a formato YYYY-MM-DD para input type="date"
+      // Convertir fecha a formato YYYY-MM-DD para input type="date"
+      // Manejamos correctamente las fechas evitando problemas de zona horaria
       let formattedDate = '';
       if (ingredient.expiration_date) {
-        if (ingredient.expiration_date.includes('T')) {
-          // Formato ISO: extraer solo la parte de fecha
-          formattedDate = ingredient.expiration_date.split('T')[0];
-        } else {
-          // Ya está en formato YYYY-MM-DD
-          formattedDate = ingredient.expiration_date;
+        const date = new Date(ingredient.expiration_date);
+        if (!isNaN(date.getTime())) {
+          // Usar toISOString y tomar solo la parte de fecha para evitar problemas de zona horaria
+          // pero corregir añadiendo el offset de timezone para que muestre la fecha correcta
+          const offset = date.getTimezoneOffset();
+          const localDate = new Date(date.getTime() - (offset * 60 * 1000));
+          formattedDate = localDate.toISOString().split('T')[0];
         }
       }
 

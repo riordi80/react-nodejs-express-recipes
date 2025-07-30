@@ -861,3 +861,16 @@ button.btn.cancel:hover {
     font-size: 20px;
   }
 }
+
+/* === SEARCH INPUTS STANDARDIZATION === */
+/* Estilos consistentes para todos los inputs de búsqueda sin contorno azul molesto */
+.filter-input:focus,
+.page-header-search:focus,
+.page-header-input:focus,
+.recipe-search-input:focus,
+input[placeholder*="Buscar"]:focus,
+input[placeholder*="buscar"]:focus {
+  outline: none !important;
+  border-color: #d1d5db !important;
+  box-shadow: none !important;
+}

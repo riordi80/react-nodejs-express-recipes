@@ -77,24 +77,104 @@ router.get('/dashboard-widgets', authenticateToken, authorizeRoles('admin', 'che
   }
 });
 
-// GET /ingredients - Todos los ingredientes con filtro de disponibilidad
+// GET /ingredients - Todos los ingredientes con filtros múltiples
 router.get('/', authenticateToken, authorizeRoles('admin', 'chef', 'inventory_manager'), async (req, res) => {
-  const { available } = req.query; // 'true', 'false', o undefined (todos)
-  
-  let query = 'SELECT * FROM INGREDIENTS';
-  let params = [];
-  
-  if (available === 'true') {
-    query += ' WHERE is_available = TRUE';
-  } else if (available === 'false') {
-    query += ' WHERE is_available = FALSE';
+  try {
+    const { available, search, expiryStatus, stockStatus, season } = req.query;
+    
+    let query = 'SELECT * FROM INGREDIENTS';
+    let whereConditions = [];
+    let params = [];
+    
+    // Filtro de disponibilidad
+    if (available === 'true') {
+      whereConditions.push('is_available = TRUE');
+    } else if (available === 'false') {
+      whereConditions.push('is_available = FALSE');
+    }
+    
+    // Filtro de búsqueda por nombre
+    if (search && search.trim() !== '') {
+      whereConditions.push('name LIKE ?');
+      params.push(`%${search.trim()}%`);
+    }
+    
+    // Filtro de temporada
+    if (season && season.trim() !== '') {
+      whereConditions.push('(season LIKE ? OR season = ?)');
+      params.push(`%${season.trim()}%`, season.trim());
+    }
+    
+    // Aplicar condiciones WHERE si existen
+    if (whereConditions.length > 0) {
+      query += ' WHERE ' + whereConditions.join(' AND ');
+    }
+    
+    query += ' ORDER BY name ASC';
+    
+    let [rows] = await pool.query(query, params);
+    
+    // Aplicar filtros de JavaScript para lógica compleja
+    if (expiryStatus || stockStatus) {
+      const currentDate = new Date();
+      
+      rows = rows.filter(ingredient => {
+        let passesExpiryFilter = true;
+        let passesStockFilter = true;
+        
+        // Filtro de estado de caducidad
+        if (expiryStatus) {
+          if (ingredient.expiration_date) {
+            const expiryDate = new Date(ingredient.expiration_date);
+            const daysDiff = Math.ceil((expiryDate - currentDate) / (1000 * 60 * 60 * 24));
+            
+            switch (expiryStatus) {
+              case 'expired':
+                passesExpiryFilter = daysDiff < 0;
+                break;
+              case 'critical':
+                passesExpiryFilter = daysDiff >= 0 && daysDiff <= 3;
+                break;
+              case 'warning':
+                passesExpiryFilter = daysDiff >= 4 && daysDiff <= 7;
+                break;
+              case 'normal':
+                passesExpiryFilter = daysDiff > 7;
+                break;
+            }
+          } else {
+            // Si no tiene fecha de caducidad, solo pasa el filtro "normal"
+            passesExpiryFilter = expiryStatus === 'normal';
+          }
+        }
+        
+        // Filtro de estado de stock
+        if (stockStatus) {
+          const stock = parseFloat(ingredient.stock) || 0;
+          const stockMinimum = parseFloat(ingredient.stock_minimum) || 0;
+          
+          switch (stockStatus) {
+            case 'low':
+              passesStockFilter = stockMinimum > 0 && stock < stockMinimum;
+              break;
+            case 'withStock':
+              passesStockFilter = stock > 0;
+              break;
+            case 'noStock':
+              passesStockFilter = stock === 0;
+              break;
+          }
+        }
+        
+        return passesExpiryFilter && passesStockFilter;
+      });
+    }
+    
+    res.json(rows);
+  } catch (error) {
+    console.error('Error fetching ingredients:', error);
+    res.status(500).json({ message: 'Error al obtener ingredientes' });
   }
-  // Si available es undefined, devolver todos los ingredientes
-  
-  query += ' ORDER BY name ASC';
-  
-  const [rows] = await pool.query(query, params);
-  res.json(rows);
 });
 
 // GET /ingredients/:id/price-history
