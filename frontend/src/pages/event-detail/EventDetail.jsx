@@ -26,6 +26,7 @@ const EventDetail = () => {
   const [message, setMessage] = useState(null);
   const [messageType, setMessageType] = useState('success');
   const [isEditing, setIsEditing] = useState(isNewEvent);
+  
   const [validationErrors, setValidationErrors] = useState({});
   
   // Delete modal state

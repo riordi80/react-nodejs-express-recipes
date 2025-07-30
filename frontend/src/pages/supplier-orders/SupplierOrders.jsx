@@ -170,7 +170,8 @@ const SupplierOrders = () => {
       suppliers: realSuppliers,
       totalCost: realSuppliers.reduce((total, supplier) => total + supplier.supplierTotal, 0),
       generatedFrom: shoppingList.filters?.manual ? 'manual' : 
-                    (showEventSelection ? 'events' : 'shopping-list')
+                    (showEventSelection ? 'events' : 'shopping-list'),
+      sourceEventIds: shoppingList.filters?.selectedEventIds || []
     });
     setShowGenerateOrderModal(true);
   };
@@ -186,7 +187,8 @@ const SupplierOrders = () => {
         suppliers: orderGenerationData.suppliers,
         deliveryDate: deliveryDate || null,
         notes: notes || '',
-        generatedFrom: orderGenerationData.generatedFrom
+        generatedFrom: orderGenerationData.generatedFrom,
+        sourceEventIds: orderGenerationData.sourceEventIds || []
       });
 
       if (response.data.success) {

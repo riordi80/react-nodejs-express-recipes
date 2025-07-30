@@ -41,48 +41,196 @@ router.get('/dashboard', authenticateToken, authorizeRoles('admin', 'chef'), asy
         AND is_available = 1
     `);
     
-    // 4. Calcular ahorro potencial - versión simplificada y directa
-    const [potentialSavingsResult] = await pool.query(`
+    // 4. Calcular ahorro potencial por consolidación de pedidos
+
+
+    // Consulta detallada para mostrar información de debug
+    const [savingsDetailResult] = await pool.query(`
       WITH pedidos_pendientes AS (
-        -- Obtener todos los pedidos pendientes y sus totales
+        -- Obtener pedidos pendientes con source_events
         SELECT 
-          order_id,
-          total_amount,
-          COUNT(*) OVER() as total_pedidos
-        FROM SUPPLIER_ORDERS 
-        WHERE status = 'pending'
-          AND order_date >= CURDATE()
-      ),
-      ingredientes_duplicados AS (
-        -- Verificar si hay ingredientes repetidos entre pedidos
-        SELECT 
-          soi.ingredient_id,
-          COUNT(DISTINCT soi.order_id) as pedidos_con_ingrediente
-        FROM SUPPLIER_ORDER_ITEMS soi
-        JOIN SUPPLIER_ORDERS so ON soi.order_id = so.order_id
+          so.order_id,
+          so.supplier_id,
+          so.source_events,
+          s.name as supplier_name
+        FROM SUPPLIER_ORDERS so
+        LEFT JOIN SUPPLIERS s ON so.supplier_id = s.supplier_id
         WHERE so.status = 'pending'
           AND so.order_date >= CURDATE()
-        GROUP BY soi.ingredient_id
-        HAVING COUNT(DISTINCT soi.order_id) > 1
+          AND so.source_events IS NOT NULL
+          AND JSON_LENGTH(so.source_events) > 0
+      ),
+      eventos_de_pedidos AS (
+        -- Expandir eventos de cada pedido
+        SELECT DISTINCT
+          pp.order_id,
+          pp.supplier_name,
+          CAST(JSON_UNQUOTE(JSON_EXTRACT(pp.source_events, CONCAT('$[', numbers.n, ']'))) AS UNSIGNED) as event_id
+        FROM pedidos_pendientes pp
+        CROSS JOIN (
+          SELECT 0 as n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL 
+          SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL 
+          SELECT 8 UNION ALL SELECT 9
+        ) numbers
+        WHERE JSON_EXTRACT(pp.source_events, CONCAT('$[', numbers.n, ']')) IS NOT NULL
+      ),
+      cantidades_reales_por_pedido AS (
+        -- Calcular cantidad real necesaria por ingrediente y pedido desde los eventos
+        SELECT 
+          edp.order_id,
+          edp.supplier_name,
+          i.ingredient_id,
+          i.name as ingredient_name,
+          SUM(ri.quantity_per_serving * em.portions * (1 + IFNULL(i.waste_percent, 0))) as cantidad_real_necesaria,
+          i.base_price,
+          -- Obtener información del paquete del proveedor preferido
+          COALESCE(si.package_size, 1.0) as package_size,
+          COALESCE(si.package_unit, 'unidad') as package_unit,
+          COALESCE(si.price, i.base_price) as supplier_price
+        FROM eventos_de_pedidos edp
+        JOIN EVENT_MENUS em ON edp.event_id = em.event_id
+        JOIN RECIPE_INGREDIENTS ri ON em.recipe_id = ri.recipe_id
+        JOIN INGREDIENTS i ON ri.ingredient_id = i.ingredient_id
+        LEFT JOIN SUPPLIER_INGREDIENTS si ON i.ingredient_id = si.ingredient_id AND si.is_preferred_supplier = 1
+        GROUP BY edp.order_id, edp.supplier_name, i.ingredient_id, i.name, i.base_price, si.package_size, si.package_unit, si.price
+      ),
+      cantidades_pedidas_por_pedido AS (
+        -- Obtener cantidades pedidas por ingrediente y pedido
+        SELECT 
+          pp.order_id,
+          pp.supplier_name,
+          soi.ingredient_id,
+          soi.quantity as cantidad_pedida,
+          soi.unit_price
+        FROM pedidos_pendientes pp
+        JOIN SUPPLIER_ORDER_ITEMS soi ON pp.order_id = soi.order_id
+      ),
+      analisis_por_ingrediente AS (
+        -- Combinar cantidades reales y pedidas por ingrediente
+        SELECT 
+          crp.ingredient_name,
+          crp.ingredient_id,
+          COUNT(DISTINCT crp.order_id) as num_pedidos,
+          GROUP_CONCAT(DISTINCT CONCAT('Pedido #', crp.order_id, ' (', COALESCE(crp.supplier_name, 'Sin proveedor'), ')') SEPARATOR ', ') as pedidos_afectados,
+          SUM(crp.cantidad_real_necesaria) as cantidad_total_necesaria,
+          SUM(cpp.cantidad_pedida) as cantidad_total_pedida,
+          MAX(crp.package_size) as package_size,  -- Usar MAX en lugar de AVG
+          MAX(crp.package_unit) as package_unit,
+          AVG(COALESCE(cpp.unit_price, crp.supplier_price)) as precio_promedio,
+          -- Calcular paquetes necesarios por separado vs consolidado
+          SUM(CEIL(crp.cantidad_real_necesaria / crp.package_size)) as paquetes_separados,
+          CEIL(SUM(crp.cantidad_real_necesaria) / MAX(crp.package_size)) as paquetes_consolidados,
+          -- Ahorro en paquetes y en cantidad
+          SUM(CEIL(crp.cantidad_real_necesaria / crp.package_size)) - CEIL(SUM(crp.cantidad_real_necesaria) / MAX(crp.package_size)) as paquetes_ahorrados,
+          (SUM(CEIL(crp.cantidad_real_necesaria / crp.package_size)) - CEIL(SUM(crp.cantidad_real_necesaria) / MAX(crp.package_size))) * MAX(crp.package_size) as cantidad_ahorrada,
+          (SUM(CEIL(crp.cantidad_real_necesaria / crp.package_size)) - CEIL(SUM(crp.cantidad_real_necesaria) / MAX(crp.package_size))) * AVG(COALESCE(cpp.unit_price, crp.supplier_price)) as ahorro_euros
+        FROM cantidades_reales_por_pedido crp
+        JOIN cantidades_pedidas_por_pedido cpp ON crp.order_id = cpp.order_id AND crp.ingredient_id = cpp.ingredient_id
+        GROUP BY crp.ingredient_id, crp.ingredient_name
+        HAVING COUNT(DISTINCT crp.order_id) > 1  -- Solo ingredientes que están en múltiples pedidos
+          AND SUM(CEIL(crp.cantidad_real_necesaria / crp.package_size)) > CEIL(SUM(crp.cantidad_real_necesaria) / MAX(crp.package_size))  -- Solo donde hay ahorro de paquetes
       )
       SELECT 
-        CASE 
-          WHEN EXISTS(SELECT 1 FROM ingredientes_duplicados) THEN
-            -- Si hay ingredientes duplicados, ahorro = todos los pedidos menos el más caro
-            COALESCE(
-              (SELECT SUM(total_amount) FROM pedidos_pendientes) - 
-              (SELECT MAX(total_amount) FROM pedidos_pendientes), 
-              0
-            )
-          ELSE 0
-        END as potential_savings
+        ingredient_name,
+        num_pedidos,
+        pedidos_afectados,
+        cantidad_total_necesaria,
+        cantidad_total_pedida,
+        package_size,
+        package_unit,
+        paquetes_separados,
+        paquetes_consolidados,
+        paquetes_ahorrados,
+        cantidad_ahorrada,
+        precio_promedio,
+        ahorro_euros
+      FROM analisis_por_ingrediente
+      ORDER BY ahorro_euros DESC
     `);
+
+    const [potentialSavingsResult] = await pool.query(`
+      WITH pedidos_pendientes AS (
+        -- Obtener pedidos pendientes con source_events
+        SELECT 
+          so.order_id,
+          so.supplier_id,
+          so.source_events
+        FROM SUPPLIER_ORDERS so
+        WHERE so.status = 'pending'
+          AND so.order_date >= CURDATE()
+          AND so.source_events IS NOT NULL
+          AND JSON_LENGTH(so.source_events) > 0
+      ),
+      eventos_de_pedidos AS (
+        -- Expandir eventos de cada pedido
+        SELECT DISTINCT
+          pp.order_id,
+          CAST(JSON_UNQUOTE(JSON_EXTRACT(pp.source_events, CONCAT('$[', numbers.n, ']'))) AS UNSIGNED) as event_id
+        FROM pedidos_pendientes pp
+        CROSS JOIN (
+          SELECT 0 as n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL 
+          SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL 
+          SELECT 8 UNION ALL SELECT 9
+        ) numbers
+        WHERE JSON_EXTRACT(pp.source_events, CONCAT('$[', numbers.n, ']')) IS NOT NULL
+      ),
+      cantidades_reales_por_pedido AS (
+        -- Calcular cantidad real necesaria por ingrediente y pedido desde los eventos
+        SELECT 
+          edp.order_id,
+          i.ingredient_id,
+          SUM(ri.quantity_per_serving * em.portions * (1 + IFNULL(i.waste_percent, 0))) as cantidad_real_necesaria,
+          i.base_price,
+          COALESCE(si.package_size, 1.0) as package_size,
+          COALESCE(si.package_unit, 'unidad') as package_unit,
+          COALESCE(si.price, i.base_price) as supplier_price
+        FROM eventos_de_pedidos edp
+        JOIN EVENT_MENUS em ON edp.event_id = em.event_id
+        JOIN RECIPE_INGREDIENTS ri ON em.recipe_id = ri.recipe_id
+        JOIN INGREDIENTS i ON ri.ingredient_id = i.ingredient_id
+        LEFT JOIN SUPPLIER_INGREDIENTS si ON i.ingredient_id = si.ingredient_id AND si.is_preferred_supplier = 1
+        GROUP BY edp.order_id, i.ingredient_id, i.base_price, si.package_size, si.package_unit, si.price
+      ),
+      cantidades_pedidas_por_pedido AS (
+        -- Obtener cantidades pedidas por ingrediente y pedido
+        SELECT 
+          pp.order_id,
+          soi.ingredient_id,
+          soi.quantity as cantidad_pedida,
+          soi.unit_price
+        FROM pedidos_pendientes pp
+        JOIN SUPPLIER_ORDER_ITEMS soi ON pp.order_id = soi.order_id
+      ),
+      analisis_por_ingrediente AS (
+        -- Combinar cantidades reales y pedidas por ingrediente
+        SELECT 
+          crp.ingredient_id,
+          COUNT(DISTINCT crp.order_id) as num_pedidos,
+          SUM(crp.cantidad_real_necesaria) as cantidad_total_necesaria,
+          AVG(COALESCE(cpp.unit_price, crp.supplier_price)) as precio_promedio,
+          -- Calcular ahorro por consolidación de paquetes
+          SUM(CEIL(crp.cantidad_real_necesaria / crp.package_size)) - CEIL(SUM(crp.cantidad_real_necesaria) / AVG(crp.package_size)) as paquetes_ahorrados
+        FROM cantidades_reales_por_pedido crp
+        JOIN cantidades_pedidas_por_pedido cpp ON crp.order_id = cpp.order_id AND crp.ingredient_id = cpp.ingredient_id
+        GROUP BY crp.ingredient_id
+        HAVING COUNT(DISTINCT crp.order_id) > 1  -- Solo ingredientes que están en múltiples pedidos
+          AND SUM(CEIL(crp.cantidad_real_necesaria / crp.package_size)) > CEIL(SUM(crp.cantidad_real_necesaria) / MAX(crp.package_size))  -- Solo donde hay ahorro de paquetes
+      )
+      SELECT 
+        COALESCE(
+          SUM(api.paquetes_ahorrados * api.precio_promedio), 
+          0
+        ) as potential_savings
+      FROM analisis_por_ingrediente api
+    `);
+
 
     const dashboardData = {
       monthlySpending: parseFloat(monthlySpendingResult[0].monthly_spending) || 0,
       todayDeliveries: parseInt(todayDeliveriesResult[0].today_deliveries) || 0,
       potentialSavings: parseInt(potentialSavingsResult[0].potential_savings) || 0,
-      lowStockItems: parseInt(lowStockResult[0].count) || 0
+      lowStockItems: parseInt(lowStockResult[0].count) || 0,
+      savingsDetail: savingsDetailResult || []
     };
 
     res.json(dashboardData);
@@ -358,7 +506,8 @@ router.post('/generate', authenticateToken, authorizeRoles('admin', 'chef'), asy
       suppliers, // Array de proveedores con sus ingredientes
       deliveryDate,
       notes,
-      generatedFrom // 'shopping-list', 'manual', 'events'
+      generatedFrom, // 'shopping-list', 'manual', 'events'
+      sourceEventIds // Array de event_ids que generaron este pedido
     } = req.body;
 
     if (!suppliers || !Array.isArray(suppliers) || suppliers.length === 0) {
@@ -376,6 +525,9 @@ router.post('/generate', authenticateToken, authorizeRoles('admin', 'chef'), asy
       }
 
       // Crear el pedido principal
+      // Preparar los source_events como JSON
+      const sourceEventsJson = sourceEventIds && sourceEventIds.length > 0 ? JSON.stringify(sourceEventIds) : null;
+      
       const [orderResult] = await connection.execute(`
         INSERT INTO SUPPLIER_ORDERS (
           supplier_id, 
@@ -384,13 +536,15 @@ router.post('/generate', authenticateToken, authorizeRoles('admin', 'chef'), asy
           status, 
           total_amount, 
           notes, 
+          source_events,
           created_by_user_id
-        ) VALUES (?, CURDATE(), ?, 'pending', ?, ?, ?)
+        ) VALUES (?, CURDATE(), ?, 'pending', ?, ?, ?, ?)
       `, [
         supplierId === 999 ? null : supplierId, // null para "Sin Proveedor Asignado"
         deliveryDate || null,
         supplierTotal,
         notes || `Pedido generado desde ${generatedFrom || 'lista de compras'}`,
+        sourceEventsJson,
         req.user.user_id
       ]);
 
