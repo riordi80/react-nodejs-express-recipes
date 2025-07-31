@@ -15,9 +15,6 @@ const pool = mysql.createPool({
   dateStrings: true, // Devuelve fechas como strings, evita conversiones de timezone
   // Límites críticos para servidores con poca memoria
   connectionLimit: 3,          // Máximo 3 conexiones simultáneas
-  acquireTimeout: 60000,       // 60s timeout para obtener conexión
-  timeout: 60000,              // 60s timeout para consultas
-  reconnect: true,
   idleTimeout: 300000,         // Cerrar conexiones inactivas después de 5min
   maxIdle: 1                   // Máximo 1 conexión idle
 });

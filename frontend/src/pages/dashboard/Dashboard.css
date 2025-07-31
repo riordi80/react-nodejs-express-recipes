@@ -198,6 +198,18 @@
   background: linear-gradient(135deg, #10b981, #059669);
 }
 
+.summary-icon.orders {
+  background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 24px !important;
+  color: white !important;
+}
+
 .summary-icon.orders-icon {
   background: linear-gradient(135deg, #f59e0b, #d97706);
 }

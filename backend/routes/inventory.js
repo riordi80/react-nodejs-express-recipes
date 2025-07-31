@@ -14,9 +14,6 @@ const pool = mysql.createPool({
   database: process.env.DB_NAME,
   // Límites críticos para servidores con poca memoria
   connectionLimit: 2,          // Máximo 2 conexiones simultáneas
-  acquireTimeout: 60000,       // 60s timeout para obtener conexión
-  timeout: 60000,              // 60s timeout para consultas
-  reconnect: true,
   idleTimeout: 300000,         // Cerrar conexiones inactivas después de 5min
   maxIdle: 1                   // Máximo 1 conexión idle
 });
