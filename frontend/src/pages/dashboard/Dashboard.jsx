@@ -309,7 +309,7 @@ const Dashboard = () => {
         return (
           <div className="widget">
             <div className="widget-header">
-              <FaExclamationTriangle className="widget-icon alert" />
+              <FaExclamationTriangle className="widget-icon" style={{ color: '#ef4444' }} />
               <h3>Alertas de Stock</h3>
             </div>
             <div className="widget-content">

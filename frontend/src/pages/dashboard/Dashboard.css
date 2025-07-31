@@ -981,13 +981,16 @@
 
 /* Badges de alerta - estilos base sin colores */
 .alert-badge {
-  padding: 2px 8px;
+  padding: 4px 8px;
   border-radius: 12px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  /* Sin colores por defecto para evitar conflictos */
+}
+
+/* Badge específico para stock bajo */
+.stock-alert-item .alert-badge {
+  background: #fee2e2;
+  color: #b91c1c;
 }
 
 /* Badges para Pedidos Activos */
