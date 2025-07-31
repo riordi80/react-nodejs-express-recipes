@@ -6,12 +6,19 @@ const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
 const logAudit = require('../utils/audit');
 
-// Configura la conexión a tu base de datos
+// OPTIMIZACIÓN: Pool de conexiones con límites para evitar agotamiento de memoria
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
+  // Límites críticos para servidores con poca memoria
+  connectionLimit: 2,          // Máximo 2 conexiones - este archivo tiene consultas muy pesadas
+  acquireTimeout: 120000,      // 120s timeout - consultas complejas necesitan más tiempo
+  timeout: 120000,             // 120s timeout para consultas complejas
+  reconnect: true,
+  idleTimeout: 300000,         // Cerrar conexiones inactivas después de 5min
+  maxIdle: 1                   // Máximo 1 conexión idle
 });
 
 // GET /supplier-orders/dashboard - Obtener métricas del dashboard
@@ -146,6 +153,7 @@ router.get('/dashboard', authenticateToken, authorizeRoles('admin', 'chef'), asy
         ahorro_euros
       FROM analisis_por_ingrediente
       ORDER BY ahorro_euros DESC
+      LIMIT 10  -- OPTIMIZACIÓN CRÍTICA: Limitar resultado para evitar agotamiento de memoria
     `);
 
     const [potentialSavingsResult] = await pool.query(`
@@ -1098,6 +1106,7 @@ router.get('/export', authenticateToken, authorizeRoles('admin', 'chef'), async 
                so.delivery_date, so.status, so.total_amount, so.notes, 
                so.created_at, so.updated_at, u.first_name, u.last_name
       ORDER BY so.order_date DESC
+      LIMIT 100  -- OPTIMIZACIÓN CRÍTICA: Limitar para evitar agotamiento de memoria
     `, queryParams);
 
     if (format === 'csv') {

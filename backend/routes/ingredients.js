@@ -6,13 +6,20 @@ const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
 const logAudit = require('../utils/audit');
 
-// Configura la conexión a tu base de datos
+// OPTIMIZACIÓN: Pool de conexiones con límites para evitar agotamiento de memoria
 const pool = mysql.createPool({
   host:     process.env.DB_HOST,
   user:     process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  dateStrings: true // Devuelve fechas como strings, evita conversiones de timezone
+  dateStrings: true, // Devuelve fechas como strings, evita conversiones de timezone
+  // Límites críticos para servidores con poca memoria
+  connectionLimit: 3,          // Máximo 3 conexiones simultáneas
+  acquireTimeout: 60000,       // 60s timeout para obtener conexión
+  timeout: 60000,              // 60s timeout para consultas
+  reconnect: true,
+  idleTimeout: 300000,         // Cerrar conexiones inactivas después de 5min
+  maxIdle: 1                   // Máximo 1 conexión idle
 });
 
 // GET /ingredients/dashboard-widgets - Datos para widgets del dashboard de ingredientes
@@ -112,6 +119,11 @@ router.get('/', authenticateToken, authorizeRoles('admin', 'chef', 'inventory_ma
     }
     
     query += ' ORDER BY name ASC';
+    
+    // OPTIMIZACIÓN CRÍTICA: Limitar consulta para evitar agotamiento de memoria
+    const maxIngredients = 500; // Límite de seguridad
+    query += ' LIMIT ?';
+    params.push(maxIngredients);
     
     let [rows] = await pool.query(query, params);
     

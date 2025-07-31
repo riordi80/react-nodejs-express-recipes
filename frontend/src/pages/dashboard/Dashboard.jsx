@@ -283,8 +283,8 @@ const Dashboard = () => {
       case 'events':
         navigate('/events');
         break;
-      case 'suppliers':
-        navigate('/suppliers');
+      case 'orders':
+        navigate('/supplier-orders');
         break;
       case 'stock':
         navigate('/ingredients');
@@ -725,11 +725,21 @@ const Dashboard = () => {
             <div className="summary-content">
               <h3>{dashboardData.summary.totalRecipes}</h3>
               <p>Recetas</p>
+              {dashboardData.summary.recipesWithSeasonalIngredients > 0 && (
+                <div className="order-alerts">
+                  <span className="alert-badge recipes-seasonal">
+                    {dashboardData.summary.recipesWithSeasonalIngredients} de temporada
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
           <div 
-            className="summary-card clickable" 
+            className={`summary-card clickable ${
+              dashboardData.summary.upcomingEventsNoMenu > 0 ? 'events-critical' : 
+              dashboardData.summary.eventsWithoutMenu > 0 ? 'events-urgent' : ''
+            }`}
             onClick={() => handleMetricClick('events')}
             style={{ cursor: 'pointer' }}
           >
@@ -739,25 +749,59 @@ const Dashboard = () => {
             <div className="summary-content">
               <h3>{dashboardData.summary.totalEvents}</h3>
               <p>Eventos</p>
+              {(dashboardData.summary.upcomingEventsNoMenu > 0 || dashboardData.summary.eventsWithoutMenu > 0) && (
+                <div className="order-alerts">
+                  {dashboardData.summary.upcomingEventsNoMenu > 0 && (
+                    <span className="alert-badge events-critical">
+                      {dashboardData.summary.upcomingEventsNoMenu} próximo{dashboardData.summary.upcomingEventsNoMenu > 1 ? 's' : ''} sin menú
+                    </span>
+                  )}
+                  {dashboardData.summary.eventsWithoutMenu > 0 && (
+                    <span className="alert-badge events-urgent">
+                      {dashboardData.summary.eventsWithoutMenu} sin menú
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
           <div 
-            className="summary-card clickable" 
-            onClick={() => handleMetricClick('suppliers')}
+            className={`summary-card clickable ${
+              dashboardData.summary.overdueOrders > 0 ? 'overdue' : 
+              dashboardData.summary.urgentOrders > 0 ? 'urgent' : ''
+            }`}
+            onClick={() => handleMetricClick('orders')}
             style={{ cursor: 'pointer' }}
           >
-            <div className="summary-icon suppliers">
+            <div className="summary-icon orders-icon">
               <FaTruck />
             </div>
             <div className="summary-content">
-              <h3>{dashboardData.summary.totalSuppliers}</h3>
-              <p>Proveedores</p>
+              <h3>{dashboardData.summary.pendingOrders || 0}</h3>
+              <p>Pedidos Activos</p>
+              {(dashboardData.summary.overdueOrders > 0 || dashboardData.summary.urgentOrders > 0) && (
+                <div className="order-alerts">
+                  {dashboardData.summary.overdueOrders > 0 && (
+                    <span className="alert-badge overdue">
+                      {dashboardData.summary.overdueOrders} vencido{dashboardData.summary.overdueOrders > 1 ? 's' : ''}
+                    </span>
+                  )}
+                  {dashboardData.summary.urgentOrders > 0 && (
+                    <span className="alert-badge urgent">
+                      {dashboardData.summary.urgentOrders} urgente{dashboardData.summary.urgentOrders > 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
           <div 
-            className="summary-card alert clickable" 
+            className={`summary-card clickable ${
+              dashboardData.summary.zeroStockCount > 0 ? 'stock-critical' : 
+              dashboardData.summary.criticalStockCount > 0 ? 'stock-urgent' : 'alert'
+            }`}
             onClick={() => handleMetricClick('stock')}
             style={{ cursor: 'pointer' }}
           >
@@ -767,6 +811,20 @@ const Dashboard = () => {
             <div className="summary-content">
               <h3>{dashboardData.summary.lowStockCount}</h3>
               <p>Stock Bajo</p>
+              {(dashboardData.summary.zeroStockCount > 0 || dashboardData.summary.criticalStockCount > 0) && (
+                <div className="order-alerts">
+                  {dashboardData.summary.zeroStockCount > 0 && (
+                    <span className="alert-badge stock-critical">
+                      {dashboardData.summary.zeroStockCount} agotado{dashboardData.summary.zeroStockCount > 1 ? 's' : ''}
+                    </span>
+                  )}
+                  {dashboardData.summary.criticalStockCount > 0 && (
+                    <span className="alert-badge stock-urgent">
+                      {dashboardData.summary.criticalStockCount} crítico{dashboardData.summary.criticalStockCount > 1 ? 's' : ''}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

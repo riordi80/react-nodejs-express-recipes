@@ -245,9 +245,14 @@ const SupplierGroup = ({ supplier, shoppingList, onIngredientRowClick }) => {
                   </td>
                   <td className="real-price">
                     {ingredient.supplierPrice ? (
-                      `${formatCurrency(ingredient.supplierPrice)}/${ingredient.packageUnit || 'unidad'}`
+                      // Calcular precio real por unidad base: precio del paquete / tamaño del paquete
+                      ingredient.packageSize > 0 ? (
+                        `${formatCurrency(ingredient.supplierPrice / ingredient.packageSize)}/${ingredient.unit}`
+                      ) : (
+                        `${formatCurrency(ingredient.supplierPrice)}/${ingredient.packageUnit || 'unidad'}`
+                      )
                     ) : (
-                      formatCurrency(ingredient.pricePerUnit)
+                      `${formatCurrency(ingredient.pricePerUnit)}/${ingredient.unit}`
                     )}
                   </td>
                   <td className="total-cost">

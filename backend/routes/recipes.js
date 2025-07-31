@@ -6,12 +6,19 @@ const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles   = require('../middleware/roleMiddleware');
 const logAudit         = require('../utils/audit');
 
-// Configura la conexión a tu base de datos
+// OPTIMIZACIÓN: Pool de conexiones con límites para evitar agotamiento de memoria
 const pool = mysql.createPool({
   host:     process.env.DB_HOST,
   user:     process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
+  // Límites críticos para servidores con poca memoria
+  connectionLimit: 3,          // Máximo 3 conexiones simultáneas
+  acquireTimeout: 60000,       // 60s timeout para obtener conexión
+  timeout: 60000,              // 60s timeout para consultas
+  reconnect: true,
+  idleTimeout: 300000,         // Cerrar conexiones inactivas después de 5min
+  maxIdle: 1                   // Máximo 1 conexión idle
 });
 
 // GET /recipes - Obtener recetas con categorías y filtros
@@ -85,7 +92,14 @@ router.get('/', authenticateToken, authorizeRoles('admin','chef'), async (req, r
 
   const whereClause = wheres.length ? 'WHERE ' + wheres.join(' AND ') : '';
   const groupBy     = 'GROUP BY r.recipe_id';
-  const finalSql    = [sql, ...joins, whereClause, groupBy].join(' ');
+  
+  // OPTIMIZACIÓN CRÍTICA: Añadir límite y orden para evitar agotamiento de memoria
+  const orderBy     = 'ORDER BY r.name ASC';
+  const maxRecipes  = 200; // Límite de seguridad
+  const limitClause = 'LIMIT ?';
+  params.push(maxRecipes);
+  
+  const finalSql    = [sql, ...joins, whereClause, groupBy, orderBy, limitClause].join(' ');
 
   try {
     const [rows] = await pool.query(finalSql, params);
