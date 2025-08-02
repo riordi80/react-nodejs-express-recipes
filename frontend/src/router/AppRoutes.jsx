@@ -8,6 +8,7 @@ import Login from '../pages/login/Login';
 import PrivateRoute from './PrivateRoute';
 import Allergens from '../pages/allergens/Allergens';
 import Ingredients from '../pages/ingredients/Ingredients'; // ← importa tu nuevo componente
+import IngredientCategories from '../pages/ingredient-categories/IngredientCategories';
 import Recipes from '../pages/recipes/Recipes';  // ← Importa tu componente de recetas
 import Suppliers from '../pages/suppliers/Suppliers';
 import Events from '../pages/events/Events';
@@ -40,6 +41,7 @@ const AppRoutes = () => {
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="allergens"  element={<Allergens />} />
           <Route path="ingredients" element={<Ingredients />} />  {/* ← aquí */}
+          <Route path="ingredient-categories" element={<IngredientCategories />} />
           <Route path="recipes" element={<Recipes />} />
           <Route path="recipes/:id" element={<RecipeDetail />} />
           <Route path="suppliers" element={<Suppliers />} />

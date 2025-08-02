@@ -56,7 +56,7 @@ const RecentOrders = ({ historyMetrics, onOrderClick }) => {
               <div className="order-card-footer">
                 <button 
                   className="view-details-btn"
-                  onClick={() => onOrderClick(order)}
+                  onClick={() => onOrderClick(order.order_id)}
                 >
                   <FaEye />
                   Ver Detalles

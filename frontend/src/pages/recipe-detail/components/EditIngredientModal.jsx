@@ -24,7 +24,19 @@ export default function EditIngredientModal({
     }
 
     const quantityNum = parseFloat(quantity);
-    const factor = quantityNum / 100; // Factor de conversión desde per-100g
+    
+    // Convertir la cantidad a gramos según la unidad del ingrediente
+    let quantityInGrams = quantityNum;
+    if (ingredient.unit === 'kg') {
+      quantityInGrams = quantityNum * 1000; // kg a gramos
+    } else if (ingredient.unit === 'L') {
+      quantityInGrams = quantityNum * 1000; // L a ml (asumiendo densidad = 1)
+    } else if (ingredient.unit === 'ml') {
+      quantityInGrams = quantityNum; // ml ≈ gramos para líquidos
+    }
+    // Para 'g' y otras unidades, mantener el valor original
+    
+    const factor = quantityInGrams / 100; // Factor de conversión desde per-100g
 
     return {
       calories: formatDecimal((ingredient.calories_per_100g || 0) * factor, 1),
@@ -134,8 +146,13 @@ export default function EditIngredientModal({
           />
         </FormField>
 
-        {/* Información Nutricional */}
-        {ingredient && (ingredient.calories_per_100g || ingredient.protein_per_100g || ingredient.carbs_per_100g || ingredient.fat_per_100g) && (
+        {/* Información Nutricional - Mostrar siempre si hay al menos uno de los campos nutricionales */}
+        {ingredient && (
+          ingredient.calories_per_100g !== undefined || 
+          ingredient.protein_per_100g !== undefined || 
+          ingredient.carbs_per_100g !== undefined || 
+          ingredient.fat_per_100g !== undefined
+        ) && (
           <div style={{ marginBottom: '20px' }}>
             <h4 style={{ 
               fontSize: '14px', 
@@ -171,22 +188,22 @@ export default function EditIngredientModal({
                     gap: '8px',
                     fontSize: '13px'
                   }}>
-                    {nutrition.calories > 0 && (
+                    {ingredient.calories_per_100g !== undefined && (
                       <div>
                         <strong>Calorías:</strong> {nutrition.calories} kcal
                       </div>
                     )}
-                    {nutrition.protein > 0 && (
+                    {ingredient.protein_per_100g !== undefined && (
                       <div>
                         <strong>Proteínas:</strong> {nutrition.protein} g
                       </div>
                     )}
-                    {nutrition.carbs > 0 && (
+                    {ingredient.carbs_per_100g !== undefined && (
                       <div>
                         <strong>Carbohidratos:</strong> {nutrition.carbs} g
                       </div>
                     )}
-                    {nutrition.fat > 0 && (
+                    {ingredient.fat_per_100g !== undefined && (
                       <div>
                         <strong>Grasas:</strong> {nutrition.fat} g
                       </div>

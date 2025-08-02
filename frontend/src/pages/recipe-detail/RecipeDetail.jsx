@@ -466,6 +466,30 @@ const RecipeDetail = () => {
     setTemporalIngredients(updatedTemporalIngredients);
   };
 
+  // Función para calcular información nutricional de un ingrediente
+  const calculateIngredientNutrition = (ingredient, totalQuantity) => {
+    if (!ingredient || !totalQuantity) return null;
+    
+    // Convertir la cantidad total a gramos según la unidad
+    let quantityInGrams = totalQuantity;
+    if (ingredient.unit === 'kg') {
+      quantityInGrams = totalQuantity * 1000;
+    } else if (ingredient.unit === 'L') {
+      quantityInGrams = totalQuantity * 1000; // Asumiendo densidad = 1
+    } else if (ingredient.unit === 'ml') {
+      quantityInGrams = totalQuantity; // ml ≈ gramos para líquidos
+    }
+    
+    const factor = quantityInGrams / 100; // Factor desde per-100g
+    
+    return {
+      calories: Math.round((ingredient.calories_per_100g || 0) * factor),
+      protein: formatDecimal((ingredient.protein_per_100g || 0) * factor, 1),
+      carbs: formatDecimal((ingredient.carbs_per_100g || 0) * factor, 1),
+      fat: formatDecimal((ingredient.fat_per_100g || 0) * factor, 1)
+    };
+  };
+
   // Crear un header personalizado con título a la izquierda y botones a la derecha
   const customHeader = (
     <div className="recipe-detail-header">      
@@ -741,7 +765,21 @@ const RecipeDetail = () => {
             )}
             <div className="ingredients-list">
               {getDisplayIngredients()?.length > 0 ? (
-                getDisplayIngredients().map((ingredient, index) => {
+                <>
+                  {/* DEBUG: Mostrar estructura de ingredientes */}
+                  <div style={{
+                    background: '#fff3cd',
+                    padding: '8px',
+                    borderRadius: '4px',
+                    marginBottom: '12px',
+                    fontSize: '11px',
+                    border: '1px solid #ffeaa7'
+                  }}>
+                    <strong>DEBUG - Primer ingrediente:</strong><br/>
+                    {JSON.stringify(getDisplayIngredients()[0], null, 2)}
+                  </div>
+                  
+                  {getDisplayIngredients().map((ingredient, index) => {
                   const wastePercent = parseFloat(ingredient.waste_percent) || 0;
                   const wasteMultiplier = 1 + wastePercent;
                   const quantityPerServing = parseFloat(ingredient.quantity_per_serving) || 0;
@@ -751,6 +789,9 @@ const RecipeDetail = () => {
                   const currentServings = parseInt(recipe?.servings) || 1;
                   const totalQuantity = quantityPerServing * currentServings;
                   const ingredientCost = totalQuantity * price * wasteMultiplier;
+                  
+                  // Calcular información nutricional para la cantidad total
+                  const nutrition = calculateIngredientNutrition(ingredient, totalQuantity);
                   
                   return (
                     <div key={index} className="ingredient-item">
@@ -766,8 +807,17 @@ const RecipeDetail = () => {
                           <span className="waste-info"> (+{formatDecimal(wastePercent * 100, 1)}% merma)</span>
                         )}
                       </div>
-                      <div className="ingredient-cost">
-                        {formatCurrency(ingredientCost)}
+                      
+                      <div className="ingredient-cost-row">
+                        {/* Información Nutricional - solo icono y valores principales */}
+                        {nutrition && nutrition.calories > 0 && (
+                          <span className="ingredient-nutrition">
+                            🔥 {nutrition.calories}kcal
+                          </span>
+                        )}
+                        <div className="ingredient-cost">
+                          {formatCurrency(ingredientCost)}
+                        </div>
                       </div>
                       {isEditing && (
                         <div className="ingredient-actions" style={{
@@ -821,7 +871,8 @@ const RecipeDetail = () => {
                       )}
                     </div>
                   );
-                })
+                  })}
+                </>
               ) : (
                 <div className="empty-state">
                   No hay ingredientes registrados

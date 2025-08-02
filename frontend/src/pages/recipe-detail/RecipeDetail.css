@@ -337,11 +337,26 @@
   font-weight: 500;
 }
 
+/* Fila que contiene nutrición y precio */
+.ingredient-cost-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+}
+
 .ingredient-cost {
   color: #059669;
   font-weight: 600;
   text-align: right;
-  margin-top: auto;
+  flex-shrink: 0;
+}
+
+/* Información nutricional en las cards de ingredientes - versión sutil */
+.ingredient-nutrition {
+  font-size: 10px;
+  color: #64748b;
+  font-weight: 400;
 }
 
 
