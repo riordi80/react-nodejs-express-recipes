@@ -10,5 +10,12 @@ export default defineConfig({
   },
   server: {
     allowedHosts: ['dev.ordidev.com', 'localhost']
+  },
+  build: {
+    sourcemap: true,
+    minify: false
+  },
+  esbuild: {
+    drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : []
   }
 });

@@ -9,6 +9,7 @@ export default function AddIngredientModal({
   recipeId,
   recipeName,
   existingIngredients = [],
+  existingSections = [],
   onSave,
   isNewRecipe = false,
   onTemporalSave
@@ -37,17 +38,27 @@ export default function AddIngredientModal({
       setLoading(true);
       const response = await api.get('/ingredients');
       
-      // Filtrar ingredientes que ya están en la receta
-      const existingIds = existingIngredients.map(ing => ing.ingredient_id);
-      const filtered = response.data.filter(ing => !existingIds.includes(ing.ingredient_id));
-      
-      setAvailableIngredients(filtered);
+      // No filtrar ingredientes - permitir que se puedan añadir a múltiples secciones
+      // Solo filtraremos después según la sección seleccionada
+      setAvailableIngredients(response.data);
     } catch (err) {
       console.error('Error loading ingredients:', err);
       setError('Error al cargar ingredientes');
     } finally {
       setLoading(false);
     }
+  };
+
+  // Función para verificar si un ingrediente ya está en una sección específica
+  const isIngredientInSection = (ingredientId, sectionKey) => {
+    if (!sectionKey || !existingIngredients || existingIngredients.length === 0) {
+      return false;
+    }
+    
+    return existingIngredients.some(ing => 
+      ing.ingredient_id === ingredientId && 
+      (ing.section_name === sectionKey || ing.section_id === sectionKey)
+    );
   };
 
   const filteredIngredients = availableIngredients.filter(ingredient =>
@@ -64,7 +75,10 @@ export default function AddIngredientModal({
       setSelectedIngredients([...selectedIngredients, ingredientId]);
       setIngredientDetails({
         ...ingredientDetails,
-        [ingredientId]: { quantity: '' }
+        [ingredientId]: { 
+          quantity: '', 
+          sectionKey: existingSections.length > 0 ? existingSections[0].key : null 
+        }
       });
     }
   };
@@ -92,8 +106,22 @@ export default function AddIngredientModal({
         const newTemporalIngredients = [];
         
         for (const ingredientId of selectedIngredients) {
-          const quantity = parseFloat(ingredientDetails[ingredientId].quantity);
+          const details = ingredientDetails[ingredientId];
+          const quantity = parseFloat(details.quantity);
+          const sectionKey = details.sectionKey;
           const ingredient = availableIngredients.find(ing => ing.ingredient_id === ingredientId);
+          
+          // Determinar section_id y section_name
+          let sectionId = null;
+          let sectionName = null;
+          
+          if (sectionKey && existingSections.length > 0) {
+            const selectedSection = existingSections.find(s => s.key === sectionKey);
+            console.log(`🔍 Sección seleccionada: key="${sectionKey}", selectedSection=`, selectedSection);
+            sectionId = selectedSection?.id; // Usar el ID numérico real
+            sectionName = selectedSection?.name;
+            console.log(`📝 Asignando: sectionId=${sectionId}, sectionName="${sectionName}"`);
+          }
           
           if (ingredient) {
             newTemporalIngredients.push({
@@ -103,7 +131,8 @@ export default function AddIngredientModal({
               base_price: ingredient.base_price,
               waste_percent: ingredient.waste_percent || 0,
               quantity_per_serving: quantity,
-              section_id: null
+              section_id: sectionId,
+              section_name: sectionName
             });
           }
         }
@@ -117,12 +146,21 @@ export default function AddIngredientModal({
       } else {
         // Para recetas existentes: comportamiento original
         for (const ingredientId of selectedIngredients) {
-          const quantity = parseFloat(ingredientDetails[ingredientId].quantity);
+          const details = ingredientDetails[ingredientId];
+          const quantity = parseFloat(details.quantity);
+          const sectionKey = details.sectionKey;
+          
+          // Determinar section_id
+          let sectionId = null;
+          if (sectionKey && existingSections.length > 0) {
+            const selectedSection = existingSections.find(s => s.key === sectionKey);
+            sectionId = selectedSection?.id; // Usar el ID numérico real
+          }
           
           await api.post(`/recipes/${recipeId}/ingredients`, {
             ingredient_id: ingredientId,
             quantity_per_serving: quantity,
-            section_id: null
+            section_id: sectionId
           });
         }
 
@@ -132,7 +170,8 @@ export default function AddIngredientModal({
       }
     } catch (err) {
       console.error('Error adding ingredients:', err);
-      setError(err.response?.data?.message || 'Error al añadir ingredientes');
+      const errorMessage = err.response?.data?.message || 'Error al añadir ingredientes';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -171,6 +210,9 @@ export default function AddIngredientModal({
           {filteredIngredients.length > 0 ? (
             filteredIngredients.map(ingredient => {
               const isSelected = selectedIngredients.includes(ingredient.ingredient_id);
+              const selectedSectionKey = ingredientDetails[ingredient.ingredient_id]?.sectionKey || (existingSections.length > 0 ? existingSections[0].key : null);
+              const alreadyInSection = selectedSectionKey && isIngredientInSection(ingredient.ingredient_id, selectedSectionKey);
+              
               return (
                 <div key={ingredient.ingredient_id} className="ingredient-item">
                   <div className="ingredient-checkbox">
@@ -185,6 +227,16 @@ export default function AddIngredientModal({
                       <span style={{ fontSize: '12px', color: '#64748b', marginLeft: '8px' }}>
                         ({ingredient.unit})
                       </span>
+                      {alreadyInSection && (
+                        <span style={{ 
+                          fontSize: '11px', 
+                          color: '#f59e0b', 
+                          marginLeft: '8px',
+                          fontWeight: '500'
+                        }}>
+                          ⚠️ Ya en esta sección
+                        </span>
+                      )}
                     </label>
                   </div>
                   
@@ -207,6 +259,27 @@ export default function AddIngredientModal({
                           required
                         />
                       </div>
+                      
+                      {existingSections.length > 0 && (
+                        <div className="detail-field">
+                          <label>Sección</label>
+                          <select
+                            className="detail-input"
+                            value={ingredientDetails[ingredient.ingredient_id]?.sectionKey || existingSections[0]?.key || ''}
+                            onChange={(e) => updateIngredientDetail(
+                              ingredient.ingredient_id, 
+                              'sectionKey', 
+                              e.target.value
+                            )}
+                          >
+                            {existingSections.map(section => (
+                              <option key={section.key} value={section.key}>
+                                {section.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
                       <div className="ingredient-info" style={{ 
                         fontSize: '12px', 
                         color: '#64748b',

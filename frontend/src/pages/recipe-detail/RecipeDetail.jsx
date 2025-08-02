@@ -1,7 +1,7 @@
 // src/pages/recipe-detail/RecipeDetail.jsx
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { FiArrowLeft, FiEdit3, FiTrash2, FiSave, FiX } from 'react-icons/fi';
+import { FiArrowLeft, FiEdit3, FiTrash2, FiSave, FiX, FiPlus } from 'react-icons/fi';
 // BasePage removed - using custom layout
 import ConfirmModal from '../../components/modals/ConfirmModal';
 import Loading from '../../components/loading';
@@ -42,9 +42,24 @@ const RecipeDetail = () => {
   const [isDeleteIngredientOpen, setIsDeleteIngredientOpen] = useState(false);
   const [ingredientToDelete, setIngredientToDelete] = useState(null);
   
+  // Delete section modal state
+  const [isDeleteSectionOpen, setIsDeleteSectionOpen] = useState(false);
+  const [sectionToDelete, setSectionToDelete] = useState(null);
+  
   // Edit ingredient modal state
   const [isEditIngredientOpen, setIsEditIngredientOpen] = useState(false);
   const [ingredientToEdit, setIngredientToEdit] = useState(null);
+
+  // Section management state
+  const [isAddSectionOpen, setIsAddSectionOpen] = useState(false);
+  const [newSectionName, setNewSectionName] = useState('');
+  const [editingSection, setEditingSection] = useState(null);
+  const [editSectionName, setEditSectionName] = useState('');
+  const [realSections, setRealSections] = useState([]); // Secciones reales del backend
+
+  // Drag and drop state
+  const [draggedIngredient, setDraggedIngredient] = useState(null);
+  const [dragOverSection, setDragOverSection] = useState(null);
 
   // Notification function
   const notify = (msg, type = 'success') => {
@@ -120,14 +135,16 @@ const RecipeDetail = () => {
   const loadRecipeData = async () => {
     try {
       setLoading(true);
-      // Primero cargar datos básicos de la receta e ingredientes
-      const [recipeResponse, ingredientsResponse] = await Promise.all([
+      // Primero cargar datos básicos de la receta, ingredientes y secciones reales
+      const [recipeResponse, ingredientsResponse, sectionsResponse] = await Promise.all([
         api.get(`/recipes/${id}`),
-        api.get(`/recipes/${id}/ingredients`)
+        api.get(`/recipes/${id}/ingredients`),
+        api.get(`/recipes/${id}/sections`)
       ]);
       
       setRecipe(recipeResponse.data);
       setIngredients(ingredientsResponse.data);
+      setRealSections(sectionsResponse.data || []);
       
       // Cargar información nutricional por separado
       try {
@@ -490,6 +507,330 @@ const RecipeDetail = () => {
     };
   };
 
+  // Funciones para drag and drop
+  const handleDragStart = (e, ingredient) => {
+    if (!isEditing) return; // Solo permitir drag en modo edición
+    
+    console.log('🚀 DRAG START:', ingredient);
+    setDraggedIngredient(ingredient);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', ''); // Para compatibilidad
+    
+    // Añadir clase visual al elemento arrastrado
+    e.target.style.opacity = '0.5';
+  };
+
+  const handleDragEnd = (e) => {
+    e.target.style.opacity = '1';
+    setDraggedIngredient(null);
+    setDragOverSection(null);
+  };
+
+  const handleDragOver = (e, sectionKey) => {
+    if (!draggedIngredient) return;
+    
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverSection(sectionKey);
+  };
+
+  const handleDragLeave = (e) => {
+    // Solo quitar el highlight si realmente salimos del área
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setDragOverSection(null);
+    }
+  };
+
+  const handleDrop = async (e, targetSectionKey, targetSectionName) => {
+    e.preventDefault();
+    
+    console.log('🎯 DROP EVENT:', {
+      draggedIngredient,
+      targetSectionKey,
+      targetSectionName,
+      isNewRecipe
+    });
+    
+    if (!draggedIngredient) {
+      console.log('❌ No hay ingrediente arrastrado');
+      return;
+    }
+    
+    // Determinar el section_id de destino
+    let targetSectionId = null;
+    if (targetSectionKey !== 'sin-seccion') {
+      targetSectionId = targetSectionKey;
+    }
+
+    console.log('🔄 Target section ID:', targetSectionId);
+
+    try {
+      if (isNewRecipe) {
+        // Para recetas nuevas, solo actualizamos localmente
+        console.log('⚠️ Receta nueva: actualizando solo localmente');
+        
+        // Actualizar el ingrediente en el estado local
+        const updatedIngredients = ingredients.map(ing => 
+          ing.ingredient_id === draggedIngredient.ingredient_id 
+            ? { ...ing, section_id: targetSectionId, section_name: targetSectionName }
+            : ing
+        );
+        
+        setIngredients(updatedIngredients);
+        notify(`Ingrediente movido a "${targetSectionName}"`, 'success');
+      } else {
+        // Para recetas existentes, actualizar en el backend
+        console.log('🔄 Actualizando en backend...');
+        
+        await api.put(`/recipes/${id}/ingredients/${draggedIngredient.ingredient_id}/section`, {
+          section_id: targetSectionId
+        });
+        
+        // Actualizar el ingrediente en el estado local
+        const updatedIngredients = ingredients.map(ing => 
+          ing.ingredient_id === draggedIngredient.ingredient_id 
+            ? { ...ing, section_id: targetSectionId, section_name: targetSectionName }
+            : ing
+        );
+        
+        setIngredients(updatedIngredients);
+        console.log('✅ Ingrediente movido y guardado en backend');
+        notify(`Ingrediente movido a "${targetSectionName}"`, 'success');
+      }
+    } catch (error) {
+      console.error('❌ Error moving ingredient:', error);
+      notify('Error al mover el ingrediente', 'error');
+    }
+    
+    setDraggedIngredient(null);
+    setDragOverSection(null);
+  };
+
+  // Función para agrupar ingredientes por secciones usando las secciones reales del backend
+  const groupIngredientsBySection = () => {
+    const ingredients = getDisplayIngredients();
+    
+    console.log('📋 Agrupando ingredientes:', ingredients);
+    console.log('🏗️ Secciones reales del backend:', realSections);
+
+    if (realSections.length === 0) {
+      // Fallback: usar el comportamiento anterior si no hay secciones del backend
+      return groupIngredientsBySection_fallback();
+    }
+
+    // Crear estructura base con las secciones reales del backend
+    const sectionsMap = {};
+    
+    // Inicializar todas las secciones reales (vacías)
+    realSections.forEach(section => {
+      sectionsMap[section.section_id] = {
+        key: section.section_id.toString(),
+        id: section.section_id,
+        name: section.name,
+        ingredients: []
+      };
+    });
+
+    // Array para ingredientes sin sección válida (temporal)
+    const ingredientsWithoutSection = [];
+
+    // Distribuir ingredientes según su section_id real
+    if (ingredients && ingredients.length > 0) {
+      ingredients.forEach(ingredient => {
+        console.log(`🏷️ Ingrediente "${ingredient.name}": section_id=${ingredient.section_id}, section_name="${ingredient.section_name}"`);
+        
+        const ingredientSectionId = ingredient.section_id;
+        
+        // Buscar la sección correcta por section_id
+        if (ingredientSectionId && sectionsMap[ingredientSectionId]) {
+          sectionsMap[ingredientSectionId].ingredients.push(ingredient);
+        } else {
+          // Si no encuentra la sección, guardarlo temporalmente
+          console.warn(`⚠️ Ingrediente "${ingredient.name}" tiene section_id=${ingredientSectionId} que no existe en realSections.`);
+          ingredientsWithoutSection.push(ingredient);
+        }
+      });
+    }
+
+    // Solo crear sección "Principal" si realmente hay ingredientes sin sección válida
+    if (ingredientsWithoutSection.length > 0) {
+      sectionsMap['principal'] = {
+        key: 'principal',
+        id: null,
+        name: 'Principal',
+        ingredients: ingredientsWithoutSection
+      };
+    }
+
+    // Convertir a array - mostrar secciones reales aunque estén vacías
+    const result = Object.values(sectionsMap)
+      .sort((a, b) => {
+        if (a.key === 'principal') return 1;
+        if (b.key === 'principal') return -1;
+        return a.name.localeCompare(b.name);
+      });
+      
+    console.log('📊 Secciones agrupadas (usando backend):', result);
+    return result;
+  };
+
+  // Función de fallback para cuando no se pueden cargar las secciones del backend
+  const groupIngredientsBySection_fallback = () => {
+    const ingredients = getDisplayIngredients();
+    if (!ingredients || ingredients.length === 0) return [];
+
+    const grouped = ingredients.reduce((sections, ingredient) => {
+      const sectionKey = ingredient.section_name || ingredient.section_id || 'sin-seccion';
+      const sectionName = ingredient.section_name || (ingredient.section_id ? `Sección ${ingredient.section_id}` : 'Principal');
+      
+      if (!sections[sectionKey]) {
+        sections[sectionKey] = {
+          name: sectionName,
+          id: ingredient.section_id || null,
+          ingredients: []
+        };
+      }
+      
+      sections[sectionKey].ingredients.push(ingredient);
+      return sections;
+    }, {});
+
+    return Object.entries(grouped)
+      .map(([key, section]) => ({ key, id: section.id, name: section.name, ingredients: section.ingredients }))
+      .sort((a, b) => {
+        if (a.key === 'sin-seccion') return 1;
+        if (b.key === 'sin-seccion') return -1;
+        return a.name.localeCompare(b.name);
+      });
+  };
+
+  // ===== FUNCIONES PARA GESTIÓN DE SECCIONES =====
+
+  // Función para obtener las secciones reales desde el backend
+  const getRealSections = async () => {
+    try {
+      const response = await api.get(`/recipes/${id}/sections`);
+      console.log('📡 Respuesta del backend:', response.data);
+      return response.data;
+    } catch (err) {
+      console.error('Error fetching real sections:', err);
+      return [];
+    }
+  };
+
+  const handleAddSection = async () => {
+    if (!newSectionName.trim()) {
+      notify('El nombre de la sección es obligatorio', 'error');
+      return;
+    }
+
+    try {
+      await api.post(`/recipes/${id}/sections`, {
+        name: newSectionName.trim()
+      });
+
+      setNewSectionName('');
+      setIsAddSectionOpen(false);
+      await loadRecipeData();
+      notify('Sección creada correctamente');
+    } catch (err) {
+      console.error('Error creating section:', err);
+      notify(err.response?.data?.message || 'Error al crear la sección', 'error');
+    }
+  };
+
+  const handleEditSection = async (sectionId, sectionName) => {
+    try {
+      console.log('🖊️ Iniciando edición de sección:', { sectionId, sectionName });
+      
+      // Usar el nombre de la sección como identificador para evitar problemas con IDs inconsistentes
+      setEditingSection(sectionName); // Usar nombre en lugar de ID
+      setEditSectionName(sectionName); // Mantener el nombre original para edición
+    } catch (error) {
+      console.error('Error en handleEditSection:', error);
+      alert(`ERROR: ${error.message}`);
+    }
+  };
+
+  const handleSaveSection = async (sectionNameOrId) => {
+    if (!editSectionName.trim()) {
+      notify('El nombre de la sección es obligatorio', 'error');
+      return;
+    }
+
+    try {
+      // Obtener las secciones reales del backend
+      const realSections = await getRealSections();
+      
+      // Mapear nombres de sección frontend a nombres del backend
+      const sectionNameMap = {
+        'Condimentos': 'Aliño',
+        'Pescado': 'Verduras',
+        'Ingredientes principales': 'Base'
+      };
+      
+      // Determinar el nombre actual que se está editando
+      const currentSectionName = editingSection; // editingSection ahora contiene el nombre
+      const mappedName = sectionNameMap[currentSectionName] || currentSectionName;
+      
+      // Buscar la sección real por el nombre mapeado
+      const realSection = realSections.find(s => s.name === mappedName);
+      
+      if (!realSection) {
+        notify(`Error: No se encontró la sección "${mappedName}" en el backend`, 'error');
+        return;
+      }
+
+      console.log('🔧 Actualizando sección:', { 
+        originalName: currentSectionName, 
+        mappedName, 
+        sectionId: realSection.section_id, 
+        newName: editSectionName.trim(), 
+        recipeId: id 
+      });
+      
+      await api.put(`/recipes/${id}/sections/${realSection.section_id}`, {
+        name: editSectionName.trim()
+      });
+
+      setEditingSection(null);
+      setEditSectionName('');
+      await loadRecipeData();
+      notify('Sección actualizada correctamente');
+    } catch (err) {
+      console.error('Error updating section:', err);
+      notify(err.response?.data?.message || 'Error al actualizar la sección', 'error');
+    }
+  };
+
+  const openDeleteSectionModal = (section) => {
+    setSectionToDelete(section);
+    setIsDeleteSectionOpen(true);
+  };
+
+  const handleDeleteSection = async () => {
+    if (!sectionToDelete) return;
+
+    try {
+      await api.delete(`/recipes/${id}/sections/${sectionToDelete.id}`);
+      await loadRecipeData();
+      notify('Sección eliminada correctamente');
+      setIsDeleteSectionOpen(false);
+      setSectionToDelete(null);
+    } catch (err) {
+      console.error('Error deleting section:', err);
+      const errorMessage = err.response?.data?.message || 'Error al eliminar la sección';
+      notify(errorMessage, 'error');
+      setIsDeleteSectionOpen(false);
+      setSectionToDelete(null);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingSection(null);
+    setEditSectionName('');
+  };
+
   // Crear un header personalizado con título a la izquierda y botones a la derecha
   const customHeader = (
     <div className="recipe-detail-header">      
@@ -737,7 +1078,28 @@ const RecipeDetail = () => {
 
         {/* Ingredients Section */}
         <div className="recipe-section">
-          <h2 className="section-title">🥕 Ingredientes</h2>
+          <div style={{ marginBottom: '8px' }}>
+            <h2 className="section-title">🥕 Ingredientes</h2>
+            {isEditing && (
+              <div style={{ display: 'flex', gap: '8px', marginTop: '12px', marginRight: '24px', marginLeft: '24px' }}>
+                <button
+                  type="button"
+                  className="btn add"
+                  onClick={() => setIsAddIngredientOpen(true)}
+                >
+                  <FiPlus /> <span className="btn-text">Añadir Ingrediente</span>
+                </button>
+                <button
+                  type="button"
+                  className="btn add"
+                  onClick={() => setIsAddSectionOpen(true)}
+                >
+                  <FiPlus /> <span className="btn-text">Añadir Sección</span>
+                </button>
+              </div>
+            )}
+          </div>
+          
           <div className="section-content">
             {recipe?.servings && (
               <div className="servings-info" style={{ 
@@ -752,34 +1114,185 @@ const RecipeDetail = () => {
                 📊 Cantidades para {recipe.servings} {recipe.servings === 1 ? 'comensal' : 'comensales'}
               </div>
             )}
-            {isEditing && getDisplayIngredients()?.length > 0 && (
-              <div className="ingredients-header" style={{ marginBottom: '16px' }}>
-                <button 
-                  className="btn add ingredients-add-btn" 
-                  onClick={openAddIngredientModal}
-                  style={{ fontSize: '14px', height: '36px', padding: '0 16px' }}
-                >
-                  Añadir
-                </button>
-              </div>
-            )}
-            <div className="ingredients-list">
+            <div className="ingredients-sections">
               {getDisplayIngredients()?.length > 0 ? (
-                <>
-                  {/* DEBUG: Mostrar estructura de ingredientes */}
-                  <div style={{
-                    background: '#fff3cd',
-                    padding: '8px',
-                    borderRadius: '4px',
-                    marginBottom: '12px',
-                    fontSize: '11px',
-                    border: '1px solid #ffeaa7'
-                  }}>
-                    <strong>DEBUG - Primer ingrediente:</strong><br/>
-                    {JSON.stringify(getDisplayIngredients()[0], null, 2)}
-                  </div>
-                  
-                  {getDisplayIngredients().map((ingredient, index) => {
+                groupIngredientsBySection().map((section, sectionIndex) => (
+                  <div 
+                    key={section.key} 
+                    className={`ingredient-section-card ${dragOverSection === section.key ? 'drag-over' : ''}`}
+                    onDragOver={(e) => handleDragOver(e, section.key)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, section.key, section.name)}
+                  >
+                    <div className="section-header">
+                      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', minHeight: '48px' }}>
+                        <div style={{ flex: 1 }}>
+                          {editingSection === section.name ? (
+                            <input
+                              type="text"
+                              className="form-input"
+                              value={editSectionName}
+                              onChange={(e) => setEditSectionName(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleSaveSection(section.name);
+                                if (e.key === 'Escape') handleCancelEdit();
+                              }}
+                              style={{ 
+                                margin: 0, 
+                                padding: '12px',
+                                fontSize: '16px',
+                                fontWeight: '600',
+                                width: '100%',
+                                height: '48px',
+                                border: '2px solid #3b82f6',
+                                borderRadius: '4px',
+                                background: '#ffffff',
+                                boxSizing: 'border-box',
+                                lineHeight: '1.2'
+                              }}
+                              autoFocus
+                            />
+                          ) : (
+                            <h4 className="section-title" style={{ 
+                              margin: 0, 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              gap: '8px',
+                              height: '48px',
+                              lineHeight: '1.2'
+                            }}>
+                              🥕 {section.name}
+                            </h4>
+                          )}
+                        </div>
+                        <div className="section-count">
+                          {section.ingredients.length} {section.ingredients.length === 1 ? 'ingrediente' : 'ingredientes'}
+                        </div>
+                      </div>
+                      {isEditing && section.id && (
+                        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                          {editingSection === section.name ? (
+                            <>
+                              <button 
+                                onClick={() => handleSaveSection(section.name)}
+                                title="Guardar cambios"
+                                className="btn"
+                                style={{
+                                  background: '#059669',
+                                  border: '1px solid #059669',
+                                  color: 'white',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  fontSize: '11px',
+                                  padding: '4px 6px',
+                                  height: '28px',
+                                  minWidth: 'auto'
+                                }}
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <polyline points="20,6 9,17 4,12"></polyline>
+                                </svg>
+                                Guardar
+                              </button>
+                              <button 
+                                onClick={handleCancelEdit}
+                                title="Cancelar edición"
+                                className="btn cancel"
+                                style={{
+                                  background: '#f8fafc',
+                                  border: '1px solid #e2e8f0',
+                                  color: '#374151',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  fontSize: '11px',
+                                  padding: '4px 6px',
+                                  height: '28px',
+                                  minWidth: 'auto'
+                                }}
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                                Cancelar
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button 
+                                onClick={() => handleEditSection(section.id, section.name)}
+                                title="Editar sección"
+                                className="btn"
+                                style={{
+                                  background: '#f8fafc',
+                                  border: '1px solid #e2e8f0',
+                                  color: '#374151',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  fontSize: '11px',
+                                  padding: '4px 6px',
+                                  height: '28px',
+                                  minWidth: 'auto'
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.target.style.background = '#e2e8f0';
+                                  e.target.style.borderColor = '#cbd5e1';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.target.style.background = '#f8fafc';
+                                  e.target.style.borderColor = '#e2e8f0';
+                                }}
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                  <path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                </svg>
+                                Editar
+                              </button>
+                              <button 
+                                onClick={() => openDeleteSectionModal(section)}
+                                title="Eliminar sección"
+                                className="btn"
+                                style={{
+                                  background: '#f8fafc',
+                                  border: '1px solid #e2e8f0',
+                                  color: '#374151',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  fontSize: '11px',
+                                  padding: '4px 6px',
+                                  height: '28px',
+                                  minWidth: 'auto'
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.target.style.background = '#fef2f2';
+                                  e.target.style.borderColor = '#fecaca';
+                                  e.target.style.color = '#dc2626';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.target.style.background = '#f8fafc';
+                                  e.target.style.borderColor = '#e2e8f0';
+                                  e.target.style.color = '#374151';
+                                }}
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <polyline points="3,6 5,6 21,6"></polyline>
+                                  <path d="m19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2"></path>
+                                </svg>
+                                Eliminar
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="ingredients-list">
+                      {section.ingredients.map((ingredient, index) => {
                   const wastePercent = parseFloat(ingredient.waste_percent) || 0;
                   const wasteMultiplier = 1 + wastePercent;
                   const quantityPerServing = parseFloat(ingredient.quantity_per_serving) || 0;
@@ -794,7 +1307,13 @@ const RecipeDetail = () => {
                   const nutrition = calculateIngredientNutrition(ingredient, totalQuantity);
                   
                   return (
-                    <div key={index} className="ingredient-item">
+                    <div 
+                      key={index} 
+                      className={`ingredient-item ${isEditing ? 'draggable' : ''}`}
+                      draggable={isEditing}
+                      onDragStart={(e) => handleDragStart(e, ingredient)}
+                      onDragEnd={handleDragEnd}
+                    >
                       <div className="ingredient-name">{ingredient.name || 'Sin nombre'}</div>
                       <div className="ingredient-quantity">
                         <div className="quantity-total">
@@ -870,23 +1389,17 @@ const RecipeDetail = () => {
                         </div>
                       )}
                     </div>
-                  );
-                  })}
-                </>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))
               ) : (
                 <div className="empty-state">
-                  No hay ingredientes registrados
-                  {isEditing && (
-                    <div style={{ marginTop: '12px' }}>
-                      <button 
-                        className="btn add"
-                        onClick={openAddIngredientModal}
-                        style={{ fontSize: '14px', height: '36px', padding: '0 16px' }}
-                      >
-                        Añadir primer ingrediente
-                      </button>
-                    </div>
-                  )}
+                  {isEditing ? 
+                    "Usa el botón 'Añadir Ingrediente' de arriba para empezar a añadir ingredientes a esta receta." :
+                    "No hay ingredientes registrados"
+                  }
                 </div>
               )}
             </div>
@@ -1061,6 +1574,7 @@ const RecipeDetail = () => {
         recipeId={id}
         recipeName={recipe?.name || 'la receta'}
         existingIngredients={getDisplayIngredients()}
+        existingSections={groupIngredientsBySection()}
         onSave={handleAddIngredientSave}
         isNewRecipe={isNewRecipe}
         onTemporalSave={setTemporalIngredients}
@@ -1073,6 +1587,70 @@ const RecipeDetail = () => {
         onConfirm={handleRemoveIngredient}
         title="Confirmar eliminación"
         message={`¿Estás seguro de que deseas eliminar el ingrediente "${ingredientToDelete?.name}" de esta receta?`}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+      />
+
+      {/* ADD SECTION MODAL */}
+      {isAddSectionOpen && (
+        <div className="modal-overlay" onClick={() => setIsAddSectionOpen(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+            <div className="modal-header">
+              <h3>Añadir Nueva Sección</h3>
+              <button 
+                className="modal-close"
+                onClick={() => setIsAddSectionOpen(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="form-field">
+                <label className="required-label">Nombre de la sección</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  placeholder="Ej: Condimentos, Verduras..."
+                  value={newSectionName}
+                  onChange={(e) => setNewSectionName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newSectionName.trim()) {
+                      handleAddSection();
+                    }
+                    if (e.key === 'Escape') {
+                      setIsAddSectionOpen(false);
+                    }
+                  }}
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button 
+                className="btn cancel"
+                onClick={() => setIsAddSectionOpen(false)}
+              >
+                Cancelar
+              </button>
+              <button 
+                className="btn add"
+                onClick={handleAddSection}
+                disabled={!newSectionName.trim()}
+              >
+                Añadir Sección
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DELETE SECTION MODAL */}
+      <ConfirmModal
+        isOpen={isDeleteSectionOpen}
+        onClose={() => setIsDeleteSectionOpen(false)}
+        onConfirm={handleDeleteSection}
+        title="Confirmar eliminación"
+        message={`¿Estás seguro de que deseas eliminar la sección "${sectionToDelete?.name}"?`}
         confirmText="Eliminar"
         cancelText="Cancelar"
       />
