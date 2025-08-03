@@ -22,14 +22,20 @@ const pool = mysql.createPool({
 router.get('/', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
   const { search, category, prepTime, difficulty, ingredient, allergens } = req.query;
 
-  // Base SQL con agrupación de categorías
+  // Base SQL con agrupación de categorías y cálculo dinámico de costos
   const sql = `
     SELECT
       r.recipe_id,
       r.name,
       r.servings,
       r.production_servings,
-      r.cost_per_serving,
+      COALESCE(
+        (SELECT SUM(ri.quantity_per_serving * i.base_price * (1 + i.waste_percent) * r.servings) / r.servings
+         FROM RECIPE_INGREDIENTS ri 
+         JOIN INGREDIENTS i ON ri.ingredient_id = i.ingredient_id 
+         WHERE ri.recipe_id = r.recipe_id),
+        r.cost_per_serving
+      ) as cost_per_serving,
       r.cost_percentage,
       r.net_price,
       r.prep_time,
@@ -179,7 +185,7 @@ router.get('/:id/ingredients/by-section', authenticateToken, authorizeRoles('adm
       LEFT JOIN RECIPE_SECTIONS rs ON ri.section_id = rs.section_id
       JOIN INGREDIENTS i ON ri.ingredient_id = i.ingredient_id
       WHERE ri.recipe_id = ?
-      ORDER BY rs.\`order\`, rs.section_id, ingredient_name
+      ORDER BY rs.section_order, rs.section_id, ingredient_name
       `,
       [id]
     );
