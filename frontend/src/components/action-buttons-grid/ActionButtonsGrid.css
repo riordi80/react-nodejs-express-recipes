@@ -1,0 +1,106 @@
+/* src/components/action-buttons-grid/ActionButtonsGrid.css */
+.action-buttons-grid {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 24px;
+}
+
+.action-buttons-grid h3 {
+  margin: 0 0 16px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.actions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.actions-grid .btn {
+  justify-content: flex-start;
+  padding: 16px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 8px;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  cursor: pointer;
+}
+
+.actions-grid .btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.actions-grid .btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Variantes de botones */
+.actions-grid .btn.primary,
+.actions-grid .btn.add {
+  background: #3b82f6;
+  color: white;
+}
+
+.actions-grid .btn.primary:hover,
+.actions-grid .btn.add:hover {
+  background: #2563eb;
+}
+
+.actions-grid .btn.secondary,
+.actions-grid .btn.view {
+  background: #6b7280;
+  color: white;
+}
+
+.actions-grid .btn.secondary:hover,
+.actions-grid .btn.view:hover {
+  background: #4b5563;
+}
+
+.actions-grid .btn.success {
+  background: #10b981;
+  color: white;
+}
+
+.actions-grid .btn.success:hover {
+  background: #059669;
+}
+
+.actions-grid .btn.edit {
+  background: #f59e0b;
+  color: white;
+}
+
+.actions-grid .btn.edit:hover {
+  background: #d97706;
+}
+
+.actions-grid .btn.danger {
+  background: #ef4444;
+  color: white;
+}
+
+.actions-grid .btn.danger:hover {
+  background: #dc2626;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .action-buttons-grid {
+    padding: 20px;
+  }
+  
+  .actions-grid {
+    grid-template-columns: 1fr;
+  }
+}

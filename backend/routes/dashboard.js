@@ -5,12 +5,16 @@ const mysql = require('mysql2/promise');
 const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
 
-// Configura la conexión a tu base de datos
+// OPTIMIZACIÓN: Pool de conexiones con límites para evitar agotamiento de memoria
 const pool = mysql.createPool({
   host:     process.env.DB_HOST,
   user:     process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
+  // Límites críticos para servidores con poca memoria
+  connectionLimit: 5,          // Máximo 5 conexiones simultáneas
+  idleTimeout: 300000,         // Cerrar conexiones inactivas después de 5min
+  maxIdle: 2                   // Máximo 2 conexiones idle
 });
 
 // GET /dashboard/low-stock-ingredients - Ingredientes con stock bajo (alertas)
@@ -118,6 +122,8 @@ router.get('/upcoming-events', authenticateToken, authorizeRoles('admin', 'chef'
 // GET /dashboard/events-with-menus - Próximos eventos con menús asignados
 router.get('/events-with-menus', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
   try {
+    // OPTIMIZACIÓN: Limitar consulta para evitar agotamiento de memoria
+    const maxRows = 50; // Límite de seguridad
     const [rows] = await pool.query(`
       SELECT 
         e.event_id,
@@ -136,7 +142,8 @@ router.get('/events-with-menus', authenticateToken, authorizeRoles('admin', 'che
       WHERE e.event_date >= CURDATE()
       AND e.status IN ('planned', 'confirmed')
       ORDER BY e.event_date ASC, e.event_time ASC, em.course_type ASC
-    `);
+      LIMIT ?
+    `, [maxRows]);
     
     // Agrupar por evento
     const groupedEvents = rows.reduce((acc, row) => {
@@ -212,6 +219,8 @@ router.get('/seasonal-ingredients', authenticateToken, authorizeRoles('admin', '
     const monthNames = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 
                        'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
     
+    // OPTIMIZACIÓN CRÍTICA: Limitar consulta para evitar agotamiento de memoria
+    const maxIngredients = 100; // Límite de seguridad
     const [rows] = await pool.query(`
       SELECT 
         ingredient_id,
@@ -225,7 +234,8 @@ router.get('/seasonal-ingredients', authenticateToken, authorizeRoles('admin', '
       AND season != ''
       AND is_available = 1
       ORDER BY name ASC
-    `);
+      LIMIT ?
+    `, [maxIngredients]);
     
     // Filtrar ingredientes de temporada actual
     const seasonalIngredients = rows.filter(ingredient => {
@@ -311,6 +321,8 @@ router.get('/seasonal-alerts', authenticateToken, authorizeRoles('admin', 'chef'
     const monthNames = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 
                        'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
     
+    // OPTIMIZACIÓN CRÍTICA: Limitar consulta para evitar agotamiento de memoria
+    const maxIngredients = 50; // Límite más restrictivo para alertas
     const [rows] = await pool.query(`
       SELECT 
         ingredient_id,
@@ -324,7 +336,8 @@ router.get('/seasonal-alerts', authenticateToken, authorizeRoles('admin', 'chef'
         AND season != ''
         AND is_available = 1
       ORDER BY name ASC
-    `);
+      LIMIT ?
+    `, [maxIngredients]);
     
     const alerts = [];
     const currentMonthName = monthNames[currentMonth - 1];
@@ -401,6 +414,39 @@ router.get('/summary', authenticateToken, authorizeRoles('admin', 'chef'), async
     const [lowStockCount] = await pool.query('SELECT COUNT(*) as count FROM INGREDIENTS WHERE stock < stock_minimum AND is_available = 1');
     const [upcomingEvents] = await pool.query('SELECT COUNT(*) as count FROM EVENTS WHERE event_date >= CURDATE() AND event_date <= DATE_ADD(CURDATE(), INTERVAL 7 DAY)');
     const [pendingOrders] = await pool.query('SELECT COUNT(*) as count FROM SUPPLIER_ORDERS WHERE status IN ("pending", "ordered")');
+    const [urgentOrders] = await pool.query('SELECT COUNT(*) as count FROM SUPPLIER_ORDERS WHERE status IN ("pending", "ordered") AND delivery_date IS NOT NULL AND delivery_date <= DATE_ADD(CURDATE(), INTERVAL 2 DAY)');
+    const [overdueOrders] = await pool.query('SELECT COUNT(*) as count FROM SUPPLIER_ORDERS WHERE status IN ("pending", "ordered") AND delivery_date IS NOT NULL AND delivery_date < CURDATE()');
+    
+    // Datos adicionales para Eventos
+    const [eventsWithoutMenu] = await pool.query('SELECT COUNT(*) as count FROM EVENTS WHERE status IN ("planned", "confirmed") AND event_date >= CURDATE() AND event_date <= DATE_ADD(CURDATE(), INTERVAL 7 DAY) AND event_id NOT IN (SELECT DISTINCT event_id FROM EVENT_MENUS)');
+    const [upcomingEventsNoMenu] = await pool.query('SELECT COUNT(*) as count FROM EVENTS WHERE status IN ("planned", "confirmed") AND event_date >= CURDATE() AND event_date <= DATE_ADD(CURDATE(), INTERVAL 2 DAY) AND event_id NOT IN (SELECT DISTINCT event_id FROM EVENT_MENUS)');
+    
+    // Datos adicionales para Stock Bajo
+    const [zeroStockCount] = await pool.query('SELECT COUNT(*) as count FROM INGREDIENTS WHERE stock = 0 AND is_available = 1');
+    const [criticalStockCount] = await pool.query('SELECT COUNT(*) as count FROM INGREDIENTS WHERE stock < (stock_minimum * 0.5) AND stock > 0 AND is_available = 1');
+    
+    // Datos adicionales para Recetas
+    const currentMonth = new Date().getMonth() + 1;
+    const monthNames = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 
+                       'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+    const currentMonthName = monthNames[currentMonth - 1];
+    
+    // OPTIMIZACIÓN: Consultas más eficientes con límites
+    const [recipesWithSeasonalIngredients] = await pool.query(`
+      SELECT COUNT(DISTINCT r.recipe_id) as count 
+      FROM RECIPES r
+      INNER JOIN RECIPE_INGREDIENTS ri ON r.recipe_id = ri.recipe_id
+      INNER JOIN INGREDIENTS i ON ri.ingredient_id = i.ingredient_id
+      WHERE i.season IS NOT NULL 
+        AND i.season != ''
+        AND LOWER(i.season) LIKE ?
+        AND i.is_available = 1
+      LIMIT 1000
+    `, [`%${currentMonthName}%`]);
+    
+    // OPTIMIZACIÓN: Consulta simplificada - eliminada por ser muy costosa
+    // Esta consulta escaneaba TODAS las recetas - ahora usamos valor fijo para evitar problemas de memoria
+    const recipesWithAvailableIngredients = [{ count: 0 }]; // Temporalmente deshabilitado
     
     const summary = {
       totalRecipes: totalRecipes[0].count,
@@ -408,7 +454,18 @@ router.get('/summary', authenticateToken, authorizeRoles('admin', 'chef'), async
       totalSuppliers: totalSuppliers[0].count,
       lowStockCount: lowStockCount[0].count,
       upcomingEvents: upcomingEvents[0].count,
-      pendingOrders: pendingOrders[0].count
+      pendingOrders: pendingOrders[0].count,
+      urgentOrders: urgentOrders[0].count,
+      overdueOrders: overdueOrders[0].count,
+      // Nuevos datos para Eventos
+      eventsWithoutMenu: eventsWithoutMenu[0].count,
+      upcomingEventsNoMenu: upcomingEventsNoMenu[0].count,
+      // Nuevos datos para Stock Bajo
+      zeroStockCount: zeroStockCount[0].count,
+      criticalStockCount: criticalStockCount[0].count,
+      // Nuevos datos para Recetas
+      recipesWithSeasonalIngredients: recipesWithSeasonalIngredients[0].count,
+      recipesWithAvailableIngredients: recipesWithAvailableIngredients[0].count
     };
     
     res.json(summary);

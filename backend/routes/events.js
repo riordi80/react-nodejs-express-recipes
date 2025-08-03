@@ -12,6 +12,7 @@ const pool = mysql.createPool({
   user:     process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
+  dateStrings: true // Devuelve fechas como strings, evita conversiones de timezone
 });
 
 // GET /events - Obtener eventos con filtros
@@ -198,6 +199,7 @@ router.get('/:id', authenticateToken, authorizeRoles('admin','chef'), async (req
         r.cost_per_serving,
         r.prep_time,
         r.difficulty,
+        r.production_servings,
         -- Información nutricional (suma de todos los ingredientes por 100g)
         ROUND(SUM(i.calories_per_100g * ri.quantity_per_serving / 100), 1) as calories,
         ROUND(SUM(i.protein_per_100g * ri.quantity_per_serving / 100), 1) as protein,
@@ -213,7 +215,7 @@ router.get('/:id', authenticateToken, authorizeRoles('admin','chef'), async (req
       LEFT JOIN ALLERGENS a ON ia.allergen_id = a.allergen_id
       WHERE em.event_id = ?
       GROUP BY em.event_id, em.recipe_id, em.portions, em.course_type, em.notes, 
-               r.name, r.cost_per_serving, r.prep_time, r.difficulty
+               r.name, r.cost_per_serving, r.prep_time, r.difficulty, r.production_servings
       ORDER BY 
         CASE em.course_type 
           WHEN 'starter' THEN 1

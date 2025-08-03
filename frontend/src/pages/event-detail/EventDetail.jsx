@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { FiArrowLeft, FiEdit3, FiTrash2, FiSave, FiX, FiPlus, FiEdit2 } from 'react-icons/fi';
 import { FaUtensils, FaDownload } from 'react-icons/fa';
 import Modal from '../../components/modal/Modal';
+import ConfirmModal from '../../components/modals/ConfirmModal';
 import Loading from '../../components/loading';
 import { FormInput, FormTextarea, FormSelect } from '../../components/form/FormField';
 import api from '../../api/axios';
@@ -25,6 +26,7 @@ const EventDetail = () => {
   const [message, setMessage] = useState(null);
   const [messageType, setMessageType] = useState('success');
   const [isEditing, setIsEditing] = useState(isNewEvent);
+  
   const [validationErrors, setValidationErrors] = useState({});
   
   // Delete modal state
@@ -636,31 +638,57 @@ const EventDetail = () => {
                           </span>
                         </div>
                         {isEditing && (
-                          <div className="menu-item-actions" style={{ display: 'flex', gap: '4px' }}>
+                          <div className="menu-item-actions" style={{ display: 'flex', gap: '4px', marginLeft: '12px' }}>
                             <button 
                               className="icon-btn edit-icon" 
                               onClick={() => openEditRecipeModal(menuItem)}
                               title="Editar receta en menú"
                               style={{ 
+                                background: '#3b82f6',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '50%',
                                 width: '32px', 
-                                height: '32px', 
-                                fontSize: '14px',
-                                color: '#3b82f6',
-                                backgroundColor: 'transparent'
+                                height: '32px',
+                                minWidth: '32px',
+                                minHeight: '32px',
+                                maxWidth: '32px',
+                                maxHeight: '32px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '12px',
+                                padding: '0',
+                                margin: '0',
+                                boxSizing: 'border-box'
                               }}
                             >
-                              <FiEdit2 />
+                              <FiEdit3 />
                             </button>
                             <button 
                               className="icon-btn delete-icon" 
                               onClick={() => openDeleteRecipeModal(menuItem)}
                               title="Eliminar del menú"
                               style={{ 
+                                background: '#ef4444',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '50%',
                                 width: '32px', 
-                                height: '32px', 
-                                fontSize: '14px',
-                                color: '#ef4444',
-                                backgroundColor: 'transparent'
+                                height: '32px',
+                                minWidth: '32px',
+                                minHeight: '32px',
+                                maxWidth: '32px',
+                                maxHeight: '32px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: '12px',
+                                padding: '0',
+                                margin: '0',
+                                boxSizing: 'border-box'
                               }}
                             >
                               <FiTrash2 />
@@ -799,20 +827,15 @@ const EventDetail = () => {
       </div>
 
       {/* Delete Event Modal */}
-      <Modal isOpen={isDeleteOpen} title="Confirmar eliminación" onClose={() => setIsDeleteOpen(false)}>
-        <p>¿Seguro que deseas eliminar el evento <strong>{event?.name}</strong>?</p>
-        <p style={{ fontSize: '14px', color: '#64748b', marginTop: '8px' }}>
-          Esta acción no se puede deshacer. Se eliminará el evento y todo su menú asociado.
-        </p>
-        <div className="modal-actions">
-          <button type="button" className="btn cancel" onClick={() => setIsDeleteOpen(false)}>
-            Cancelar
-          </button>
-          <button type="button" className="btn delete" onClick={handleDelete}>
-            Eliminar
-          </button>
-        </div>
-      </Modal>
+      <ConfirmModal
+        isOpen={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        onConfirm={handleDelete}
+        title="Confirmar eliminación"
+        message={`¿Seguro que deseas eliminar el evento "${event?.name}"?`}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+      />
 
       {/* Add Recipe Modal */}
       <Modal isOpen={isAddRecipeOpen} title="Añadir recetas al menú" onClose={() => setIsAddRecipeOpen(false)} fullscreenMobile={true}>
@@ -863,50 +886,74 @@ const EventDetail = () => {
                   </div>
                   
                   {isSelected && (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: '8px', alignItems: 'center', paddingLeft: '24px' }}>
-                      <div>
-                        <label style={{ fontSize: '12px', fontWeight: '500', color: '#475569' }}>Porciones</label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={recipePortions[recipe.recipe_id] || 1}
-                          onChange={(e) => setRecipePortions({
-                            ...recipePortions,
-                            [recipe.recipe_id]: parseInt(e.target.value) || 1
-                          })}
-                          style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '14px' }}
-                        />
+                    <div style={{ paddingLeft: '24px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
+                        <div>
+                          <label style={{ fontSize: '12px', fontWeight: '500', color: '#475569' }}>Porciones</label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={recipePortions[recipe.recipe_id] || 1}
+                            onChange={(e) => setRecipePortions({
+                              ...recipePortions,
+                              [recipe.recipe_id]: parseInt(e.target.value) || 1
+                            })}
+                            style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '14px' }}
+                          />
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '12px', fontWeight: '500', color: '#475569' }}>Tipo</label>
+                          <select
+                            value={recipeCourseTypes[recipe.recipe_id] || 'main'}
+                            onChange={(e) => setRecipeCourseTypes({
+                              ...recipeCourseTypes,
+                              [recipe.recipe_id]: e.target.value
+                            })}
+                            style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '14px' }}
+                          >
+                            {courseTypes.map(type => (
+                              <option key={type.value} value={type.value}>
+                                {type.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label style={{ fontSize: '12px', fontWeight: '500', color: '#475569' }}>Notas</label>
+                          <input
+                            type="text"
+                            value={recipeNotes[recipe.recipe_id] || ''}
+                            onChange={(e) => setRecipeNotes({
+                              ...recipeNotes,
+                              [recipe.recipe_id]: e.target.value
+                            })}
+                            placeholder="Notas opcionales..."
+                            style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '14px' }}
+                          />
+                        </div>
                       </div>
-                      <div>
-                        <label style={{ fontSize: '12px', fontWeight: '500', color: '#475569' }}>Tipo</label>
-                        <select
-                          value={recipeCourseTypes[recipe.recipe_id] || 'main'}
-                          onChange={(e) => setRecipeCourseTypes({
-                            ...recipeCourseTypes,
-                            [recipe.recipe_id]: e.target.value
-                          })}
-                          style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '14px' }}
-                        >
-                          {courseTypes.map(type => (
-                            <option key={type.value} value={type.value}>
-                              {type.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label style={{ fontSize: '12px', fontWeight: '500', color: '#475569' }}>Notas</label>
-                        <input
-                          type="text"
-                          value={recipeNotes[recipe.recipe_id] || ''}
-                          onChange={(e) => setRecipeNotes({
-                            ...recipeNotes,
-                            [recipe.recipe_id]: e.target.value
-                          })}
-                          placeholder="Notas opcionales..."
-                          style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '14px' }}
-                        />
-                      </div>
+                      
+                      {/* Mensaje de advertencia si las porciones son menores a las raciones mínimas */}
+                      {recipe.production_servings && (recipePortions[recipe.recipe_id] || 1) < parseInt(recipe.production_servings) && (
+                        <div style={{ 
+                          backgroundColor: '#fef3cd', 
+                          border: '1px solid #ffd43b', 
+                          borderRadius: '4px', 
+                          padding: '8px 12px', 
+                          fontSize: '12px', 
+                          color: '#856404',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          marginTop: '8px'
+                        }}>
+                          <span style={{ fontSize: '14px' }}>⚠️</span>
+                          <span>
+                            <strong>Advertencia:</strong> Esta receta tiene {recipe.production_servings} raciones mínimas para producción. 
+                            Seleccionaste {recipePortions[recipe.recipe_id] || 1} porciones.
+                          </span>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -980,6 +1027,28 @@ const EventDetail = () => {
               </div>
             </div>
             
+            {/* Mensaje de advertencia si las porciones son menores a las raciones mínimas */}
+            {recipeToEdit.production_servings && recipeToEdit.portions < parseInt(recipeToEdit.production_servings) && (
+              <div style={{ 
+                backgroundColor: '#fef3cd', 
+                border: '1px solid #ffd43b', 
+                borderRadius: '4px', 
+                padding: '8px 12px', 
+                fontSize: '12px', 
+                color: '#856404',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                marginBottom: '16px'
+              }}>
+                <span style={{ fontSize: '14px' }}>⚠️</span>
+                <span>
+                  <strong>Advertencia:</strong> Esta receta tiene {recipeToEdit.production_servings} raciones mínimas para producción. 
+                  Seleccionaste {recipeToEdit.portions} porciones.
+                </span>
+              </div>
+            )}
+            
             <div>
               <label style={{ display: 'block', marginBottom: '6px', fontWeight: '500', color: '#374151', fontSize: '14px' }}>
                 Notas
@@ -1017,17 +1086,15 @@ const EventDetail = () => {
       </Modal>
 
       {/* Delete Recipe from Menu Modal */}
-      <Modal isOpen={isDeleteRecipeOpen} title="Confirmar eliminación" onClose={() => setIsDeleteRecipeOpen(false)}>
-        <p>¿Seguro que deseas eliminar <strong>{recipeToDelete?.recipe_name || recipeToDelete?.name}</strong> del menú?</p>
-        <div className="modal-actions">
-          <button type="button" className="btn cancel" onClick={() => setIsDeleteRecipeOpen(false)}>
-            Cancelar
-          </button>
-          <button type="button" className="btn delete" onClick={handleRemoveRecipe}>
-            Eliminar
-          </button>
-        </div>
-      </Modal>
+      <ConfirmModal
+        isOpen={isDeleteRecipeOpen}
+        onClose={() => setIsDeleteRecipeOpen(false)}
+        onConfirm={handleRemoveRecipe}
+        title="Confirmar eliminación"
+        message={`¿Seguro que deseas eliminar "${recipeToDelete?.recipe_name || recipeToDelete?.name}" del menú?`}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+      />
     </>
   );
 };

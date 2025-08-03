@@ -7,12 +7,13 @@ import { FaPlus } from 'react-icons/fa';
 import TableActions from '../../components/table/TableActions';
 import BasePage from '../../components/base-page/BasePage';
 import Loading from '../../components/loading';
-import Modal from '../../components/modal/Modal';
+import ConfirmModal from '../../components/modals/ConfirmModal';
 import { usePageState } from '../../hooks/usePageState';
 import { useSettings } from '../../context/SettingsContext';
 import api from '../../api/axios';
 import FilterBar from '@/components/recipes/FilterBar';
-import ViewToggle from '@/components/recipes/ViewToggle';
+import ViewToggle from '../../components/view-toggle';
+import { FaTable, FaTh } from 'react-icons/fa';
 import CardView from './CardView';
 import './Recipes.css';
 
@@ -302,17 +303,26 @@ export default function RecipesPage() {
         noDataMessage="No hay recetas para mostrar"
         filters={[]}
         enableMobileModal={false} // FilterBar has its own mobile modal
-        actions={<ViewToggle view={view} onChange={handleViewChange} />}
+        actions={<ViewToggle 
+          options={[
+            { value: 'list', label: 'Tabla', icon: FaTable },
+            { value: 'card', label: 'Tarjetas', icon: FaTh }
+          ]}
+          value={view}
+          onChange={handleViewChange}
+        />}
       />
 
       {/* DELETE MODAL */}
-      <Modal isOpen={isDeleteOpen} title="Confirmar eliminación" onClose={() => setIsDeleteOpen(false)}>
-        <p>¿Seguro que deseas eliminar la receta <strong>{currentRecipe?.name}</strong>?</p>
-        <div className="modal-actions">
-          <button type="button" className="btn cancel" onClick={() => setIsDeleteOpen(false)}>Cancelar</button>
-          <button type="button" className="btn delete" onClick={handleDelete}>Eliminar</button>
-        </div>
-      </Modal>
+      <ConfirmModal
+        isOpen={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        onConfirm={handleDelete}
+        title="Confirmar eliminación"
+        message={`¿Seguro que deseas eliminar la receta "${currentRecipe?.name}"?`}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+      />
     </>
   );
 }

@@ -71,6 +71,7 @@ app.use('/api/suppliers',      require('./routes/suppliers'));
 app.use('/api/inventory',      require('./routes/inventory'));
 app.use('/api/taxes',          require('./routes/taxes'));
 app.use('/api/allergens',      require('./routes/allergens'));
+app.use('/api/ingredient-categories', require('./routes/ingredient-categories'));
 app.use('/api/events',         require('./routes/events'));
 app.use('/api/dashboard',      require('./routes/dashboard'));
 app.use('/api/audit',          require('./routes/audit'));

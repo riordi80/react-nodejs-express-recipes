@@ -1,8 +1,8 @@
 # Ignorar directorio de documentación técnica en la raíz
 /documentacion/
 
-#Ignorar backup antigua
-/frontend-old/
+#Ignorar version 2 frontend
+/frontend-v2/
 
 # Ignorar archivos de entorno (en cualquier lugar)
 **/.env

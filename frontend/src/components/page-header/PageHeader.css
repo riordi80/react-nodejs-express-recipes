@@ -100,7 +100,7 @@
   height: 36px;
   padding: 6px 8px;
   border: 1px solid #ccc;
-  border-radius: 4px;
+  border-radius: 8px;
   box-sizing: border-box;
   font-size: inherit;
   font-family: inherit;
@@ -121,7 +121,13 @@
 .page-header-input:focus,
 .page-header-select:focus {
   outline: none;
-  border-color: #007bff;
+  border-color: #d1d5db;
+  box-shadow: none;
+}
+
+/* Específicamente para inputs de búsqueda - sin destacar el focus */
+.page-header-search:focus {
+  border-color: #d1d5db;
   box-shadow: none;
 }
 

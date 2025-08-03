@@ -2,7 +2,7 @@ import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { FaCog, FaUser, FaAlignJustify } from 'react-icons/fa';
 import { useSidebar } from '../../context/SidebarContext';
-import Logo from '../../components/common/Logo';
+import Logo from '../../components/logo/Logo';
 import './Topbar.css'; // Importamos los estilos para el topbar
 
 const Topbar = () => {

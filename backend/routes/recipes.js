@@ -6,26 +6,36 @@ const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles   = require('../middleware/roleMiddleware');
 const logAudit         = require('../utils/audit');
 
-// Configura la conexión a tu base de datos
+// OPTIMIZACIÓN: Pool de conexiones con límites para evitar agotamiento de memoria
 const pool = mysql.createPool({
   host:     process.env.DB_HOST,
   user:     process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
+  // Límites moderados para hosting compartido con recursos decentes
+  connectionLimit: 10,         // Máximo 10 conexiones simultáneas
+  idleTimeout: 300000,         // Cerrar conexiones inactivas después de 5min
+  maxIdle: 3                   // Máximo 3 conexiones idle
 });
 
 // GET /recipes - Obtener recetas con categorías y filtros
 router.get('/', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
   const { search, category, prepTime, difficulty, ingredient, allergens } = req.query;
 
-  // Base SQL con agrupación de categorías
+  // Base SQL con agrupación de categorías y cálculo dinámico de costos
   const sql = `
     SELECT
       r.recipe_id,
       r.name,
       r.servings,
       r.production_servings,
-      r.cost_per_serving,
+      COALESCE(
+        (SELECT SUM(ri.quantity_per_serving * i.base_price * (1 + i.waste_percent) * r.servings) / r.servings
+         FROM RECIPE_INGREDIENTS ri 
+         JOIN INGREDIENTS i ON ri.ingredient_id = i.ingredient_id 
+         WHERE ri.recipe_id = r.recipe_id),
+        r.cost_per_serving
+      ) as cost_per_serving,
       r.cost_percentage,
       r.net_price,
       r.prep_time,
@@ -85,7 +95,14 @@ router.get('/', authenticateToken, authorizeRoles('admin','chef'), async (req, r
 
   const whereClause = wheres.length ? 'WHERE ' + wheres.join(' AND ') : '';
   const groupBy     = 'GROUP BY r.recipe_id';
-  const finalSql    = [sql, ...joins, whereClause, groupBy].join(' ');
+  
+  // OPTIMIZACIÓN CRÍTICA: Añadir límite y orden para evitar agotamiento de memoria
+  const orderBy     = 'ORDER BY r.name ASC';
+  const maxRecipes  = 500; // Límite de seguridad para hosting compartido
+  const limitClause = 'LIMIT ?';
+  params.push(maxRecipes);
+  
+  const finalSql    = [sql, ...joins, whereClause, groupBy, orderBy, limitClause].join(' ');
 
   try {
     const [rows] = await pool.query(finalSql, params);
@@ -120,6 +137,7 @@ router.get('/:id/ingredients', authenticateToken, authorizeRoles('admin','chef')
     const [rows] = await pool.query(
       `
       SELECT
+        ri.id,
         ri.ingredient_id,
         i.name,
         ri.quantity_per_serving,
@@ -131,6 +149,7 @@ router.get('/:id/ingredients', authenticateToken, authorizeRoles('admin','chef')
         i.protein_per_100g,
         i.carbs_per_100g,
         i.fat_per_100g,
+        ri.section_id,
         rs.name AS section_name
       FROM RECIPE_INGREDIENTS ri
       JOIN INGREDIENTS i ON ri.ingredient_id = i.ingredient_id
@@ -166,7 +185,7 @@ router.get('/:id/ingredients/by-section', authenticateToken, authorizeRoles('adm
       LEFT JOIN RECIPE_SECTIONS rs ON ri.section_id = rs.section_id
       JOIN INGREDIENTS i ON ri.ingredient_id = i.ingredient_id
       WHERE ri.recipe_id = ?
-      ORDER BY rs.\`order\`, rs.section_id, ingredient_name
+      ORDER BY rs.section_order, rs.section_id, ingredient_name
       `,
       [id]
     );
@@ -403,14 +422,16 @@ router.post('/:id/ingredients', authenticateToken, authorizeRoles('admin','chef'
   
   try {
     
-    // Verificar si ya existe este ingrediente en la receta
+    // Verificar si ya existe este ingrediente en la misma sección de la receta
     const [existing] = await pool.query(
-      'SELECT * FROM RECIPE_INGREDIENTS WHERE recipe_id = ? AND ingredient_id = ?',
-      [recipe_id, ingredient_id]
+      'SELECT * FROM RECIPE_INGREDIENTS WHERE recipe_id = ? AND ingredient_id = ? AND (section_id = ? OR (section_id IS NULL AND ? IS NULL))',
+      [recipe_id, ingredient_id, section_id, section_id]
     );
     
     if (existing.length > 0) {
-      return res.status(400).json({ message: 'Este ingrediente ya está en la receta' });
+      return res.status(400).json({ 
+        message: 'Este ingrediente ya está en esta sección de la receta' 
+      });
     }
     
     // Insertar el nuevo ingrediente
@@ -430,20 +451,21 @@ router.post('/:id/ingredients', authenticateToken, authorizeRoles('admin','chef'
   }
 });
 
-// PUT /recipes/:id/ingredients/:ingredient_id - Actualizar cantidad de ingrediente en receta
+// PUT /recipes/:id/ingredients/:ingredient_id - Actualizar cantidad de ingrediente en receta específica
 router.put('/:id/ingredients/:ingredient_id', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
   const { id: recipe_id, ingredient_id } = req.params;
-  const { quantity_per_serving, section_id } = req.body;
+  const { quantity_per_serving, section_id, current_section_id } = req.body;
   
   try {
     
+    // Actualizar ingrediente específico por sección para evitar ambigüedad
     const [result] = await pool.query(
-      'UPDATE RECIPE_INGREDIENTS SET quantity_per_serving = ?, section_id = ? WHERE recipe_id = ? AND ingredient_id = ?',
-      [quantity_per_serving, section_id || null, recipe_id, ingredient_id]
+      'UPDATE RECIPE_INGREDIENTS SET quantity_per_serving = ?, section_id = ? WHERE recipe_id = ? AND ingredient_id = ? AND (section_id = ? OR (section_id IS NULL AND ? IS NULL))',
+      [quantity_per_serving, section_id || null, recipe_id, ingredient_id, current_section_id, current_section_id]
     );
     
     if (result.affectedRows === 0) {
-      return res.status(404).json({ message: 'Ingrediente no encontrado en la receta' });
+      return res.status(404).json({ message: 'Ingrediente no encontrado en la sección especificada' });
     }
     
     await logAudit(req.user.user_id, 'update', 'RECIPE_INGREDIENTS', null,
@@ -457,16 +479,22 @@ router.put('/:id/ingredients/:ingredient_id', authenticateToken, authorizeRoles(
   }
 });
 
-// DELETE /recipes/:id/ingredients/:ingredient_id - Eliminar ingrediente de receta
+// DELETE /recipes/:id/ingredients/:ingredient_id - Eliminar ingrediente de receta (mantener compatibilidad)
 router.delete('/:id/ingredients/:ingredient_id', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
   const { id: recipe_id, ingredient_id } = req.params;
+  const { section_id } = req.query; // Permitir especificar sección por query param
   
   try {
+    let query = 'DELETE FROM RECIPE_INGREDIENTS WHERE recipe_id = ? AND ingredient_id = ?';
+    let params = [recipe_id, ingredient_id];
     
-    const [result] = await pool.query(
-      'DELETE FROM RECIPE_INGREDIENTS WHERE recipe_id = ? AND ingredient_id = ?',
-      [recipe_id, ingredient_id]
-    );
+    // Si se especifica section_id, ser más específico
+    if (section_id !== undefined) {
+      query += ' AND (section_id = ? OR (section_id IS NULL AND ? IS NULL))';
+      params.push(section_id, section_id);
+    }
+    
+    const [result] = await pool.query(query, params);
     
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'Ingrediente no encontrado en la receta' });
@@ -479,6 +507,196 @@ router.delete('/:id/ingredients/:ingredient_id', authenticateToken, authorizeRol
     res.json({ message: 'Ingrediente eliminado correctamente' });
   } catch (err) {
     console.error('Error removing ingredient from recipe:', err);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// DELETE /recipes/:recipe_id/recipe-ingredients/:id - Eliminar registro específico por ID único
+router.delete('/:recipe_id/recipe-ingredients/:id', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
+  const { recipe_id, id } = req.params;
+  
+  try {
+    const [result] = await pool.query(
+      'DELETE FROM RECIPE_INGREDIENTS WHERE id = ? AND recipe_id = ?',
+      [id, recipe_id]
+    );
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Registro de ingrediente no encontrado' });
+    }
+    
+    await logAudit(req.user.user_id, 'delete', 'RECIPE_INGREDIENTS', null,
+      `Registro de ingrediente ${id} eliminado de receta ${recipe_id}`
+    );
+    
+    res.json({ message: 'Ingrediente eliminado correctamente' });
+  } catch (err) {
+    console.error('Error deleting recipe ingredient record:', err);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// ===== ENDPOINTS PARA GESTIÓN DE SECCIONES =====
+
+// GET /recipes/:id/sections - Obtener secciones de una receta
+router.get('/:id/sections', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
+  const { id: recipe_id } = req.params;
+  
+  try {
+    const [sections] = await pool.query(
+      'SELECT section_id, name, section_order FROM RECIPE_SECTIONS WHERE recipe_id = ? ORDER BY section_order ASC, name ASC',
+      [recipe_id]
+    );
+    
+    res.json(sections);
+  } catch (err) {
+    console.error('Error fetching recipe sections:', err);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// POST /recipes/:id/sections - Crear nueva sección
+router.post('/:id/sections', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
+  const { id: recipe_id } = req.params;
+  const { name, section_order } = req.body;
+  
+  if (!name || name.trim() === '') {
+    return res.status(400).json({ message: 'El nombre de la sección es obligatorio' });
+  }
+  
+  try {
+    // Verificar que no existe una sección con el mismo nombre en esta receta
+    const [existing] = await pool.query(
+      'SELECT section_id FROM RECIPE_SECTIONS WHERE recipe_id = ? AND name = ?',
+      [recipe_id, name.trim()]
+    );
+    
+    if (existing.length > 0) {
+      return res.status(400).json({ message: 'Ya existe una sección con este nombre en la receta' });
+    }
+    
+    // Si no se especifica orden, poner al final
+    let finalOrder = section_order;
+    if (!finalOrder) {
+      const [maxOrder] = await pool.query(
+        'SELECT COALESCE(MAX(section_order), 0) + 1 as next_order FROM RECIPE_SECTIONS WHERE recipe_id = ?',
+        [recipe_id]
+      );
+      finalOrder = maxOrder[0].next_order;
+    }
+    
+    const [result] = await pool.query(
+      'INSERT INTO RECIPE_SECTIONS (recipe_id, name, section_order) VALUES (?, ?, ?)',
+      [recipe_id, name.trim(), finalOrder]
+    );
+    
+    await logAudit(req.user.user_id, 'create', 'RECIPE_SECTIONS', null,
+      `Sección "${name}" creada en receta ${recipe_id}`
+    );
+    
+    res.json({ 
+      section_id: result.insertId,
+      message: 'Sección creada correctamente' 
+    });
+  } catch (err) {
+    console.error('Error creating recipe section:', err);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// PUT /recipes/:id/sections/:section_id - Actualizar sección
+router.put('/:id/sections/:section_id', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
+  const { id: recipe_id, section_id } = req.params;
+  const { name, section_order } = req.body;
+  
+  if (!name || name.trim() === '') {
+    return res.status(400).json({ message: 'El nombre de la sección es obligatorio' });
+  }
+  
+  try {
+    // Verificar que la sección existe y pertenece a esta receta
+    const [section] = await pool.query(
+      'SELECT section_id FROM RECIPE_SECTIONS WHERE section_id = ? AND recipe_id = ?',
+      [section_id, recipe_id]
+    );
+    
+    if (section.length === 0) {
+      return res.status(404).json({ message: 'Sección no encontrada' });
+    }
+    
+    // Verificar que no existe otra sección con el mismo nombre
+    const [existing] = await pool.query(
+      'SELECT section_id FROM RECIPE_SECTIONS WHERE recipe_id = ? AND name = ? AND section_id != ?',
+      [recipe_id, name.trim(), section_id]
+    );
+    
+    if (existing.length > 0) {
+      return res.status(400).json({ message: 'Ya existe una sección con este nombre en la receta' });
+    }
+    
+    const [result] = await pool.query(
+      'UPDATE RECIPE_SECTIONS SET name = ? WHERE section_id = ? AND recipe_id = ?',
+      [name.trim(), section_id, recipe_id]
+    );
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Sección no encontrada' });
+    }
+    
+    await logAudit(req.user.user_id, 'update', 'RECIPE_SECTIONS', null,
+      `Sección ${section_id} actualizada en receta ${recipe_id}`
+    );
+    
+    res.json({ message: 'Sección actualizada correctamente' });
+  } catch (err) {
+    console.error('Error updating recipe section:', err);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// DELETE /recipes/:id/sections/:section_id - Eliminar sección
+router.delete('/:id/sections/:section_id', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
+  const { id: recipe_id, section_id } = req.params;
+  
+  try {
+    // Verificar que la sección existe y pertenece a esta receta
+    const [section] = await pool.query(
+      'SELECT section_id, name FROM RECIPE_SECTIONS WHERE section_id = ? AND recipe_id = ?',
+      [section_id, recipe_id]
+    );
+    
+    if (section.length === 0) {
+      return res.status(404).json({ message: 'Sección no encontrada' });
+    }
+    
+    // Verificar si hay ingredientes asignados a esta sección
+    const [ingredients] = await pool.query(
+      'SELECT COUNT(*) as count FROM RECIPE_INGREDIENTS WHERE section_id = ?',
+      [section_id]
+    );
+    
+    if (ingredients[0].count > 0) {
+      return res.status(400).json({ 
+        message: `No se puede eliminar la sección "${section[0].name}" porque tiene ${ingredients[0].count} ingrediente(s) asignado(s). Mueve los ingredientes a otra sección primero.` 
+      });
+    }
+    
+    const [result] = await pool.query(
+      'DELETE FROM RECIPE_SECTIONS WHERE section_id = ? AND recipe_id = ?',
+      [section_id, recipe_id]
+    );
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Sección no encontrada' });
+    }
+    
+    await logAudit(req.user.user_id, 'delete', 'RECIPE_SECTIONS', null,
+      `Sección "${section[0].name}" eliminada de receta ${recipe_id}`
+    );
+    
+    res.json({ message: 'Sección eliminada correctamente' });
+  } catch (err) {
+    console.error('Error deleting recipe section:', err);
     res.status(500).json({ message: 'Error interno del servidor' });
   }
 });

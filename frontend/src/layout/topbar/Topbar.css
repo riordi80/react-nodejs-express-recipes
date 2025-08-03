@@ -112,7 +112,7 @@
 }
 
 .mobile-menu-toggle.active {
-  background-color: rgb(90, 106, 133);
+  background-color: rgb(93, 135, 255);
   color: white;
 }
 
@@ -129,6 +129,7 @@
   background-color: transparent;
   color: rgb(90, 106, 133);
 }
+
 
 .mobile-menu-toggle svg {
   font-size: 20px !important;
@@ -149,5 +150,30 @@
   /* Ocultar botón de Settings en móvil */
   .config-button {
     display: none;
+  }
+  
+  /* Ajustes de estados para dispositivos móviles reales */
+  .mobile-menu-toggle {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  .mobile-menu-toggle:focus:not(.active) {
+    background-color: transparent !important;
+    color: rgb(90, 106, 133) !important;
+  }
+  
+  .mobile-menu-toggle:active:not(.active) {
+    background-color: transparent !important;
+    color: rgb(90, 106, 133) !important;
+  }
+  
+  /* Asegurar que solo el estado .active tenga el fondo azul oscuro */
+  .mobile-menu-toggle.active:focus,
+  .mobile-menu-toggle.active:active {
+    background-color: rgb(93, 135, 255) !important;
+    color: white !important;
   }
 }

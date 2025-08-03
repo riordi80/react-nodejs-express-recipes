@@ -78,16 +78,20 @@
   margin-top: 20px;
 }
 
-/* Total count para vista de cards */
-.card-view .total-count {
-  text-align: center;
-  color: #64748b;
-  font-size: 14px;
-  padding: 20px 16px;
+/* Total count para vista de cards - usa estilo global igual que tablas */
+
+/* Paginación para vista de cards - copiada de SupplierOrders */
+.card-grid + .rdt_Pagination {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
   background: #f8fafc;
-  border-radius: 8px;
+  border-top: 1px solid #e2e8f0;
+  font-size: 14px;
+  color: #6b7280;
   margin-top: 20px;
-  border: 1px solid #e2e8f0;
 }
 
 

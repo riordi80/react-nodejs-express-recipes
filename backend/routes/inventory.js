@@ -6,12 +6,16 @@ const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
 const logAudit = require('../utils/audit');
 
-// Configura la conexión a tu base de datos
+// OPTIMIZACIÓN: Pool de conexiones con límites para evitar agotamiento de memoria
 const pool = mysql.createPool({
   host:     process.env.DB_HOST,
   user:     process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
+  // Límites críticos para servidores con poca memoria
+  connectionLimit: 2,          // Máximo 2 conexiones simultáneas
+  idleTimeout: 300000,         // Cerrar conexiones inactivas después de 5min
+  maxIdle: 1                   // Máximo 1 conexión idle
 });
 
 // GET /inventory/:ingredient_id - Historial de movimientos
@@ -23,6 +27,7 @@ router.get('/:ingredient_id', authenticateToken, authorizeRoles('admin', 'invent
     FROM INVENTORY_MOVEMENTS
     WHERE ingredient_id = ?
     ORDER BY date DESC
+    LIMIT 100  -- OPTIMIZACIÓN: Limitar historial para evitar problemas de memoria
   `, [ingredient_id]);
 
   res.json(rows);

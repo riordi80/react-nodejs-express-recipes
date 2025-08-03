@@ -36,6 +36,7 @@ export default function FilterBar({
   const [isApplyingFilters, setIsApplyingFilters] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const ref = useRef(null);
+  const searchInputRef = useRef(null);
 
 
   // Detectar tamaño de pantalla
@@ -49,6 +50,14 @@ export default function FilterBar({
     
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
+
+  // Enfocar automáticamente el input de búsqueda cuando se monta el componente
+  useEffect(() => {
+    if (searchInputRef.current && !isMobile) {
+      // Solo enfocar en desktop para evitar problemas con teclado móvil
+      searchInputRef.current.focus();
+    }
+  }, [isMobile]);
 
   // Cerrar al clicar fuera
   useEffect(() => {
@@ -112,6 +121,7 @@ export default function FilterBar({
           placeholder="Buscar receta…"
           value={searchText}
           onChange={e => onSearchTextChange(e.target.value)}
+          ref={searchInputRef}
         />
 
         <select

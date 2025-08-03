@@ -34,6 +34,7 @@ const BasePage = ({
   addButtonText = "Añadir",
   searchPlaceholder = "Buscar...",
   showSearch = true,
+  autoFocusSearch = false,
   filters = [],
   customFilters,
   actions,
@@ -54,6 +55,7 @@ const BasePage = ({
           onSearchChange={onFilterChange}
           searchPlaceholder={searchPlaceholder}
           showSearch={showSearch}
+          autoFocusSearch={autoFocusSearch}
           filters={filters}
           customFilters={customFilters}
           onAdd={onAdd}

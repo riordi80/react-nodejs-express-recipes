@@ -198,7 +198,19 @@
   background: linear-gradient(135deg, #10b981, #059669);
 }
 
-.summary-icon.suppliers {
+.summary-icon.orders {
+  background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 24px !important;
+  color: white !important;
+}
+
+.summary-icon.orders-icon {
   background: linear-gradient(135deg, #f59e0b, #d97706);
 }
 
@@ -339,14 +351,7 @@
   margin-left: 8px;
 }
 
-.alert-badge {
-  background: #ef4444;
-  color: white;
-  padding: 4px 8px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 600;
-}
+/* Eliminado - estilos genéricos problemáticos */
 
 /* Widget: Recetas por categoría */
 .category-chart {
@@ -823,12 +828,7 @@
   color: #64748b;
 }
 
-.alert-badge {
-  font-size: 12px;
-  padding: 4px 8px;
-  border-radius: 12px;
-  font-weight: 600;
-}
+/* Eliminado - duplicado con la versión principal */
 
 .alert-badge.warning {
   background: #fef3c7;
@@ -939,4 +939,191 @@
 
 .seasonal-alerts .alert-item:last-child {
   margin-bottom: 0;
+}
+
+/* ===== ESTILOS PARA MÉTRICA DE PEDIDOS ACTIVOS ===== */
+
+/* Estados de urgencia para la tarjeta de pedidos - solo animaciones */
+.summary-card.urgent {
+  animation: none;
+}
+
+.summary-card.overdue {
+  animation: none;
+}
+
+/* Animaciones de pulso */
+@keyframes pulse-urgent {
+  0%, 100% {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+  50% {
+    box-shadow: 0 4px 12px rgba(251, 191, 36, 0.3);
+  }
+}
+
+@keyframes pulse-overdue {
+  0%, 100% {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+  50% {
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+  }
+}
+
+/* Contenedor de alertas de pedidos */
+.order-alerts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+/* Badges de alerta - estilos base sin colores */
+.alert-badge {
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Badge específico para stock bajo */
+.stock-alert-item .alert-badge {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+/* Badges para Pedidos Activos */
+.alert-badge.urgent {
+  background: #fef3c7 !important;
+  color: #92400e !important;
+  border: 1px solid #f59e0b !important;
+}
+
+.alert-badge.overdue {
+  background: #fee2e2 !important;
+  color: #b91c1c !important;
+  border: 1px solid #ef4444 !important;
+}
+
+/* Efectos hover específicos para pedidos urgentes */
+.summary-card.urgent:hover,
+.summary-card.overdue:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+/* Parar animación en hover para mejor UX */
+.summary-card.urgent:hover,
+.summary-card.overdue:hover {
+  animation-play-state: paused;
+}
+
+/* ===== ESTILOS ESPECÍFICOS PARA EVENTOS ===== */
+
+/* Estados de urgencia para Eventos - solo animaciones */
+.summary-card.events-urgent {
+  animation: none;
+}
+
+.summary-card.events-critical {
+  animation: none;
+}
+
+/* Animaciones para Eventos */
+@keyframes pulse-events-urgent {
+  0%, 100% {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+  50% {
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+  }
+}
+
+@keyframes pulse-events-critical {
+  0%, 100% {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+  50% {
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+  }
+}
+
+/* Badges para Eventos */
+.alert-badge.events-urgent {
+  background: #fef3c7 !important;
+  color: #92400e !important;
+  border: 1px solid #f59e0b !important;
+}
+
+.alert-badge.events-critical {
+  background: #fee2e2 !important;
+  color: #b91c1c !important;
+  border: 1px solid #ef4444 !important;
+}
+
+/* ===== ESTILOS ESPECÍFICOS PARA STOCK ===== */
+
+/* Estados de urgencia para Stock - solo animaciones */
+.summary-card.stock-urgent {
+  animation: none;
+}
+
+.summary-card.stock-critical {
+  animation: none;
+}
+
+/* Animaciones para Stock */
+@keyframes pulse-stock-urgent {
+  0%, 100% {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+  50% {
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+  }
+}
+
+@keyframes pulse-stock-critical {
+  0%, 100% {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+  50% {
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+  }
+}
+
+/* Badges para Stock */
+.alert-badge.stock-urgent {
+  background: #fef3c7 !important;
+  color: #92400e !important;
+  border: 1px solid #f59e0b !important;
+}
+
+.alert-badge.stock-critical {
+  background: #fee2e2 !important;
+  color: #b91c1c !important;
+  border: 1px solid #ef4444 !important;
+}
+
+/* Badges para Recetas */
+.alert-badge.recipes-seasonal {
+  background: #dcfce7 !important;
+  color: #166534 !important;
+  border: 1px solid #10b981 !important;
+}
+
+.alert-badge.recipes-available {
+  background: #d1fae5 !important;
+  color: #065f46 !important;
+  border: 1px solid #059669 !important;
+}
+
+/* Efectos hover específicos para nuevas métricas */
+.summary-card.events-urgent:hover,
+.summary-card.events-critical:hover,
+.summary-card.stock-urgent:hover,
+.summary-card.stock-critical:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+  animation-play-state: paused;
 }

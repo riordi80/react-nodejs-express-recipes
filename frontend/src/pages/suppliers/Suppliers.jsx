@@ -3,6 +3,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import TableActions from '../../components/table/TableActions';
 import BasePage from '../../components/base-page/BasePage';
 import Modal from '../../components/modal/Modal';
+import ConfirmModal from '../../components/modals/ConfirmModal';
 import SupplierEditModal from './components/SupplierEditModal';
 import AddIngredientModal from './components/AddIngredientModal';
 import EditSupplierIngredientModal from './components/EditSupplierIngredientModal';
@@ -359,6 +360,7 @@ export default function Suppliers() {
         noDataMessage="No hay proveedores registrados"
         onRowClicked={openEditModal}
         showSearch={true}
+        autoFocusSearch={true}
         filters={[]}
         enableMobileModal={true}
       />
@@ -437,20 +439,16 @@ export default function Suppliers() {
         />
 
         {/* DELETE MODAL */}
-        <Modal isOpen={deleteModal.isOpen} title="Confirmar eliminación" onClose={deleteModal.closeModal}>
-          <p>¿Seguro que deseas eliminar <strong>{deleteModal.currentItem?.name}</strong>?</p>
-          <div className="modal-actions">
-            <button type="button" className="btn cancel" onClick={deleteModal.closeModal}>Cancelar</button>
-            <button 
-              type="button" 
-              className="btn delete" 
-              onClick={deleteModal.handleDelete}
-              disabled={deleteModal.isLoading}
-            >
-              {deleteModal.isLoading ? 'Eliminando...' : 'Eliminar'}
-            </button>
-          </div>
-        </Modal>
+        <ConfirmModal
+          isOpen={deleteModal.isOpen}
+          onClose={deleteModal.closeModal}
+          onConfirm={deleteModal.handleDelete}
+          title="Confirmar eliminación"
+          message={`¿Seguro que deseas eliminar "${deleteModal.currentItem?.name}"?`}
+          confirmText="Eliminar"
+          cancelText="Cancelar"
+          isLoading={deleteModal.isLoading}
+        />
 
         {/* ADD INGREDIENT MODAL */}
         <AddIngredientModal
@@ -477,13 +475,15 @@ export default function Suppliers() {
         />
 
         {/* DELETE SUPPLIER INGREDIENT MODAL */}
-        <Modal isOpen={isDeleteSupplierIngredientOpen} title="Confirmar eliminación" onClose={() => setIsDeleteSupplierIngredientOpen(false)}>
-          <p>¿Seguro que deseas eliminar el ingrediente <strong>{currentSupplierIngredient?.name || currentSupplierIngredient?.ingredient_name}</strong> del proveedor <strong>{editedItem?.name}</strong>?</p>
-          <div className="modal-actions">
-            <button type="button" className="btn cancel" onClick={() => setIsDeleteSupplierIngredientOpen(false)}>Cancelar</button>
-            <button type="button" className="btn delete" onClick={handleDeleteSupplierIngredient}>Eliminar</button>
-          </div>
-        </Modal>
+        <ConfirmModal
+          isOpen={isDeleteSupplierIngredientOpen}
+          onClose={() => setIsDeleteSupplierIngredientOpen(false)}
+          onConfirm={handleDeleteSupplierIngredient}
+          title="Confirmar eliminación"
+          message={`¿Seguro que deseas eliminar el ingrediente "${currentSupplierIngredient?.name || currentSupplierIngredient?.ingredient_name}" del proveedor "${editedItem?.name}"?`}
+          confirmText="Eliminar"
+          cancelText="Cancelar"
+        />
     </>
   );
 }

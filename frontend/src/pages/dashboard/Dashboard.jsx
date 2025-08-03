@@ -283,8 +283,8 @@ const Dashboard = () => {
       case 'events':
         navigate('/events');
         break;
-      case 'suppliers':
-        navigate('/suppliers');
+      case 'orders':
+        navigate('/supplier-orders');
         break;
       case 'stock':
         navigate('/ingredients');
@@ -309,7 +309,7 @@ const Dashboard = () => {
         return (
           <div className="widget">
             <div className="widget-header">
-              <FaExclamationTriangle className="widget-icon alert" />
+              <FaExclamationTriangle className="widget-icon" style={{ color: '#ef4444' }} />
               <h3>Alertas de Stock</h3>
             </div>
             <div className="widget-content">
@@ -744,20 +744,20 @@ const Dashboard = () => {
 
           <div 
             className="summary-card clickable" 
-            onClick={() => handleMetricClick('suppliers')}
+            onClick={() => handleMetricClick('orders')}
             style={{ cursor: 'pointer' }}
           >
-            <div className="summary-icon suppliers">
+            <div className="summary-icon orders">
               <FaTruck />
             </div>
             <div className="summary-content">
-              <h3>{dashboardData.summary.totalSuppliers}</h3>
-              <p>Proveedores</p>
+              <h3>{dashboardData.summary.pendingOrders || 0}</h3>
+              <p>Pedidos Activos</p>
             </div>
           </div>
 
           <div 
-            className="summary-card alert clickable" 
+            className="summary-card clickable" 
             onClick={() => handleMetricClick('stock')}
             style={{ cursor: 'pointer' }}
           >

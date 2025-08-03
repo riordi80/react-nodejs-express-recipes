@@ -386,7 +386,7 @@
 
 .recipe-search-input:focus {
   outline: none;
-  border-color: #007bff;
+  border-color: #d1d5db;
   box-shadow: none;
 }
 
@@ -454,6 +454,8 @@
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
+
+/* Ya no es necesario ocultar flechas porque ahora es type="text" */
 
 /* Acciones de tabla */
 .table-actions {
@@ -540,6 +542,50 @@
 .event-status.cancelled {
   background: #fee2e2;
   color: #ef4444;
+}
+
+/* Mejoras para inputs de fecha y hora en móviles */
+input[type="date"],
+input[type="time"] {
+  min-height: 44px; /* Altura mínima para facilitar el toque en móviles */
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  padding: 8px 12px;
+  font-size: 16px; /* Evita zoom automático en iOS */
+  background-color: white;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+/* Forzar apariencia nativa en móvil para mejor experiencia */
+@media (max-width: 768px) {
+  input[type="date"],
+  input[type="time"] {
+    -webkit-appearance: textfield;
+    -moz-appearance: textfield;
+    appearance: textfield;
+    font-size: 16px; /* Evita zoom automático en Safari iOS */
+    height: 44px;
+    line-height: normal;
+  }
+  
+  /* Asegurar que el calendario sea accesible */
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator {
+    display: block;
+    background: transparent;
+    bottom: 0;
+    color: transparent;
+    cursor: pointer;
+    height: auto;
+    left: 0;
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: auto;
+  }
 }
 
 /* Responsive Design */

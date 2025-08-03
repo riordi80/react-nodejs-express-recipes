@@ -3,6 +3,7 @@ import React, { useState, useMemo } from 'react';
 import TableActions from '../../components/table/TableActions';
 import BasePage from '../../components/base-page/BasePage';
 import Modal from '../../components/modal/Modal';
+import ConfirmModal from '../../components/modals/ConfirmModal';
 import { FormField, FormInput } from '../../components/form/FormField';
 import { usePageState } from '../../hooks/usePageState';
 import './Allergens.css';
@@ -123,12 +124,13 @@ export default function Allergens() {
         messageType={messageType}
         filterText={filterText}
         onFilterChange={setFilterText}
+        showSearch={true}
+        autoFocusSearch={true}
         onAdd={openCreateModal}
         addButtonText="Añadir alérgeno"
         searchPlaceholder="Buscar alérgeno..."
         noDataMessage="No hay alérgenos para mostrar"
         onRowClicked={openEditModal}
-        showSearch={true}
         filters={[]}
         enableMobileModal={true}
       />
@@ -183,24 +185,15 @@ export default function Allergens() {
       </Modal>
 
       {/* Delete Confirmation Modal */}
-      <Modal
+      <ConfirmModal
         isOpen={isDeleteOpen}
-        title="Confirmar eliminación"
         onClose={() => setIsDeleteOpen(false)}
-      >
-        <p>
-          ¿Seguro que deseas eliminar{' '}
-          <strong>{currentAllergen?.name}</strong>?
-        </p>
-        <div className="modal-actions">
-          <button className="btn cancel" onClick={() => setIsDeleteOpen(false)}>
-            Cancelar
-          </button>
-          <button className="btn delete" onClick={confirmDelete}>
-            Eliminar
-          </button>
-        </div>
-      </Modal>
+        onConfirm={confirmDelete}
+        title="Confirmar eliminación"
+        message={`¿Seguro que deseas eliminar "${currentAllergen?.name}"?`}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+      />
     </>
   );
 }

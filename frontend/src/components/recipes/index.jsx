@@ -1,7 +1,6 @@
 // src/components/recipes/index.js
 export { default as RecipeCard } from './RecipeCard';
 export { default as FilterBar } from './FilterBar';
-export { default as ViewToggle } from './ViewToggle';
 
 // Placeholder para LoadMoreButton si no existe
 export const LoadMoreButton = ({ onClick }) => (
