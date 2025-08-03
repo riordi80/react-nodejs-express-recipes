@@ -12,10 +12,10 @@ const pool = mysql.createPool({
   user:     process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
-  // Límites críticos para servidores con poca memoria
-  connectionLimit: 3,          // Máximo 3 conexiones simultáneas
+  // Límites moderados para hosting compartido con recursos decentes
+  connectionLimit: 10,         // Máximo 10 conexiones simultáneas
   idleTimeout: 300000,         // Cerrar conexiones inactivas después de 5min
-  maxIdle: 1                   // Máximo 1 conexión idle
+  maxIdle: 3                   // Máximo 3 conexiones idle
 });
 
 // GET /recipes - Obtener recetas con categorías y filtros
@@ -98,7 +98,7 @@ router.get('/', authenticateToken, authorizeRoles('admin','chef'), async (req, r
   
   // OPTIMIZACIÓN CRÍTICA: Añadir límite y orden para evitar agotamiento de memoria
   const orderBy     = 'ORDER BY r.name ASC';
-  const maxRecipes  = 200; // Límite de seguridad
+  const maxRecipes  = 500; // Límite de seguridad para hosting compartido
   const limitClause = 'LIMIT ?';
   params.push(maxRecipes);
   
