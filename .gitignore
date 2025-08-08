@@ -10,6 +10,11 @@
 **/.env.cloudflare
 **/.env.production
 **/.env.development
+**/.env.vps
+**/.env.backup
+**/config.json.cloudflare.template
+**/config.json.local.template
+**/config.json.production.template
 
 # Ignorar configuración runtime (generada por switch-env.sh)
 /frontend/public/config.json
@@ -87,3 +92,19 @@ CLAUDE.md
 .Trashes
 ehthumbs.db
 
+# Scripts con información sensible del servidor
+deploy-vps.sh
+switch-env.sh
+scripts/backup-db.sh
+scripts/deploy-*.sh
+scripts/quick-deploy.sh
+
+# Debug tools con configuraciones sensibles
+debug-tools/.env.hosting
+debug-tools/status.json
+debug-tools/monitor-*.json
+
+# Deployment y backups
+backups/
+deploy-*.log
+.deploy-config.local
