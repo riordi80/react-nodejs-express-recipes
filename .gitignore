@@ -18,16 +18,24 @@
 
 # Ignorar configuración runtime (generada por switch-env.sh)
 /frontend/public/config.json
+/frontend-v2/public/config.json
 
 # Ignorar dependencias node_modules solo en backend y frontend
 /backend/node_modules/
 /frontend/node_modules/
+/frontend-v2/node_modules/
 
 # Ignorar builds y distribuciones solo en backend y frontend
 /backend/build/
 /backend/dist/
 /frontend/build/
 /frontend/dist/
+/frontend-v2/.next/
+/frontend-v2/out/
+/frontend-v2/build/
+/frontend-v2/dist/
+/frontend-v2/.vercel/
+/frontend-v2/*.tsbuildinfo
 
 # Ignorar archivos de copias de seguridad (mantener carpeta pero no archivos)
 /backend/backups/*
@@ -81,6 +89,11 @@ CLAUDE.md
 **/.nuxt/
 **/vite.config.js.timestamp-*
 
+# Frontend-v2 additional ignores
+/frontend-v2/config.json.*template
+/frontend-v2/.env.*
+!/frontend-v2/.env.local.template
+
 # Archivos temporales de editores
 **/*~
 **/.#*
@@ -108,3 +121,6 @@ debug-tools/monitor-*.json
 backups/
 deploy-*.log
 .deploy-config.local
+
+# Temporales y archivos de desarrollo adicionales
+.env.backup
