@@ -5,18 +5,12 @@ const mysql = require('mysql2/promise');
 const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
 
-// Configura la conexión a tu base de datos
-const pool = mysql.createPool({
-  host:     process.env.DB_HOST,
-  user:     process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-});
+// Multi-tenant: usar req.tenantDb en lugar de pool estático
 
 // GET /recipes/:id/sections
 router.get('/:id/sections', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
   const { id } = req.params;
-  const [rows] = await pool.query(
+  const [rows] = await req.tenantDb.query(
     `SELECT section_id, name, \`order\` FROM RECIPE_SECTIONS WHERE recipe_id = ? ORDER BY \`order\` ASC`, [id]
   );
   res.json(rows);
@@ -26,7 +20,7 @@ router.get('/:id/sections', authenticateToken, authorizeRoles('admin', 'chef'), 
 router.post('/:id/sections', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
   const { name, order } = req.body;
   const { id } = req.params;
-  await pool.query(
+  await req.tenantDb.query(
     `INSERT INTO RECIPE_SECTIONS (recipe_id, name, \`order\`) VALUES (?, ?, ?)`,
     [id, name, order]
   );
@@ -37,7 +31,7 @@ router.post('/:id/sections', authenticateToken, authorizeRoles('admin', 'chef'),
 router.put('/:id/sections/:section_id', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
   const { name, order } = req.body;
   const { section_id } = req.params;
-  await pool.query(
+  await req.tenantDb.query(
     `UPDATE RECIPE_SECTIONS SET name = ?, \`order\` = ? WHERE section_id = ?`,
     [name, order, section_id]
   );
@@ -48,7 +42,7 @@ router.put('/:id/sections/:section_id', authenticateToken, authorizeRoles('admin
 router.delete('/:recipe_id/sections/:section_id', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   const { recipe_id, section_id } = req.params;
 
-  const connection = await pool.getConnection();
+  const connection = await req.tenantDb.getConnection();
 
   try {
     await connection.beginTransaction();

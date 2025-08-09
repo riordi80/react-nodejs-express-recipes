@@ -7,24 +7,18 @@ const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
 const logAudit = require('../utils/audit');
 
-// Configura la conexión a tu base de datos
-const pool = mysql.createPool({
-  host:     process.env.DB_HOST,
-  user:     process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-});
+// Multi-tenant: usar req.tenantDb en lugar de pool estático
 
 // GET /users
 router.get('/', authenticateToken, authorizeRoles('admin'), async (req, res) => {
-  const [rows] = await pool.query('SELECT user_id, first_name, last_name, email, role, is_active FROM USERS');
+  const [rows] = await req.tenantDb.query('SELECT user_id, first_name, last_name, email, role, is_active FROM USERS');
   res.json(rows);
 });
 
 // GET /users/:id
 router.get('/:id', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   const { id } = req.params;
-  const [rows] = await pool.query('SELECT user_id, first_name, last_name, email, role, is_active FROM USERS WHERE user_id = ?', [id]);
+  const [rows] = await req.tenantDb.query('SELECT user_id, first_name, last_name, email, role, is_active FROM USERS WHERE user_id = ?', [id]);
   if (rows.length === 0) return res.status(404).json({ message: 'Usuario no encontrado' });
   res.json(rows[0]);
 });
@@ -33,7 +27,7 @@ router.get('/:id', authenticateToken, authorizeRoles('admin'), async (req, res) 
 router.post('/', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   const { first_name, last_name, email, role, password, is_active } = req.body;
   const password_hash = await bcrypt.hash(password, 10);
-  const [result] = await pool.query(
+  const [result] = await req.tenantDb.query(
     'INSERT INTO USERS (first_name, last_name, email, role, password_hash, is_active) VALUES (?, ?, ?, ?, ?, ?)', 
     [first_name, last_name, email, role, password_hash, is_active]
   );
@@ -47,7 +41,7 @@ router.put('/:id', authenticateToken, authorizeRoles('admin'), async (req, res) 
   const { id } = req.params;
   const { first_name, last_name, email, role, is_active } = req.body;
 
-  await pool.query(
+  await req.tenantDb.query(
     'UPDATE USERS SET first_name = ?, last_name = ?, email = ?, role = ?, is_active = ? WHERE user_id = ?', 
     [first_name, last_name, email, role, is_active, id]
   );
@@ -60,7 +54,7 @@ router.put('/:id', authenticateToken, authorizeRoles('admin'), async (req, res) 
 router.delete('/:id', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   const { id } = req.params;
 
-  await pool.query('DELETE FROM USERS WHERE user_id = ?', [id]);
+  await req.tenantDb.query('DELETE FROM USERS WHERE user_id = ?', [id]);
 
   await logAudit(req.user.user_id, 'delete', 'USERS', id, `Usuario con ID ${id} eliminado`);
   res.json({ message: 'Usuario eliminado' });

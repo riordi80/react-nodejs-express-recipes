@@ -6,17 +6,8 @@ const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles   = require('../middleware/roleMiddleware');
 const logAudit         = require('../utils/audit');
 
-// OPTIMIZACIÓN: Pool de conexiones con límites para evitar agotamiento de memoria
-const pool = mysql.createPool({
-  host:     process.env.DB_HOST,
-  user:     process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  // Límites moderados para hosting compartido con recursos decentes
-  connectionLimit: 10,         // Máximo 10 conexiones simultáneas
-  idleTimeout: 300000,         // Cerrar conexiones inactivas después de 5min
-  maxIdle: 3                   // Máximo 3 conexiones idle
-});
+// Multi-tenant: usar req.tenantDb en lugar de pool estático
+// Nota: Los límites de conexión se manejan ahora en databaseManager.js
 
 // GET /recipes - Obtener recetas con categorías y filtros
 router.get('/', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
@@ -105,7 +96,7 @@ router.get('/', authenticateToken, authorizeRoles('admin','chef'), async (req, r
   const finalSql    = [sql, ...joins, whereClause, groupBy, orderBy, limitClause].join(' ');
 
   try {
-    const [rows] = await pool.query(finalSql, params);
+    const [rows] = await req.tenantDb.query(finalSql, params);
     res.json(rows);
   } catch (err) {
     console.error('Error fetching filtered recipes:', err);
@@ -116,7 +107,7 @@ router.get('/', authenticateToken, authorizeRoles('admin','chef'), async (req, r
 // GET /recipes/:id - Obtener una receta específica
 router.get('/:id', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
   try {
-    const [rows] = await pool.query(
+    const [rows] = await req.tenantDb.query(
       'SELECT * FROM RECIPES WHERE recipe_id = ?',
       [req.params.id]
     );
@@ -134,7 +125,7 @@ router.get('/:id', authenticateToken, authorizeRoles('admin','chef'), async (req
 router.get('/:id/ingredients', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
   const { id } = req.params;
   try {
-    const [rows] = await pool.query(
+    const [rows] = await req.tenantDb.query(
       `
       SELECT
         ri.id,
@@ -169,7 +160,7 @@ router.get('/:id/ingredients', authenticateToken, authorizeRoles('admin','chef')
 router.get('/:id/ingredients/by-section', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
   const { id } = req.params;
   try {
-    const [rows] = await pool.query(
+    const [rows] = await req.tenantDb.query(
       `
       SELECT
         rs.section_id,
@@ -214,7 +205,7 @@ router.get('/:id/ingredients/by-section', authenticateToken, authorizeRoles('adm
 router.get('/:id/allergens', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
   const { id } = req.params;
   try {
-    const [rows] = await pool.query(
+    const [rows] = await req.tenantDb.query(
       `
       SELECT DISTINCT a.allergen_id, a.name
       FROM ALLERGENS a
@@ -237,7 +228,7 @@ router.put('/:recipe_id/ingredients/:ingredient_id/section', authenticateToken, 
   const { recipe_id, ingredient_id } = req.params;
   const { section_id } = req.body;
   try {
-    await pool.query(
+    await req.tenantDb.query(
       'UPDATE RECIPE_INGREDIENTS SET section_id = ? WHERE recipe_id = ? AND ingredient_id = ?',
       [section_id, recipe_id, ingredient_id]
     );
@@ -259,7 +250,7 @@ router.post('/', authenticateToken, authorizeRoles('admin','chef'), async (req, 
     is_featured_recipe, instructions, tax_id
   } = req.body;
   try {
-    const [result] = await pool.query(
+    const [result] = await req.tenantDb.query(
       `INSERT INTO RECIPES
         (name, servings, production_servings, net_price,
          prep_time, difficulty, is_featured_recipe,
@@ -298,7 +289,7 @@ router.put('/:id', authenticateToken, authorizeRoles('admin','chef'), async (req
 
   try {
 
-    await pool.query(
+    await req.tenantDb.query(
       `UPDATE RECIPES SET
          name = ?, servings = ?, production_servings = ?,
          net_price = ?, prep_time = ?, difficulty = ?,
@@ -331,7 +322,7 @@ router.put('/:id/categories', authenticateToken, authorizeRoles('admin','chef'),
     return res.status(400).json({ message: 'categoryIds debe ser un array' });
   }
   
-  const connection = await pool.getConnection();
+  const connection = await req.tenantDb.getConnection();
   
   try {
     await connection.beginTransaction();
@@ -371,7 +362,7 @@ router.put('/:id/categories', authenticateToken, authorizeRoles('admin','chef'),
 router.put('/:id/costs', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
   const { id } = req.params;
   try {
-    await pool.query('CALL sp_update_recipe_costs(?)', [id]);
+    await req.tenantDb.query('CALL sp_update_recipe_costs(?)', [id]);
     await logAudit(req.user.user_id, 'update', 'RECIPES', id,
       `Costos recalculados para receta ${id}`
     );
@@ -385,7 +376,7 @@ router.put('/:id/costs', authenticateToken, authorizeRoles('admin','chef'), asyn
 // DELETE /recipes/:id - Eliminar receta
 router.delete('/:id', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   const { id } = req.params;
-  const connection = await pool.getConnection();
+  const connection = await req.tenantDb.getConnection();
   
   try {
     await connection.beginTransaction();
@@ -423,7 +414,7 @@ router.post('/:id/ingredients', authenticateToken, authorizeRoles('admin','chef'
   try {
     
     // Verificar si ya existe este ingrediente en la misma sección de la receta
-    const [existing] = await pool.query(
+    const [existing] = await req.tenantDb.query(
       'SELECT * FROM RECIPE_INGREDIENTS WHERE recipe_id = ? AND ingredient_id = ? AND (section_id = ? OR (section_id IS NULL AND ? IS NULL))',
       [recipe_id, ingredient_id, section_id, section_id]
     );
@@ -435,7 +426,7 @@ router.post('/:id/ingredients', authenticateToken, authorizeRoles('admin','chef'
     }
     
     // Insertar el nuevo ingrediente
-    await pool.query(
+    await req.tenantDb.query(
       'INSERT INTO RECIPE_INGREDIENTS (recipe_id, ingredient_id, quantity_per_serving, section_id) VALUES (?, ?, ?, ?)',
       [recipe_id, ingredient_id, quantity_per_serving, section_id || null]
     );
@@ -459,7 +450,7 @@ router.put('/:id/ingredients/:ingredient_id', authenticateToken, authorizeRoles(
   try {
     
     // Actualizar ingrediente específico por sección para evitar ambigüedad
-    const [result] = await pool.query(
+    const [result] = await req.tenantDb.query(
       'UPDATE RECIPE_INGREDIENTS SET quantity_per_serving = ?, section_id = ? WHERE recipe_id = ? AND ingredient_id = ? AND (section_id = ? OR (section_id IS NULL AND ? IS NULL))',
       [quantity_per_serving, section_id || null, recipe_id, ingredient_id, current_section_id, current_section_id]
     );
@@ -494,7 +485,7 @@ router.delete('/:id/ingredients/:ingredient_id', authenticateToken, authorizeRol
       params.push(section_id, section_id);
     }
     
-    const [result] = await pool.query(query, params);
+    const [result] = await req.tenantDb.query(query, params);
     
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'Ingrediente no encontrado en la receta' });
@@ -516,7 +507,7 @@ router.delete('/:recipe_id/recipe-ingredients/:id', authenticateToken, authorize
   const { recipe_id, id } = req.params;
   
   try {
-    const [result] = await pool.query(
+    const [result] = await req.tenantDb.query(
       'DELETE FROM RECIPE_INGREDIENTS WHERE id = ? AND recipe_id = ?',
       [id, recipe_id]
     );
@@ -543,7 +534,7 @@ router.get('/:id/sections', authenticateToken, authorizeRoles('admin','chef'), a
   const { id: recipe_id } = req.params;
   
   try {
-    const [sections] = await pool.query(
+    const [sections] = await req.tenantDb.query(
       'SELECT section_id, name, section_order FROM RECIPE_SECTIONS WHERE recipe_id = ? ORDER BY section_order ASC, name ASC',
       [recipe_id]
     );
@@ -566,7 +557,7 @@ router.post('/:id/sections', authenticateToken, authorizeRoles('admin','chef'), 
   
   try {
     // Verificar que no existe una sección con el mismo nombre en esta receta
-    const [existing] = await pool.query(
+    const [existing] = await req.tenantDb.query(
       'SELECT section_id FROM RECIPE_SECTIONS WHERE recipe_id = ? AND name = ?',
       [recipe_id, name.trim()]
     );
@@ -578,14 +569,14 @@ router.post('/:id/sections', authenticateToken, authorizeRoles('admin','chef'), 
     // Si no se especifica orden, poner al final
     let finalOrder = section_order;
     if (!finalOrder) {
-      const [maxOrder] = await pool.query(
+      const [maxOrder] = await req.tenantDb.query(
         'SELECT COALESCE(MAX(section_order), 0) + 1 as next_order FROM RECIPE_SECTIONS WHERE recipe_id = ?',
         [recipe_id]
       );
       finalOrder = maxOrder[0].next_order;
     }
     
-    const [result] = await pool.query(
+    const [result] = await req.tenantDb.query(
       'INSERT INTO RECIPE_SECTIONS (recipe_id, name, section_order) VALUES (?, ?, ?)',
       [recipe_id, name.trim(), finalOrder]
     );
@@ -615,7 +606,7 @@ router.put('/:id/sections/:section_id', authenticateToken, authorizeRoles('admin
   
   try {
     // Verificar que la sección existe y pertenece a esta receta
-    const [section] = await pool.query(
+    const [section] = await req.tenantDb.query(
       'SELECT section_id FROM RECIPE_SECTIONS WHERE section_id = ? AND recipe_id = ?',
       [section_id, recipe_id]
     );
@@ -625,7 +616,7 @@ router.put('/:id/sections/:section_id', authenticateToken, authorizeRoles('admin
     }
     
     // Verificar que no existe otra sección con el mismo nombre
-    const [existing] = await pool.query(
+    const [existing] = await req.tenantDb.query(
       'SELECT section_id FROM RECIPE_SECTIONS WHERE recipe_id = ? AND name = ? AND section_id != ?',
       [recipe_id, name.trim(), section_id]
     );
@@ -634,7 +625,7 @@ router.put('/:id/sections/:section_id', authenticateToken, authorizeRoles('admin
       return res.status(400).json({ message: 'Ya existe una sección con este nombre en la receta' });
     }
     
-    const [result] = await pool.query(
+    const [result] = await req.tenantDb.query(
       'UPDATE RECIPE_SECTIONS SET name = ? WHERE section_id = ? AND recipe_id = ?',
       [name.trim(), section_id, recipe_id]
     );
@@ -660,7 +651,7 @@ router.delete('/:id/sections/:section_id', authenticateToken, authorizeRoles('ad
   
   try {
     // Verificar que la sección existe y pertenece a esta receta
-    const [section] = await pool.query(
+    const [section] = await req.tenantDb.query(
       'SELECT section_id, name FROM RECIPE_SECTIONS WHERE section_id = ? AND recipe_id = ?',
       [section_id, recipe_id]
     );
@@ -670,7 +661,7 @@ router.delete('/:id/sections/:section_id', authenticateToken, authorizeRoles('ad
     }
     
     // Verificar si hay ingredientes asignados a esta sección
-    const [ingredients] = await pool.query(
+    const [ingredients] = await req.tenantDb.query(
       'SELECT COUNT(*) as count FROM RECIPE_INGREDIENTS WHERE section_id = ?',
       [section_id]
     );
@@ -681,7 +672,7 @@ router.delete('/:id/sections/:section_id', authenticateToken, authorizeRoles('ad
       });
     }
     
-    const [result] = await pool.query(
+    const [result] = await req.tenantDb.query(
       'DELETE FROM RECIPE_SECTIONS WHERE section_id = ? AND recipe_id = ?',
       [section_id, recipe_id]
     );
@@ -707,7 +698,7 @@ router.get('/:id/nutrition', authenticateToken, authorizeRoles('admin','chef'), 
   
   try {
     // Obtener receta y ingredientes con información nutricional
-    const [recipeResult] = await pool.query(
+    const [recipeResult] = await req.tenantDb.query(
       'SELECT servings FROM RECIPES WHERE recipe_id = ?',
       [id]
     );
@@ -719,7 +710,7 @@ router.get('/:id/nutrition', authenticateToken, authorizeRoles('admin','chef'), 
     const recipe = recipeResult[0];
     
     // Obtener ingredientes con datos nutricionales
-    const [ingredients] = await pool.query(`
+    const [ingredients] = await req.tenantDb.query(`
       SELECT 
         ri.quantity_per_serving,
         i.unit,

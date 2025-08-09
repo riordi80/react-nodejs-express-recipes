@@ -6,13 +6,7 @@ const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
 const backupManager = require('../utils/backupManager');
 
-// Configura la conexión a tu base de datos
-const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-});
+// Multi-tenant: usar req.tenantDb en lugar de pool estático
 
 // ===== EXPORTACIÓN DE DATOS =====
 
@@ -22,7 +16,7 @@ router.get('/export/recipes', authenticateToken, authorizeRoles('admin'), async 
     const { format = 'json' } = req.query;
     
     // Consulta completa de recetas con ingredientes
-    const [recipes] = await pool.execute(`
+    const [recipes] = await req.tenantDb.execute(`
       SELECT 
         r.recipe_id,
         r.name,
@@ -74,7 +68,7 @@ router.get('/export/ingredients', authenticateToken, authorizeRoles('admin'), as
   try {
     const { format = 'json' } = req.query;
     
-    const [ingredients] = await pool.execute(`
+    const [ingredients] = await req.tenantDb.execute(`
       SELECT 
         ingredient_id,
         name,
@@ -117,7 +111,7 @@ router.get('/export/suppliers', authenticateToken, authorizeRoles('admin'), asyn
   try {
     const { format = 'json' } = req.query;
     
-    const [suppliers] = await pool.execute(`
+    const [suppliers] = await req.tenantDb.execute(`
       SELECT 
         supplier_id,
         name,
@@ -161,13 +155,13 @@ router.get('/backup', authenticateToken, authorizeRoles('admin'), async (req, re
     const timestamp = new Date().toISOString().split('T')[0];
     
     // Obtener datos de todas las tablas principales
-    const [recipes] = await pool.execute('SELECT * FROM RECIPES');
-    const [ingredients] = await pool.execute('SELECT * FROM INGREDIENTS');
-    const [suppliers] = await pool.execute('SELECT * FROM SUPPLIERS');
-    const [users] = await pool.execute('SELECT user_id, first_name, last_name, email, role, is_active, language, timezone FROM USERS');
-    const [recipeIngredients] = await pool.execute('SELECT * FROM RECIPE_INGREDIENTS');
-    const [supplierIngredients] = await pool.execute('SELECT * FROM SUPPLIER_INGREDIENTS');
-    const [settings] = await pool.execute('SELECT * FROM SYSTEM_SETTINGS');
+    const [recipes] = await req.tenantDb.execute('SELECT * FROM RECIPES');
+    const [ingredients] = await req.tenantDb.execute('SELECT * FROM INGREDIENTS');
+    const [suppliers] = await req.tenantDb.execute('SELECT * FROM SUPPLIERS');
+    const [users] = await req.tenantDb.execute('SELECT user_id, first_name, last_name, email, role, is_active, language, timezone FROM USERS');
+    const [recipeIngredients] = await req.tenantDb.execute('SELECT * FROM RECIPE_INGREDIENTS');
+    const [supplierIngredients] = await req.tenantDb.execute('SELECT * FROM SUPPLIER_INGREDIENTS');
+    const [settings] = await req.tenantDb.execute('SELECT * FROM SYSTEM_SETTINGS');
     
     const backupData = {
       metadata: {
@@ -191,7 +185,7 @@ router.get('/backup', authenticateToken, authorizeRoles('admin'), async (req, re
     res.json(backupData);
     
     // Registrar en audit logs
-    await pool.execute(
+    await req.tenantDb.execute(
       'INSERT INTO AUDIT_LOGS (user_id, action, table_name, description, timestamp) VALUES (?, ?, ?, ?, NOW())',
       [req.user.user_id, 'backup', 'SYSTEM', 'Backup completo creado']
     );
@@ -206,7 +200,7 @@ router.get('/backup', authenticateToken, authorizeRoles('admin'), async (req, re
 router.get('/backup/status', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   try {
     // Obtener configuración de backup
-    const [settings] = await pool.execute(`
+    const [settings] = await req.tenantDb.execute(`
       SELECT setting_key, setting_value 
       FROM SYSTEM_SETTINGS 
       WHERE setting_key IN ('backup_auto_enabled', 'backup_frequency', 'backup_last_date')
@@ -218,7 +212,7 @@ router.get('/backup/status', authenticateToken, authorizeRoles('admin'), async (
     });
     
     // Obtener último backup desde audit logs
-    const [lastBackup] = await pool.execute(`
+    const [lastBackup] = await req.tenantDb.execute(`
       SELECT timestamp 
       FROM AUDIT_LOGS 
       WHERE action = 'backup' AND table_name = 'SYSTEM'
@@ -252,7 +246,7 @@ router.put('/backup/settings', authenticateToken, authorizeRoles('admin'), async
     
     // Actualizar configuración
     for (const setting of settings) {
-      await pool.execute(`
+      await req.tenantDb.execute(`
         INSERT INTO SYSTEM_SETTINGS (setting_key, setting_value, updated_at) 
         VALUES (?, ?, NOW())
         ON DUPLICATE KEY UPDATE 
@@ -265,7 +259,7 @@ router.put('/backup/settings', authenticateToken, authorizeRoles('admin'), async
     await backupManager.updateScheduler(auto_enabled, frequency);
     
     // Registrar en audit logs
-    await pool.execute(
+    await req.tenantDb.execute(
       'INSERT INTO AUDIT_LOGS (user_id, action, table_name, description, timestamp) VALUES (?, ?, ?, ?, NOW())',
       [req.user.user_id, 'update', 'SYSTEM_SETTINGS', `Configuración de backup actualizada: auto=${auto_enabled}, frecuencia=${frequency}`]
     );
@@ -325,7 +319,7 @@ router.delete('/backup/:filename', authenticateToken, authorizeRoles('admin'), a
     await backupManager.deleteBackup(filename);
     
     // Registrar en audit logs
-    await pool.execute(
+    await req.tenantDb.execute(
       'INSERT INTO AUDIT_LOGS (user_id, action, table_name, description, timestamp) VALUES (?, ?, ?, ?, NOW())',
       [req.user.user_id, 'delete', 'SYSTEM', `Backup eliminado: ${filename}`]
     );
@@ -360,7 +354,7 @@ router.post('/reset', authenticateToken, authorizeRoles('admin'), async (req, re
       });
     }
     
-    const connection = await pool.getConnection();
+    const connection = await req.tenantDb.getConnection();
     await connection.beginTransaction();
     
     try {

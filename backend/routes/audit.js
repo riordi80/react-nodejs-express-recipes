@@ -5,13 +5,7 @@ const mysql = require('mysql2/promise');
 const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
 
-// Configura la conexión a tu base de datos
-const pool = mysql.createPool({
-  host:     process.env.DB_HOST,
-  user:     process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-});
+// Multi-tenant: usar req.tenantDb en lugar de pool estático
 
 // GET /audit/logs - Obtener logs de auditoría (solo admin)
 router.get('/logs', authenticateToken, authorizeRoles('admin'), async (req, res) => {
@@ -80,8 +74,8 @@ router.get('/logs', authenticateToken, authorizeRoles('admin'), async (req, res)
     `;
 
     // Ejecutar consultas
-    const [logsResult] = await pool.execute(logsQuery, queryParams);
-    const [countResult] = await pool.execute(countQuery, queryParams);
+    const [logsResult] = await req.tenantDb.execute(logsQuery, queryParams);
+    const [countResult] = await req.tenantDb.execute(countQuery, queryParams);
 
     const totalRecords = countResult[0].total;
     const totalPages = Math.ceil(totalRecords / limit);
@@ -110,7 +104,7 @@ router.get('/summary', authenticateToken, authorizeRoles('admin'), async (req, r
     const { days = 30 } = req.query;
 
     // Resumen de actividad por acción
-    const [actionSummary] = await pool.execute(`
+    const [actionSummary] = await req.tenantDb.execute(`
       SELECT 
         action,
         COUNT(*) as count
@@ -121,7 +115,7 @@ router.get('/summary', authenticateToken, authorizeRoles('admin'), async (req, r
     `, [days]);
 
     // Resumen de actividad por tabla
-    const [tableSummary] = await pool.execute(`
+    const [tableSummary] = await req.tenantDb.execute(`
       SELECT 
         table_name,
         COUNT(*) as count
@@ -132,7 +126,7 @@ router.get('/summary', authenticateToken, authorizeRoles('admin'), async (req, r
     `, [days]);
 
     // Resumen de actividad por usuario
-    const [userSummary] = await pool.execute(`
+    const [userSummary] = await req.tenantDb.execute(`
       SELECT 
         al.user_id,
         CONCAT(u.first_name, ' ', u.last_name) as user_name,
@@ -147,7 +141,7 @@ router.get('/summary', authenticateToken, authorizeRoles('admin'), async (req, r
     `, [days]);
 
     // Actividad reciente
-    const [recentActivity] = await pool.execute(`
+    const [recentActivity] = await req.tenantDb.execute(`
       SELECT 
         al.action,
         al.table_name,
@@ -181,7 +175,7 @@ router.get('/summary', authenticateToken, authorizeRoles('admin'), async (req, r
 router.get('/test', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   try {
     // Verificar si existe la tabla
-    const [tableCheck] = await pool.execute("SHOW TABLES LIKE 'AUDIT_LOGS'");
+    const [tableCheck] = await req.tenantDb.execute("SHOW TABLES LIKE 'AUDIT_LOGS'");
     
     if (tableCheck.length === 0) {
       return res.json({ 
@@ -191,10 +185,10 @@ router.get('/test', authenticateToken, authorizeRoles('admin'), async (req, res)
     }
     
     // Contar registros totales
-    const [countResult] = await pool.execute('SELECT COUNT(*) as total FROM AUDIT_LOGS');
+    const [countResult] = await req.tenantDb.execute('SELECT COUNT(*) as total FROM AUDIT_LOGS');
     
     // Obtener algunos registros de ejemplo
-    const [sampleResult] = await pool.execute('SELECT * FROM AUDIT_LOGS ORDER BY timestamp DESC LIMIT 5');
+    const [sampleResult] = await req.tenantDb.execute('SELECT * FROM AUDIT_LOGS ORDER BY timestamp DESC LIMIT 5');
     
     res.json({
       table_exists: true,

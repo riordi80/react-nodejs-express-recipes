@@ -6,23 +6,14 @@ const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
 const logAudit = require('../utils/audit');
 
-// OPTIMIZACIÓN: Pool de conexiones con límites para evitar agotamiento de memoria
-const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  // Límites críticos para servidores con poca memoria
-  connectionLimit: 2,          // Máximo 2 conexiones - este archivo tiene consultas muy pesadas
-  idleTimeout: 300000,         // Cerrar conexiones inactivas después de 5min
-  maxIdle: 1                   // Máximo 1 conexión idle
-});
+// Multi-tenant: usar req.tenantDb en lugar de pool estático
+// Nota: Los límites de conexión se manejan ahora en databaseManager.js
 
 // GET /supplier-orders/dashboard - Obtener métricas del dashboard
 router.get('/dashboard', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
   try {
     // 1. Calcular gasto mensual (último mes)
-    const [monthlySpendingResult] = await pool.query(`
+    const [monthlySpendingResult] = await req.tenantDb.query(`
       SELECT COALESCE(SUM(total_amount), 0) as monthly_spending
       FROM SUPPLIER_ORDERS 
       WHERE order_date >= DATE_SUB(CURDATE(), INTERVAL 1 MONTH)
@@ -30,7 +21,7 @@ router.get('/dashboard', authenticateToken, authorizeRoles('admin', 'chef'), asy
     `);
     
     // 2. Contar entregas de hoy
-    const [todayDeliveriesResult] = await pool.query(`
+    const [todayDeliveriesResult] = await req.tenantDb.query(`
       SELECT COUNT(*) as today_deliveries
       FROM SUPPLIER_ORDERS 
       WHERE delivery_date = CURDATE()
@@ -38,7 +29,7 @@ router.get('/dashboard', authenticateToken, authorizeRoles('admin', 'chef'), asy
     `);
     
     // 3. Calcular ingredientes con stock bajo
-    const [lowStockResult] = await pool.query(`
+    const [lowStockResult] = await req.tenantDb.query(`
       SELECT COUNT(*) as count
       FROM INGREDIENTS 
       WHERE stock < stock_minimum 
@@ -49,7 +40,7 @@ router.get('/dashboard', authenticateToken, authorizeRoles('admin', 'chef'), asy
 
 
     // Consulta detallada para mostrar información de debug
-    const [savingsDetailResult] = await pool.query(`
+    const [savingsDetailResult] = await req.tenantDb.query(`
       WITH pedidos_pendientes AS (
         -- Obtener pedidos pendientes con source_events
         SELECT 
@@ -153,7 +144,7 @@ router.get('/dashboard', authenticateToken, authorizeRoles('admin', 'chef'), asy
       LIMIT 10  -- OPTIMIZACIÓN CRÍTICA: Limitar resultado para evitar agotamiento de memoria
     `);
 
-    const [potentialSavingsResult] = await pool.query(`
+    const [potentialSavingsResult] = await req.tenantDb.query(`
       WITH pedidos_pendientes AS (
         -- Obtener pedidos pendientes con source_events
         SELECT 
@@ -289,7 +280,7 @@ router.get('/shopping-list', authenticateToken, authorizeRoles('admin', 'chef'),
     const whereClause = whereConditions.join(' AND ');
 
     // 1. Obtener eventos según filtros
-    const [confirmedEvents] = await pool.query(`
+    const [confirmedEvents] = await req.tenantDb.query(`
       SELECT COUNT(*) as total_events,
              MIN(event_date) as date_from,
              MAX(event_date) as date_to
@@ -307,7 +298,7 @@ router.get('/shopping-list', authenticateToken, authorizeRoles('admin', 'chef'),
       ? 'GREATEST(0, (SUM(ri.quantity_per_serving * em.portions) * (1 + IFNULL(i.waste_percent, 0))) - i.stock) * i.base_price'
       : 'SUM(ri.quantity_per_serving * em.portions) * (1 + IFNULL(i.waste_percent, 0)) * i.base_price';
 
-    const [neededIngredients] = await pool.query(`
+    const [neededIngredients] = await req.tenantDb.query(`
       SELECT 
         i.ingredient_id,
         i.name,
@@ -470,7 +461,7 @@ router.get('/available-events', authenticateToken, authorizeRoles('admin', 'chef
   try {
     const days = parseInt(req.query.days) || 60; // 60 días por defecto para más flexibilidad
     
-    const [events] = await pool.query(`
+    const [events] = await req.tenantDb.query(`
       SELECT 
         e.event_id,
         e.name as event_name,
@@ -502,7 +493,7 @@ router.get('/available-events', authenticateToken, authorizeRoles('admin', 'chef
 
 // POST /supplier-orders/generate - Generar pedidos desde lista de compras
 router.post('/generate', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
-  const connection = await pool.getConnection();
+  const connection = await req.tenantDb.getConnection();
   
   try {
     await connection.beginTransaction();
@@ -679,7 +670,7 @@ router.get('/active', authenticateToken, authorizeRoles('admin', 'chef'), async 
 
     const whereClause = whereConditions.join(' AND ');
 
-    const [orders] = await pool.query(`
+    const [orders] = await req.tenantDb.query(`
       SELECT 
         so.order_id,
         so.supplier_id,
@@ -791,7 +782,7 @@ router.get('/history', authenticateToken, authorizeRoles('admin', 'chef'), async
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
     // Obtener total de registros
-    const [totalResult] = await pool.query(`
+    const [totalResult] = await req.tenantDb.query(`
       SELECT COUNT(*) as total
       FROM SUPPLIER_ORDERS so
       LEFT JOIN SUPPLIERS s ON so.supplier_id = s.supplier_id
@@ -802,7 +793,7 @@ router.get('/history', authenticateToken, authorizeRoles('admin', 'chef'), async
     const totalPages = Math.ceil(totalRecords / parseInt(limit));
 
     // Obtener datos con paginación
-    const [orders] = await pool.query(`
+    const [orders] = await req.tenantDb.query(`
       SELECT 
         so.order_id,
         so.supplier_id,
@@ -833,7 +824,7 @@ router.get('/history', authenticateToken, authorizeRoles('admin', 'chef'), async
     `, [...queryParams, parseInt(limit), offset]);
 
     // Obtener estadísticas del filtro actual
-    const [statsResult] = await pool.query(`
+    const [statsResult] = await req.tenantDb.query(`
       SELECT 
         COUNT(*) as total_orders,
         SUM(so.total_amount) as total_amount,
@@ -937,7 +928,7 @@ router.get('/trends', authenticateToken, authorizeRoles('admin', 'chef'), async 
     }
 
     // Obtener tendencias de gastos por período
-    const [spendingTrends] = await pool.query(`
+    const [spendingTrends] = await req.tenantDb.query(`
       SELECT 
         DATE_FORMAT(so.order_date, ?) as period,
         COUNT(*) as total_orders,
@@ -953,7 +944,7 @@ router.get('/trends', authenticateToken, authorizeRoles('admin', 'chef'), async 
     `, [dateFormat, ...queryParams]);
 
     // Obtener tendencias por proveedor (top 5)
-    const [supplierTrends] = await pool.query(`
+    const [supplierTrends] = await req.tenantDb.query(`
       SELECT 
         COALESCE(s.name, 'Sin Proveedor Asignado') as supplier_name,
         COUNT(*) as total_orders,
@@ -970,7 +961,7 @@ router.get('/trends', authenticateToken, authorizeRoles('admin', 'chef'), async 
     `, [intervalValue, ...(supplierId && supplierId !== 'all' ? [supplierId] : [])]);
 
     // Obtener métricas de tiempo de entrega
-    const [deliveryMetrics] = await pool.query(`
+    const [deliveryMetrics] = await req.tenantDb.query(`
       SELECT 
         AVG(DATEDIFF(so.delivery_date, so.order_date)) as avg_delivery_days,
         MIN(DATEDIFF(so.delivery_date, so.order_date)) as min_delivery_days,
@@ -986,7 +977,7 @@ router.get('/trends', authenticateToken, authorizeRoles('admin', 'chef'), async 
     `, [intervalValue, ...(supplierId && supplierId !== 'all' ? [supplierId] : [])]);
 
     // Obtener distribución por estado
-    const [statusDistribution] = await pool.query(`
+    const [statusDistribution] = await req.tenantDb.query(`
       SELECT 
         so.status,
         COUNT(*) as count,
@@ -1073,7 +1064,7 @@ router.get('/export', authenticateToken, authorizeRoles('admin', 'chef'), async 
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
     // Obtener todos los datos sin paginación para export
-    const [orders] = await pool.query(`
+    const [orders] = await req.tenantDb.query(`
       SELECT 
         so.order_id as 'ID Pedido',
         COALESCE(s.name, 'Sin Proveedor Asignado') as 'Proveedor',
@@ -1158,7 +1149,7 @@ router.get('/:id', authenticateToken, authorizeRoles('admin', 'chef'), async (re
   
   try {
     // Obtener información del pedido
-    const [orders] = await pool.query(`
+    const [orders] = await req.tenantDb.query(`
       SELECT 
         so.order_id,
         so.supplier_id,
@@ -1185,7 +1176,7 @@ router.get('/:id', authenticateToken, authorizeRoles('admin', 'chef'), async (re
     }
 
     // Obtener items del pedido
-    const [items] = await pool.query(`
+    const [items] = await req.tenantDb.query(`
       SELECT 
         soi.ingredient_id,
         i.name as ingredient_name,
@@ -1221,7 +1212,7 @@ router.put('/:id/items', authenticateToken, authorizeRoles('admin', 'chef'), asy
     return res.status(400).json({ message: 'Los items son obligatorios' });
   }
 
-  const connection = await pool.getConnection();
+  const connection = await req.tenantDb.getConnection();
   
   try {
     await connection.beginTransaction();
@@ -1328,7 +1319,7 @@ router.put('/:id/status', authenticateToken, authorizeRoles('admin', 'chef'), as
 
   try {
     // Verificar que el pedido existe
-    const [existing] = await pool.query('SELECT status, supplier_id FROM SUPPLIER_ORDERS WHERE order_id = ?', [id]);
+    const [existing] = await req.tenantDb.query('SELECT status, supplier_id FROM SUPPLIER_ORDERS WHERE order_id = ?', [id]);
     if (existing.length === 0) {
       return res.status(404).json({ message: 'Pedido no encontrado' });
     }
@@ -1346,7 +1337,7 @@ router.put('/:id/status', authenticateToken, authorizeRoles('admin', 'chef'), as
 
     updateValues.push(id); // Para el WHERE
 
-    await pool.query(`
+    await req.tenantDb.query(`
       UPDATE SUPPLIER_ORDERS 
       SET ${updateFields.join(', ')}
       WHERE order_id = ?
@@ -1354,14 +1345,14 @@ router.put('/:id/status', authenticateToken, authorizeRoles('admin', 'chef'), as
 
     // Si el pedido se marca como entregado, actualizar el stock de ingredientes
     if (status === 'delivered' && oldStatus !== 'delivered') {
-      const [items] = await pool.query(`
+      const [items] = await req.tenantDb.query(`
         SELECT ingredient_id, quantity 
         FROM SUPPLIER_ORDER_ITEMS 
         WHERE order_id = ?
       `, [id]);
 
       for (const item of items) {
-        await pool.query(`
+        await req.tenantDb.query(`
           UPDATE INGREDIENTS 
           SET stock = stock + ? 
           WHERE ingredient_id = ?
@@ -1387,7 +1378,7 @@ router.put('/:id/status', authenticateToken, authorizeRoles('admin', 'chef'), as
 // DELETE /supplier-orders/:id - Eliminar/Cancelar un pedido
 router.delete('/:id', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
   const { id } = req.params;
-  const connection = await pool.getConnection();
+  const connection = await req.tenantDb.getConnection();
 
   try {
     await connection.beginTransaction();
@@ -1438,7 +1429,7 @@ router.delete('/:id', authenticateToken, authorizeRoles('admin', 'chef'), async 
 router.get('/suppliers/analysis', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
   try {
     // Primero obtener todos los proveedores que tienen pedidos
-    const [suppliersData] = await pool.query(`
+    const [suppliersData] = await req.tenantDb.query(`
       SELECT 
         s.supplier_id,
         s.name,
@@ -1485,7 +1476,7 @@ router.get('/suppliers/analysis', authenticateToken, authorizeRoles('admin', 'ch
     // Obtener información de ingredientes y calcular rating de precios por ingrediente
     const suppliersWithIngredients = await Promise.all(
       suppliersData.map(async (supplier) => {
-        const [ingredientsData] = await pool.query(`
+        const [ingredientsData] = await req.tenantDb.query(`
           SELECT 
             COUNT(DISTINCT si.ingredient_id) as ingredients_count,
             AVG(si.price) as average_ingredient_price
@@ -1494,7 +1485,7 @@ router.get('/suppliers/analysis', authenticateToken, authorizeRoles('admin', 'ch
         `, [supplier.supplier_id]);
 
         // Calcular rating de precios de forma más simple
-        const [ingredientPrices] = await pool.query(`
+        const [ingredientPrices] = await req.tenantDb.query(`
           SELECT 
             si1.ingredient_id,
             si1.price as my_price,

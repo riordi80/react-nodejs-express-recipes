@@ -6,18 +6,12 @@ const jwt = require('jsonwebtoken');
 const mysql = require('mysql2/promise');
 const authenticateToken = require('../middleware/authMiddleware');
 
-// Configura la conexión a tu base de datos
-const pool = mysql.createPool({
-  host:     process.env.DB_HOST,
-  user:     process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-});
+// Multi-tenant: usar req.tenantDb en lugar de pool estático
 
 // Función para obtener configuración de sesión
-async function getSessionConfig() {
+async function getSessionConfig(tenantDb) {
   try {
-    const [result] = await pool.execute(`
+    const [result] = await tenantDb.execute(`
       SELECT setting_key, setting_value 
       FROM SYSTEM_SETTINGS 
       WHERE setting_key IN ('session_timeout', 'session_auto_close')
@@ -48,7 +42,7 @@ router.post('/login', async (req, res) => {
   const { email, password } = req.body;
   try {
     // 1) Buscar usuario
-    const [rows] = await pool.execute(
+    const [rows] = await req.tenantDb.execute(
       'SELECT user_id, first_name, last_name, email, password_hash, role, language, timezone FROM USERS WHERE email = ?',
       [email]
     );
@@ -64,7 +58,7 @@ router.post('/login', async (req, res) => {
     }
 
     // 3) Obtener configuración de sesión
-    const sessionConfig = await getSessionConfig();
+    const sessionConfig = await getSessionConfig(req.tenantDb);
     
     // 4) Generar JWT con configuración dinámica
     const token = jwt.sign(
@@ -130,7 +124,7 @@ router.post('/login', async (req, res) => {
 router.get('/me', authenticateToken, async (req, res) => {
   try {
     // Obtener información completa del usuario
-    const [rows] = await pool.execute(
+    const [rows] = await req.tenantDb.execute(
       'SELECT user_id, first_name, last_name, email, role, language, timezone FROM USERS WHERE user_id = ?',
       [req.user.user_id]
     );
@@ -179,13 +173,13 @@ router.put('/profile', authenticateToken, async (req, res) => {
     }
 
     // Verificar si el email ya existe (solo si cambió)
-    const [currentUser] = await pool.execute(
+    const [currentUser] = await req.tenantDb.execute(
       'SELECT email FROM USERS WHERE user_id = ?',
       [req.user.user_id]
     );
 
     if (currentUser[0].email !== email) {
-      const [existingUser] = await pool.execute(
+      const [existingUser] = await req.tenantDb.execute(
         'SELECT user_id FROM USERS WHERE email = ? AND user_id != ?',
         [email, req.user.user_id]
       );
@@ -198,13 +192,13 @@ router.put('/profile', authenticateToken, async (req, res) => {
     }
 
     // Actualizar el perfil
-    await pool.execute(
+    await req.tenantDb.execute(
       'UPDATE USERS SET first_name = ?, last_name = ?, email = ?, language = ?, timezone = ? WHERE user_id = ?',
       [first_name, last_name, email, language || 'es', timezone || 'Europe/Madrid', req.user.user_id]
     );
 
     // Obtener los datos actualizados
-    const [updatedUser] = await pool.execute(
+    const [updatedUser] = await req.tenantDb.execute(
       'SELECT user_id, first_name, last_name, email, role, language, timezone FROM USERS WHERE user_id = ?',
       [req.user.user_id]
     );
@@ -241,7 +235,7 @@ router.put('/password', authenticateToken, async (req, res) => {
     }
 
     // Obtener políticas de contraseña
-    const [policyRows] = await pool.execute(`
+    const [policyRows] = await req.tenantDb.execute(`
       SELECT setting_key, setting_value 
       FROM SYSTEM_SETTINGS 
       WHERE setting_key IN ('password_min_length', 'password_require_special', 'password_require_numbers')
@@ -277,7 +271,7 @@ router.put('/password', authenticateToken, async (req, res) => {
     }
 
     // Obtener la contraseña actual del usuario
-    const [rows] = await pool.execute(
+    const [rows] = await req.tenantDb.execute(
       'SELECT password_hash FROM USERS WHERE user_id = ?',
       [req.user.user_id]
     );
@@ -297,7 +291,7 @@ router.put('/password', authenticateToken, async (req, res) => {
     const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
 
     // Actualizar contraseña
-    await pool.execute(
+    await req.tenantDb.execute(
       'UPDATE USERS SET password_hash = ? WHERE user_id = ?',
       [newPasswordHash, req.user.user_id]
     );

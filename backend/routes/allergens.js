@@ -6,18 +6,12 @@ const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
 const logAudit = require('../utils/audit');
 
-// Configura la conexión a tu base de datos
-const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-});
+// Multi-tenant: usar req.tenantDb en lugar de pool estático
 
 // GET /allergens - Obtener todos los alérgenos
 router.get('/', authenticateToken, authorizeRoles('admin', 'chef', 'waiter'), async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM ALLERGENS ORDER BY allergen_id ASC');
+    const [rows] = await req.tenantDb.query('SELECT * FROM ALLERGENS ORDER BY allergen_id ASC');
     res.json(rows);
   } catch (error) {
     console.error('Error al obtener los alérgenos:', error);
@@ -29,7 +23,7 @@ router.get('/', authenticateToken, authorizeRoles('admin', 'chef', 'waiter'), as
 router.get('/:id', authenticateToken, authorizeRoles('admin', 'chef', 'waiter'), async (req, res) => {
   const { id } = req.params;
   try {
-    const [rows] = await pool.query('SELECT * FROM ALLERGENS WHERE allergen_id = ?', [id]);
+    const [rows] = await req.tenantDb.query('SELECT * FROM ALLERGENS WHERE allergen_id = ?', [id]);
     if (rows.length === 0) {
       return res.status(404).json({ message: 'Alérgeno no encontrado' });
     }
@@ -48,7 +42,7 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'chef'), async (req,
   }
 
   try {
-    const [result] = await pool.query('INSERT INTO ALLERGENS (name) VALUES (?)', [name.trim()]);
+    const [result] = await req.tenantDb.query('INSERT INTO ALLERGENS (name) VALUES (?)', [name.trim()]);
     await logAudit(req.user.user_id, 'create', 'ALLERGENS', result.insertId, `Alérgeno "${name}" creado`);
     res.status(201).json({ message: 'Alérgeno creado correctamente', id: result.insertId });
   } catch (error) {
@@ -69,7 +63,7 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'chef'), async (re
   }
 
   try {
-    const [result] = await pool.query(
+    const [result] = await req.tenantDb.query(
       'UPDATE ALLERGENS SET name = ? WHERE allergen_id = ?',
       [name.trim(), id]
     );
@@ -91,7 +85,7 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'chef'), async (re
 router.delete('/:id', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   const { id } = req.params;
   try {
-    const [result] = await pool.query('DELETE FROM ALLERGENS WHERE allergen_id = ?', [id]);
+    const [result] = await req.tenantDb.query('DELETE FROM ALLERGENS WHERE allergen_id = ?', [id]);
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'Alérgeno no encontrado' });
     }
