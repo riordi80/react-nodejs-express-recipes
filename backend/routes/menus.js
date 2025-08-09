@@ -27,7 +27,7 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'chef'), async (req,
   const { name, menu_date } = req.body;
   const [result] = await req.tenantDb.query('INSERT INTO MENUS (name, menu_date) VALUES (?, ?)', [name, menu_date]);
 
-  await logAudit(req.user.user_id, 'create', 'MENUS', result.insertId, `Menú "${name}" creado para ${menu_date}`);
+  await logAudit(req.tenantDb, req.user.user_id, 'create', 'MENUS', result.insertId, `Menú "${name}" creado para ${menu_date}`);
   res.status(201).json({ message: 'Menú creado correctamente' });
 });
 
@@ -38,7 +38,7 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'chef'), async (re
 
   await req.tenantDb.query('UPDATE MENUS SET name = ?, menu_date = ? WHERE menu_id = ?', [name, menu_date, id]);
 
-  await logAudit(req.user.user_id, 'update', 'MENUS', id, `Menú "${name}" actualizado`);
+  await logAudit(req.tenantDb, req.user.user_id, 'update', 'MENUS', id, `Menú "${name}" actualizado`);
   res.json({ message: 'Menú actualizado correctamente' });
 });
 
@@ -49,7 +49,7 @@ router.delete('/:id', authenticateToken, authorizeRoles('admin'), async (req, re
   await req.tenantDb.query('DELETE FROM MENU_RECIPES WHERE menu_id = ?', [id]);
   await req.tenantDb.query('DELETE FROM MENUS WHERE menu_id = ?', [id]);
 
-  await logAudit(req.user.user_id, 'delete', 'MENUS', id, `Menú con ID ${id} eliminado`);
+  await logAudit(req.tenantDb, req.user.user_id, 'delete', 'MENUS', id, `Menú con ID ${id} eliminado`);
   res.json({ message: 'Menú eliminado correctamente' });
 });
 
@@ -81,7 +81,7 @@ router.post('/:id/recipes', authenticateToken, authorizeRoles('admin', 'chef'), 
 
   await req.tenantDb.query('INSERT INTO MENU_RECIPES (menu_id, recipe_id) VALUES (?, ?)', [id, recipe_id]);
 
-  await logAudit(req.user.user_id, 'create', 'MENU_RECIPES', null, `Receta ${recipe_id} asignada al menú ${id}`);
+  await logAudit(req.tenantDb, req.user.user_id, 'create', 'MENU_RECIPES', null, `Receta ${recipe_id} asignada al menú ${id}`);
   res.status(201).json({ message: 'Receta asignada al menú' });
 });
 
@@ -91,7 +91,7 @@ router.delete('/:id/recipes/:recipe_id', authenticateToken, authorizeRoles('admi
 
   await req.tenantDb.query('DELETE FROM MENU_RECIPES WHERE menu_id = ? AND recipe_id = ?', [id, recipe_id]);
 
-  await logAudit(req.user.user_id, 'delete', 'MENU_RECIPES', null, `Receta ${recipe_id} eliminada del menú ${id}`);
+  await logAudit(req.tenantDb, req.user.user_id, 'delete', 'MENU_RECIPES', null, `Receta ${recipe_id} eliminada del menú ${id}`);
   res.json({ message: 'Receta eliminada del menú' });
 });
 

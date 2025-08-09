@@ -8,7 +8,8 @@ import { useAuth } from '@/context/AuthContext'
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
-  const { user, isAuthenticated, logout } = useAuth()
+  const { user, logout } = useAuth()
+  const isAuthenticated = !!user
   const pathname = usePathname()
 
   // Navegación principal (páginas públicas)
@@ -97,7 +98,7 @@ const Header = () => {
             ) : (
               <>
                 <Link
-                  href="/login"
+                  href="/central-login"
                   className="text-gray-500 hover:text-gray-900 px-3 py-2 text-sm font-medium transition-colors"
                 >
                   Iniciar Sesión

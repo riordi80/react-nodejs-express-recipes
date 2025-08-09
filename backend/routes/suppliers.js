@@ -37,7 +37,7 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'supplier_manager'),
       [name, phone, email, website_url, address]
     );
 
-    await logAudit(req.user.user_id, 'create', 'SUPPLIERS', result.insertId, `Proveedor "${name}" creado`);
+    await logAudit(req.tenantDb, req.user.user_id, 'create', 'SUPPLIERS', result.insertId, `Proveedor "${name}" creado`);
     
     res.status(201).json({ message: 'Proveedor creado correctamente' });
   } catch (error) {
@@ -56,7 +56,7 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'supplier_manager'
     [name, phone, email, website_url, address, id]
   );
 
-  await logAudit(req.user.user_id, 'update', 'SUPPLIERS', id, `Proveedor actualizado: ${name}`);
+  await logAudit(req.tenantDb, req.user.user_id, 'update', 'SUPPLIERS', id, `Proveedor actualizado: ${name}`);
   res.json({ message: 'Proveedor actualizado' });
 });
 
@@ -66,7 +66,7 @@ router.delete('/:id', authenticateToken, authorizeRoles('admin'), async (req, re
   await req.tenantDb.query('DELETE FROM SUPPLIER_INGREDIENTS WHERE supplier_id = ?', [id]);
   await req.tenantDb.query('DELETE FROM SUPPLIERS WHERE supplier_id = ?', [id]);
 
-  await logAudit(req.user.user_id, 'delete', 'SUPPLIERS', id, `Proveedor con ID ${id} eliminado`);
+  await logAudit(req.tenantDb, req.user.user_id, 'delete', 'SUPPLIERS', id, `Proveedor con ID ${id} eliminado`);
   res.json({ message: 'Proveedor eliminado' });
 });
 
@@ -143,7 +143,7 @@ router.post('/:id/ingredients', authenticateToken, authorizeRoles('admin', 'supp
       })
     );
 
-    await logAudit(req.user.user_id, 'create', 'SUPPLIER_INGREDIENTS', null, `${ingredientsArray.length} ingrediente(s) asignado(s) al proveedor ${id}`);
+    await logAudit(req.tenantDb, req.user.user_id, 'create', 'SUPPLIER_INGREDIENTS', null, `${ingredientsArray.length} ingrediente(s) asignado(s) al proveedor ${id}`);
     res.status(201).json({ message: `${ingredientsArray.length} ingrediente(s) asignado(s) al proveedor correctamente` });
   } catch (error) {
     console.error('Error al asignar ingredientes:', error);
@@ -175,7 +175,7 @@ router.put('/:id/ingredients/:ingredient_id', authenticateToken, authorizeRoles(
       [price, delivery_time, is_preferred_supplier, package_size || 1.0, package_unit || 'unidad', minimum_order_quantity || 1.0, id, ingredient_id]
     );
 
-    await logAudit(req.user.user_id, 'update', 'SUPPLIER_INGREDIENTS', null, `Relación proveedor ${id} - ingrediente ${ingredient_id} actualizada`);
+    await logAudit(req.tenantDb, req.user.user_id, 'update', 'SUPPLIER_INGREDIENTS', null, `Relación proveedor ${id} - ingrediente ${ingredient_id} actualizada`);
     res.json({ message: 'Relación proveedor-ingrediente actualizada correctamente' });
   } catch (error) {
     console.error('Error al actualizar relación proveedor-ingrediente:', error);
@@ -203,7 +203,7 @@ router.delete('/:id/ingredients/:ingredient_id', authenticateToken, authorizeRol
       [id, ingredient_id]
     );
 
-    await logAudit(req.user.user_id, 'delete', 'SUPPLIER_INGREDIENTS', null, `Ingrediente ${ingredient_id} desvinculado del proveedor ${id}`);
+    await logAudit(req.tenantDb, req.user.user_id, 'delete', 'SUPPLIER_INGREDIENTS', null, `Ingrediente ${ingredient_id} desvinculado del proveedor ${id}`);
     res.json({ message: 'Ingrediente eliminado del proveedor' });
   } catch (error) {
     console.error('Error al eliminar relación proveedor-ingrediente:', error);

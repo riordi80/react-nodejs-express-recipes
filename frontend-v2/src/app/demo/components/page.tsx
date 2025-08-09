@@ -145,29 +145,13 @@ export default function ComponentsDemoPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-2">
-              <ChefHat className="h-8 w-8 text-orange-600" />
-              <h1 className="text-xl font-bold text-gray-900">
-                Demostración de Componentes UI
-              </h1>
-            </div>
-            <div className="text-sm text-gray-500">
-              RecetasAPI v2.0
-            </div>
-          </div>
-        </div>
-      </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Introducción */}
         <div className="text-center mb-12">
-          <h2 className="text-3xl font-bold text-gray-900 mb-4">
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">
             Sistema de Componentes Reutilizables
-          </h2>
+          </h1>
           <p className="text-lg text-gray-600 max-w-3xl mx-auto">
             Esta página demuestra todos los componentes UI disponibles en el sistema, 
             diseñados para mantener consistencia visual y mejorar la experiencia de desarrollo.

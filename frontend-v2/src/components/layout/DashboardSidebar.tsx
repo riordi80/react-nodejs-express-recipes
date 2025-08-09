@@ -60,7 +60,7 @@ const navigation = [
 const bottomNavigation = [
   { name: 'Demo Componentes', href: '/demo/components', icon: Palette },
   { name: 'Configuración', href: '/settings', icon: Settings },
-  { name: 'Ayuda', href: '/dashboard/help', icon: HelpCircle },
+  { name: 'Ayuda', href: '/docs', icon: HelpCircle },
 ]
 
 export default function DashboardSidebar() {

@@ -53,8 +53,11 @@ router.post('/find-tenant', async (req, res) => {
   const { email } = req.body;
   
   try {
+    console.log('🔍 Find-tenant request for email:', email);
+    
     // Validar que se proporcione email
     if (!email || email.trim() === '') {
+      console.log('❌ Email not provided');
       return res.status(400).json({ 
         message: 'Email is required',
         code: 'EMAIL_REQUIRED' 
@@ -62,6 +65,7 @@ router.post('/find-tenant', async (req, res) => {
     }
 
     // Buscar usuario en la base de datos master
+    console.log('🔍 Searching in master database for:', email.toLowerCase().trim());
     const [rows] = await masterPool.execute(
       `SELECT mu.tenant_id, mu.email, t.subdomain, t.business_name, t.is_active, t.subscription_status
        FROM MASTER_USERS mu
@@ -69,6 +73,8 @@ router.post('/find-tenant', async (req, res) => {
        WHERE mu.email = ? AND mu.is_active = TRUE`,
       [email.toLowerCase().trim()]
     );
+    
+    console.log('🔍 Master DB query result:', rows.length > 0 ? 'User found' : 'User not found');
 
     if (rows.length === 0) {
       return res.status(404).json({
@@ -128,6 +134,18 @@ router.post('/find-tenant', async (req, res) => {
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
   try {
+    console.log('🔍 Login attempt - tenant:', req.tenant?.subdomain, 'email:', email);
+    console.log('🔍 Login attempt - tenantDb exists:', !!req.tenantDb);
+    
+    // El login requiere tenant (solo funciona en subdominios)
+    if (!req.tenantDb || !req.tenant) {
+      console.error('❌ req.tenantDb or req.tenant is undefined');
+      return res.status(400).json({ 
+        message: 'Este endpoint requiere acceso desde un subdominio de tenant',
+        code: 'TENANT_REQUIRED'
+      });
+    }
+    
     // 1) Buscar usuario
     const [rows] = await req.tenantDb.execute(
       'SELECT user_id, first_name, last_name, email, password_hash, role, language, timezone FROM USERS WHERE email = ?',
@@ -210,6 +228,14 @@ router.post('/login', async (req, res) => {
 // GET /me — Verificar sesión activa
 router.get('/me', authenticateToken, async (req, res) => {
   try {
+    // Verificar que existe tenantDb (requerido para /me)
+    if (!req.tenantDb || !req.tenant) {
+      return res.status(400).json({ 
+        message: 'Este endpoint requiere acceso desde un subdominio de tenant',
+        code: 'TENANT_REQUIRED'
+      });
+    }
+    
     // Obtener información completa del usuario
     const [rows] = await req.tenantDb.execute(
       'SELECT user_id, first_name, last_name, email, role, language, timezone FROM USERS WHERE user_id = ?',

@@ -1,13 +1,14 @@
 'use client'
 
-import React from 'react'
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'  
+import React, { Suspense } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'  
 import { useAuth } from '@/context/AuthContext'
 import { Eye, EyeOff, Mail, Lock, ChefHat, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 
-export default function LoginPage() {
+// Componente que maneja los search params
+function LoginFormWithParams() {
   const [formData, setFormData] = useState({
     username: '',
     password: '',
@@ -16,9 +17,12 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [emailFromParam, setEmailFromParam] = useState(false)
+  const passwordInputRef = useRef<HTMLInputElement>(null)
 
   const { user, login } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   // Si ya está autenticado, redirigir al dashboard
   useEffect(() => {
@@ -26,6 +30,25 @@ export default function LoginPage() {
       router.push('/dashboard')
     }
   }, [user, router])
+
+  // Precargar email desde query parameters y hacer focus en contraseña
+  useEffect(() => {
+    const emailParam = searchParams.get('email')
+    if (emailParam) {
+      setFormData(prev => ({
+        ...prev,
+        username: emailParam
+      }))
+      setEmailFromParam(true)
+      
+      // Hacer focus en el campo contraseña después de un pequeño delay
+      setTimeout(() => {
+        passwordInputRef.current?.focus()
+      }, 100)
+    } else {
+      setEmailFromParam(false)
+    }
+  }, [searchParams])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -107,6 +130,7 @@ export default function LoginPage() {
               </label>
               <div className="relative">
                 <input
+                  ref={passwordInputRef}
                   id="password"
                   name="password"
                   type={showPassword ? 'text' : 'password'}
@@ -185,5 +209,18 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+// Componente principal con Suspense boundary
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-2 border-orange-600 border-t-transparent"></div>
+      </div>
+    }>
+      <LoginFormWithParams />
+    </Suspense>
   )
 }

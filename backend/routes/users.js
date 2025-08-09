@@ -32,7 +32,7 @@ router.post('/', authenticateToken, authorizeRoles('admin'), async (req, res) =>
     [first_name, last_name, email, role, password_hash, is_active]
   );
 
-  await logAudit(req.user.user_id, 'create', 'USERS', result.insertId, `Usuario "${email}" creado`);
+  await logAudit(req.tenantDb, req.user.user_id, 'create', 'USERS', result.insertId, `Usuario "${email}" creado`);
   res.status(201).json({ message: 'Usuario creado correctamente' });
 });
 
@@ -46,7 +46,7 @@ router.put('/:id', authenticateToken, authorizeRoles('admin'), async (req, res) 
     [first_name, last_name, email, role, is_active, id]
   );
 
-  await logAudit(req.user.user_id, 'update', 'USERS', id, `Usuario "${email}" actualizado`);
+  await logAudit(req.tenantDb, req.user.user_id, 'update', 'USERS', id, `Usuario "${email}" actualizado`);
   res.json({ message: 'Usuario actualizado' });
 });
 
@@ -56,7 +56,7 @@ router.delete('/:id', authenticateToken, authorizeRoles('admin'), async (req, re
 
   await req.tenantDb.query('DELETE FROM USERS WHERE user_id = ?', [id]);
 
-  await logAudit(req.user.user_id, 'delete', 'USERS', id, `Usuario con ID ${id} eliminado`);
+  await logAudit(req.tenantDb, req.user.user_id, 'delete', 'USERS', id, `Usuario con ID ${id} eliminado`);
   res.json({ message: 'Usuario eliminado' });
 });
 

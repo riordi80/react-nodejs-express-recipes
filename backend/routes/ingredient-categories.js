@@ -43,7 +43,7 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'chef'), async (req,
 
   try {
     const [result] = await req.tenantDb.query('INSERT INTO INGREDIENT_CATEGORIES (name) VALUES (?)', [name.trim()]);
-    await logAudit(req.user.user_id, 'create', 'INGREDIENT_CATEGORIES', result.insertId, `Categoría de ingrediente "${name}" creada`);
+    await logAudit(req.tenantDb, req.user.user_id, 'create', 'INGREDIENT_CATEGORIES', result.insertId, `Categoría de ingrediente "${name}" creada`);
     res.status(201).json({ message: 'Categoría de ingrediente creada correctamente', id: result.insertId });
   } catch (error) {
     console.error('Error al crear la categoría de ingrediente:', error);
@@ -70,7 +70,7 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'chef'), async (re
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'Categoría de ingrediente no encontrada' });
     }
-    await logAudit(req.user.user_id, 'update', 'INGREDIENT_CATEGORIES', parseInt(id, 10), `Categoría de ingrediente con ID ${id} actualizada`);
+    await logAudit(req.tenantDb, req.user.user_id, 'update', 'INGREDIENT_CATEGORIES', parseInt(id, 10), `Categoría de ingrediente con ID ${id} actualizada`);
     res.json({ message: 'Categoría de ingrediente actualizada correctamente' });
   } catch (error) {
     console.error('Error al actualizar la categoría de ingrediente:', error);
@@ -89,7 +89,7 @@ router.delete('/:id', authenticateToken, authorizeRoles('admin'), async (req, re
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'Categoría de ingrediente no encontrada' });
     }
-    await logAudit(req.user.user_id, 'delete', 'INGREDIENT_CATEGORIES', parseInt(id, 10), `Categoría de ingrediente con ID ${id} eliminada`);
+    await logAudit(req.tenantDb, req.user.user_id, 'delete', 'INGREDIENT_CATEGORIES', parseInt(id, 10), `Categoría de ingrediente con ID ${id} eliminada`);
     res.json({ message: 'Categoría de ingrediente eliminada correctamente' });
   } catch (error) {
     console.error('Error al eliminar la categoría de ingrediente:', error);

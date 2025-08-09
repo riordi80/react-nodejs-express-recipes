@@ -68,6 +68,7 @@ router.post(
         [name.trim()]
       );
       await logAudit(
+        req.tenantDb,
         req.user.user_id,
         'create',
         'RECIPE_CATEGORIES',
@@ -108,6 +109,7 @@ router.put(
         return res.status(404).json({ message: 'Categoría no encontrada' });
       }
       await logAudit(
+        req.tenantDb,
         req.user.user_id,
         'update',
         'RECIPE_CATEGORIES',
@@ -141,6 +143,7 @@ router.delete(
         return res.status(404).json({ message: 'Categoría no encontrada' });
       }
       await logAudit(
+        req.tenantDb,
         req.user.user_id,
         'delete',
         'RECIPE_CATEGORIES',

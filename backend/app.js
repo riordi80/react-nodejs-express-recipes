@@ -10,6 +10,7 @@ const path = require('path');
 
 const authenticateToken = require('./middleware/authMiddleware');
 const refreshCookie     = require('./middleware/refreshCookie');
+const { resolveTenant, attachTenantDatabase } = require('./middleware/tenant');
 const backupManager     = require('./utils/backupManager');
 
 const app = express();
@@ -18,24 +19,39 @@ const app = express();
 const PORT          = process.env.PORT || 4000;
 const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || 'http://localhost:5173';
 const BACKEND_URL = process.env.BACKEND_URL || `http://localhost`;
+const TENANT_BASE_URL = process.env.TENANT_BASE_URL || 'localhost';
+const MAIN_DOMAIN = process.env.MAIN_DOMAIN || 'localhost';
+const PROTOCOL = process.env.PROTOCOL || 'http';
 
 
-// 1) CORS y credenciales - origen específico según configuración
+// 1) CORS y credenciales - multi-tenant con soporte para subdominios
 app.use(cors({
   origin: function (origin, callback) {
     // Permitir requests sin origen (ej: mobile apps, Postman)
     if (!origin) return callback(null, true);
     
-    // Para Cloudflare, también permitir orígenes que empiecen con https://dev.ordidev.com
-    const isCloudflare = process.env.USE_CLOUDFLARE === 'true';
-    if (isCloudflare && origin && origin.startsWith('https://dev.ordidev.com')) {
-      return callback(null, true);
-    }
+    // Para multi-tenant: permitir cualquier subdominio del dominio base
+    const allowedDomains = [
+      CLIENT_ORIGIN, // Dominio principal configurado
+      new RegExp(`^${PROTOCOL}:\\/\\/[a-z0-9-]+\\.${TENANT_BASE_URL.replace('.', '\\.')}$`), // Cualquier subdominio tenant
+      /^http:\/\/[a-z0-9-]+\.localhost:5173$/, // Desarrollo local con subdominios
+      /^http:\/\/localhost:3000$/, // Desarrollo local Next.js
+      /^http:\/\/localhost:5173$/, // Desarrollo local Vite
+    ];
     
-    if (origin === CLIENT_ORIGIN) {
+    // Verificar si el origen coincide con algún patrón permitido
+    const isAllowed = allowedDomains.some(domain => {
+      if (typeof domain === 'string') {
+        return origin === domain;
+      } else {
+        return domain.test(origin);
+      }
+    });
+    
+    if (isAllowed) {
       callback(null, true);
     } else {
-      callback(new Error(`No permitido por CORS. Origen: ${origin}, Esperado: ${CLIENT_ORIGIN}`));
+      callback(new Error(`No permitido por CORS. Origen: ${origin}`));
     }
   },
   credentials: true,
@@ -53,12 +69,43 @@ const swaggerDocument = YAML.load(
 );
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
-// 4a) Rutas de auth (login, me, logout) — no renovamos la cookie aquí
+// 4a) Middleware condicional para tenant - solo para subdominios
+app.use('/api', (req, res, next) => {
+  const hostname = req.get('host') || req.hostname;
+  const cleanHostname = hostname.split(':')[0];
+  
+  // Si es el dominio principal, saltar tenant middleware para permitir /find-tenant
+  if (cleanHostname === MAIN_DOMAIN) {
+    return next();
+  }
+  
+  // Para subdominios, aplicar tenant middleware
+  resolveTenant(req, res, (err) => {
+    if (err) return next(err);
+    attachTenantDatabase(req, res, next);
+  });
+});
+
+// 4b) Rutas de auth públicas (login, find-tenant, logout) — NO requieren autenticación
 const authRoutes = require('./routes/auth');
 app.use('/api', authRoutes);
 
-// 4b) Middleware global: autenticar y luego renovar cookie
-app.use('/api', authenticateToken, refreshCookie);
+// 4c) Middleware de autenticación condicional - excluir rutas públicas
+app.use('/api', (req, res, next) => {
+  // Rutas públicas que NO requieren autenticación
+  const publicPaths = ['/find-tenant', '/login', '/logout'];
+  const isPublicPath = publicPaths.some(path => req.path === path);
+  
+  if (isPublicPath) {
+    return next(); // Saltar autenticación
+  }
+  
+  // Para el resto de rutas, aplicar autenticación
+  authenticateToken(req, res, (err) => {
+    if (err) return next(err);
+    refreshCookie(req, res, next);
+  });
+});
 
 // 4c) Resto de routers ya protegidos y con sesión rolling
 app.use('/api/users',          require('./routes/users'));

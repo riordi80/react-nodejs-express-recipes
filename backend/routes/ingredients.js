@@ -251,9 +251,20 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'chef'), async (req,
   } = req.body;
 
   // Convertir fecha ISO a formato MySQL DATE (YYYY-MM-DD)
-  let mysql_expiration_date = expiration_date;
-  if (expiration_date && expiration_date.includes('T')) {
-    mysql_expiration_date = expiration_date.split('T')[0];
+  let mysql_expiration_date = null;
+  if (expiration_date) {
+    if (typeof expiration_date === 'string') {
+      if (expiration_date.includes('T')) {
+        // Formato ISO: "2025-07-16T23:00:00.000Z" -> "2025-07-16"
+        mysql_expiration_date = expiration_date.split('T')[0];
+      } else if (expiration_date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        // Ya está en formato MySQL: "2025-07-16"
+        mysql_expiration_date = expiration_date;
+      }
+    } else if (expiration_date instanceof Date) {
+      // Es un objeto Date
+      mysql_expiration_date = expiration_date.toISOString().split('T')[0];
+    }
   }
 
   const [result] = await req.tenantDb.query(`
@@ -263,7 +274,7 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'chef'), async (req,
     [name, unit, base_price, waste_percent, net_price, stock, stock_minimum, season, mysql_expiration_date, is_available, comment]
   );
 
-  await logAudit(req.user.user_id, 'create', 'INGREDIENTS', result.insertId, `Ingrediente "${name}" creado`);
+  await logAudit(req.tenantDb, req.user.user_id, 'create', 'INGREDIENTS', result.insertId, `Ingrediente "${name}" creado`);
   res.status(201).json({ 
     message: 'Ingrediente creado correctamente', 
     ingredient_id: result.insertId 
@@ -285,9 +296,20 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'chef'), async (re
     } = req.body;
 
     // Convertir fecha ISO a formato MySQL DATE (YYYY-MM-DD)
-    let mysql_expiration_date = expiration_date;
-    if (expiration_date && typeof expiration_date === 'string' && expiration_date.includes('T')) {
-      mysql_expiration_date = expiration_date.split('T')[0];
+    let mysql_expiration_date = null;
+    if (expiration_date) {
+      if (typeof expiration_date === 'string') {
+        if (expiration_date.includes('T')) {
+          // Formato ISO: "2025-07-16T23:00:00.000Z" -> "2025-07-16"
+          mysql_expiration_date = expiration_date.split('T')[0];
+        } else if (expiration_date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          // Ya está en formato MySQL: "2025-07-16"
+          mysql_expiration_date = expiration_date;
+        }
+      } else if (expiration_date instanceof Date) {
+        // Es un objeto Date
+        mysql_expiration_date = expiration_date.toISOString().split('T')[0];
+      }
     }
 
     // Procesar season para permitir múltiples temporadas
@@ -336,7 +358,7 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'chef'), async (re
     }
 
     await connection.commit();
-    await logAudit(req.user.user_id, 'UPDATE', 'INGREDIENTS', req.params.id, `Ingrediente "${name}" actualizado`);
+    await logAudit(req.tenantDb, req.user.user_id, 'UPDATE', 'INGREDIENTS', req.params.id, `Ingrediente "${name}" actualizado`);
     
     res.json({ message: 'Ingrediente actualizado' });
   } catch (error) {
@@ -377,7 +399,7 @@ router.post('/:id/allergens', authenticateToken, authorizeRoles('admin', 'chef')
     await connection.commit();
     
     try {
-      await logAudit(req.user.user_id, 'update', 'INGREDIENT_ALLERGENS', ingredient_id, `Alérgenos actualizados para ingrediente ${ingredient_id}`);
+      await logAudit(req.tenantDb, req.user.user_id, 'update', 'INGREDIENT_ALLERGENS', ingredient_id, `Alérgenos actualizados para ingrediente ${ingredient_id}`);
     } catch (auditError) {
       console.error('Error en auditoría (no crítico):', auditError);
     }
@@ -399,7 +421,7 @@ router.delete('/:id/allergens/:allergen_id', authenticateToken, authorizeRoles('
 
     await req.tenantDb.query('DELETE FROM INGREDIENT_ALLERGENS WHERE ingredient_id = ? AND allergen_id = ?', [id, allergen_id]);
 
-    await logAudit(req.user.user_id, 'DELETE', 'INGREDIENT_ALLERGENS', id, `Alérgeno ${allergen_id} eliminado del ingrediente ${id}`);
+    await logAudit(req.tenantDb, req.user.user_id, 'DELETE', 'INGREDIENT_ALLERGENS', id, `Alérgeno ${allergen_id} eliminado del ingrediente ${id}`);
     res.json({ message: 'Alérgeno eliminado correctamente' });
   } catch (error) {
     console.error('Error al eliminar alérgeno:', error);
@@ -421,7 +443,7 @@ router.delete('/:id', authenticateToken, authorizeRoles('admin'), async (req, re
     // Soft delete: marcar como no disponible
     await req.tenantDb.query('UPDATE INGREDIENTS SET is_available = FALSE WHERE ingredient_id = ?', [id]);
 
-    await logAudit(req.user.user_id, 'update', 'INGREDIENTS', id, `Ingrediente "${ingredient[0].name}" desactivado (soft delete)`);
+    await logAudit(req.tenantDb, req.user.user_id, 'update', 'INGREDIENTS', id, `Ingrediente "${ingredient[0].name}" desactivado (soft delete)`);
     res.json({ message: 'Ingrediente desactivado correctamente' });
   } catch (error) {
     console.error('Error al desactivar ingrediente:', error);
@@ -443,7 +465,7 @@ router.put('/:id/activate', authenticateToken, authorizeRoles('admin'), async (r
     // Reactivar: marcar como disponible
     await req.tenantDb.query('UPDATE INGREDIENTS SET is_available = TRUE WHERE ingredient_id = ?', [id]);
 
-    await logAudit(req.user.user_id, 'update', 'INGREDIENTS', id, `Ingrediente "${ingredient[0].name}" reactivado`);
+    await logAudit(req.tenantDb, req.user.user_id, 'update', 'INGREDIENTS', id, `Ingrediente "${ingredient[0].name}" reactivado`);
     res.json({ message: 'Ingrediente reactivado correctamente' });
   } catch (error) {
     console.error('Error al reactivar ingrediente:', error);
@@ -526,7 +548,7 @@ router.post('/:id/suppliers', authenticateToken, authorizeRoles('admin', 'chef')
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `, [id, supplier_id, price, delivery_time, is_preferred_supplier, package_size, package_unit, minimum_order_quantity]);
 
-    await logAudit(req.user.user_id, 'create', 'SUPPLIER_INGREDIENTS', null, 
+    await logAudit(req.tenantDb, req.user.user_id, 'create', 'SUPPLIER_INGREDIENTS', null, 
       `Proveedor "${supplier[0].name}" añadido al ingrediente "${ingredient[0].name}"`);
 
     res.status(201).json({ message: 'Proveedor añadido correctamente' });
@@ -606,7 +628,7 @@ router.put('/:id/suppliers/:supplier_id', authenticateToken, authorizeRoles('adm
       values
     );
 
-    await logAudit(req.user.user_id, 'update', 'SUPPLIER_INGREDIENTS', null, 
+    await logAudit(req.tenantDb, req.user.user_id, 'update', 'SUPPLIER_INGREDIENTS', null, 
       `Relación ingrediente-proveedor actualizada: ingrediente ${id}, proveedor ${supplier_id}`);
 
     res.json({ message: 'Relación actualizada correctamente' });
@@ -636,7 +658,7 @@ router.delete('/:id/suppliers/:supplier_id', authenticateToken, authorizeRoles('
       [id, supplier_id]
     );
 
-    await logAudit(req.user.user_id, 'delete', 'SUPPLIER_INGREDIENTS', null, 
+    await logAudit(req.tenantDb, req.user.user_id, 'delete', 'SUPPLIER_INGREDIENTS', null, 
       `Proveedor eliminado del ingrediente: ingrediente ${id}, proveedor ${supplier_id}`);
 
     res.json({ message: 'Proveedor eliminado correctamente' });

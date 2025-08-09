@@ -22,6 +22,8 @@ export default function CentralLoginPage() {
     business_name: string
     login_url: string
   } | null>(null)
+  const [countdown, setCountdown] = useState(0)
+  const [isRedirecting, setIsRedirecting] = useState(false)
 
   // Cargar configuración runtime al montar el componente
   useEffect(() => {
@@ -44,6 +46,31 @@ export default function CentralLoginPage() {
     loadConfig()
   }, [])
 
+  // Auto-redirect countdown cuando se encuentra el tenant
+  useEffect(() => {
+    if (tenantInfo && !isRedirecting) {
+      setCountdown(3)
+      setIsRedirecting(true)
+    }
+  }, [tenantInfo, isRedirecting])
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout
+    
+    if (countdown > 0 && isRedirecting) {
+      timer = setTimeout(() => {
+        setCountdown(countdown - 1)
+      }, 1000)
+    } else if (countdown === 0 && isRedirecting && tenantInfo) {
+      // Redirigir automáticamente
+      handleRedirect()
+    }
+
+    return () => {
+      if (timer) clearTimeout(timer)
+    }
+  }, [countdown, isRedirecting, tenantInfo])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -64,7 +91,7 @@ export default function CentralLoginPage() {
 
     try {
       // Usar la configuración runtime cargada dinámicamente
-      const response = await fetch(`${config.apiBaseUrl}/auth/find-tenant`, {
+      const response = await fetch(`${config.apiBaseUrl}/find-tenant`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -106,7 +133,10 @@ export default function CentralLoginPage() {
 
   const handleRedirect = () => {
     if (tenantInfo?.login_url) {
-      window.location.href = tenantInfo.login_url
+      // Agregar el email como parámetro de query
+      const url = new URL(tenantInfo.login_url)
+      url.searchParams.set('email', email.trim())
+      window.location.href = url.toString()
     }
   }
 
@@ -114,10 +144,17 @@ export default function CentralLoginPage() {
     setEmail('')
     setError('')
     setTenantInfo(null)
+    setCountdown(0)
+    setIsRedirecting(false)
+  }
+
+  const handleCancelRedirect = () => {
+    setCountdown(0)
+    setIsRedirecting(false)
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center py-6 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
@@ -146,8 +183,8 @@ export default function CentralLoginPage() {
                   <input
                     id="email"
                     name="email"
-                    type="email"
-                    autoComplete="email"
+                    type="text"
+                    autoComplete="off"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -181,7 +218,7 @@ export default function CentralLoginPage() {
               </button>
             </form>
           ) : (
-            // Step 2: Tenant Found - Redirect
+            // Step 2: Tenant Found - Auto-redirect with countdown
             <div className="text-center space-y-6">
               <div className="flex items-center justify-center">
                 <div className="bg-green-100 rounded-full p-3">
@@ -193,41 +230,55 @@ export default function CentralLoginPage() {
                 <h3 className="text-lg font-semibold text-gray-900">
                   ¡Restaurante encontrado!
                 </h3>
-                <p className="text-sm text-gray-600 mt-2">
-                  Se te redirigirá al sistema de <span className="font-medium">{tenantInfo.business_name}</span>
-                </p>
               </div>
 
               <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div className="text-left">
-                    <p className="text-sm font-medium text-orange-900">
-                      {tenantInfo.business_name}
-                    </p>
-                    <p className="text-xs text-orange-700">
-                      {new URL(tenantInfo.login_url).hostname}
-                    </p>
-                  </div>
-                  <ExternalLink className="h-4 w-4 text-orange-600" />
+                <div className="text-center">
+                  <p className="text-sm font-medium text-orange-900">
+                    {tenantInfo.business_name}
+                  </p>
+                  <p className="text-xs text-orange-700">
+                    {new URL(tenantInfo.login_url).hostname}
+                  </p>
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <button
-                  onClick={handleRedirect}
-                  className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors"
-                >
-                  Continuar al Login
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </button>
-                
-                <button
-                  onClick={handleStartOver}
-                  className="w-full py-2 px-4 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors"
-                >
-                  Usar otro email
-                </button>
-              </div>
+              {isRedirecting ? (
+                // Countdown and auto-redirect
+                <div className="space-y-4">
+                  <div className="flex items-center justify-center space-x-3">
+                    <div className="animate-spin rounded-full h-6 w-6 border-2 border-orange-600 border-t-transparent"></div>
+                    <p className="text-sm text-gray-600">
+                      Redirigiendo en <span className="font-bold text-orange-600 text-lg">{countdown}</span> segundos...
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={handleCancelRedirect}
+                    className="text-sm text-gray-500 hover:text-gray-700 underline transition-colors"
+                  >
+                    Cancelar redirección
+                  </button>
+                </div>
+              ) : (
+                // Manual redirect buttons (fallback)
+                <div className="space-y-3">
+                  <button
+                    onClick={handleRedirect}
+                    className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors"
+                  >
+                    Continuar al Login
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </button>
+                  
+                  <button
+                    onClick={handleStartOver}
+                    className="w-full py-2 px-4 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors"
+                  >
+                    Usar otro email
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -579,8 +579,8 @@ router.post('/generate', authenticateToken, authorizeRoles('admin', 'chef'), asy
       }
 
       // Registrar auditoría
-      await logAudit(req.user.user_id, 'CREATE', 'SUPPLIER_ORDERS', orderId, 
-        `Pedido creado para ${supplierName} - Total: €${supplierTotal}`, connection);
+      await logAudit(req.tenantDb, req.user.user_id, 'CREATE', 'SUPPLIER_ORDERS', orderId, 
+        `Pedido creado para ${supplierName} - Total: €${supplierTotal}`);
 
       createdOrders.push({
         orderId,
@@ -1287,8 +1287,8 @@ router.put('/:id/items', authenticateToken, authorizeRoles('admin', 'chef'), asy
 
     // Registrar auditoría
     const priceUpdatesCount = supplierId ? items.length : 0;
-    await logAudit(req.user.user_id, 'UPDATE', 'SUPPLIER_ORDER_ITEMS', id, 
-      `Items del pedido actualizados - Nuevo total: €${newTotal[0].new_total || 0} - ${items.length} precios base actualizados${priceUpdatesCount > 0 ? ` - ${priceUpdatesCount} precios de relación proveedor-ingrediente actualizados` : ''}`, connection);
+    await logAudit(req.tenantDb, req.user.user_id, 'UPDATE', 'SUPPLIER_ORDER_ITEMS', id, 
+      `Items del pedido actualizados - Nuevo total: €${newTotal[0].new_total || 0} - ${items.length} precios base actualizados${priceUpdatesCount > 0 ? ` - ${priceUpdatesCount} precios de relación proveedor-ingrediente actualizados` : ''}`);
 
     await connection.commit();
 
@@ -1362,7 +1362,7 @@ router.put('/:id/status', authenticateToken, authorizeRoles('admin', 'chef'), as
     }
 
     // Registrar auditoría
-    await logAudit(req.user.user_id, 'UPDATE', 'SUPPLIER_ORDERS', id, 
+    await logAudit(req.tenantDb, req.user.user_id, 'UPDATE', 'SUPPLIER_ORDERS', id, 
       `Estado cambiado de ${oldStatus} a ${status}`);
 
     res.json({ 
@@ -1406,8 +1406,8 @@ router.delete('/:id', authenticateToken, authorizeRoles('admin', 'chef'), async 
     await connection.query('DELETE FROM SUPPLIER_ORDERS WHERE order_id = ?', [id]);
 
     // Registrar auditoría
-    await logAudit(req.user.user_id, 'DELETE', 'SUPPLIER_ORDERS', id, 
-      'Pedido eliminado', connection);
+    await logAudit(req.tenantDb, req.user.user_id, 'DELETE', 'SUPPLIER_ORDERS', id, 
+      'Pedido eliminado');
 
     await connection.commit();
 

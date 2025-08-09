@@ -23,6 +23,10 @@ fi
 VPS_PATH="/var/www/recetasAPI"
 LOCAL_PROJECT_PATH="$(pwd)"
 
+# Configuración SSH ControlMaster para reutilizar conexión
+SSH_CONTROL_PATH="/tmp/ssh_control_${VPS_USER}_${VPS_IP}"
+SSH_OPTS="-o ControlMaster=auto -o ControlPath=${SSH_CONTROL_PATH} -o ControlPersist=300"
+
 # Colores para output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -48,16 +52,16 @@ show_error() {
     exit 1
 }
 
-# Función para ejecutar comandos en VPS
+# Función para ejecutar comandos en VPS (con ControlMaster)
 run_vps_command() {
-    ssh $VPS_USER@$VPS_IP "$1"
+    ssh $SSH_OPTS $VPS_USER@$VPS_IP "$1"
 }
 
-# Verificar conectividad
+# Verificar conectividad y establecer master connection
 check_vps_connection() {
     show_message "Verificando conexión con VPS..."
-    if ssh -o ConnectTimeout=5 $VPS_USER@$VPS_IP "echo 'Conexión exitosa'" >/dev/null 2>&1; then
-        show_success "Conexión VPS establecida"
+    if ssh $SSH_OPTS -o ConnectTimeout=5 $VPS_USER@$VPS_IP "echo 'Conexión exitosa'" >/dev/null 2>&1; then
+        show_success "Conexión VPS establecida (master session iniciada)"
     else
         show_error "No se pudo conectar al VPS. Verifica la conexión SSH"
     fi
@@ -86,8 +90,9 @@ setup_local_env() {
 deploy_backend() {
     show_message "Desplegando Backend..."
     
-    # Excluir archivos innecesarios
+    # Excluir archivos innecesarios (usando SSH ControlMaster)
     rsync -avz --progress \
+        -e "ssh $SSH_OPTS" \
         --exclude 'node_modules/' \
         --exclude '.env.local' \
         --exclude '.env.cloudflare' \
@@ -104,20 +109,22 @@ deploy_backend() {
 
 # Función para desplegar frontend
 deploy_frontend() {
-    show_message "Desplegando Frontend..."
+    show_message "Desplegando Frontend (Multi-tenant)..."
     
-    # Excluir archivos innecesarios
+    # Incluir plantillas de configuración para multi-tenant (usando SSH ControlMaster)
     rsync -avz --progress \
+        -e "ssh $SSH_OPTS" \
         --exclude 'node_modules/' \
         --exclude '.next/' \
         --exclude '.env.local' \
-        --exclude '.env.cloudflare' \
-        --exclude '.env.production' \
-        --exclude '.env.vps' \
+        --include '*.template' \
+        --include '.env.*' \
+        --include 'config.json.*' \
         ./frontend-v2/ $VPS_USER@$VPS_IP:$VPS_PATH/frontend/
     
     if [ $? -eq 0 ]; then
-        show_success "Frontend subido exitosamente"
+        show_success "Frontend multi-tenant subido exitosamente"
+        show_message "✅ Plantillas de configuración incluidas"
     else
         show_error "Error al subir frontend"
     fi
@@ -213,11 +220,24 @@ show_help() {
     echo ""
 }
 
+# Función para limpiar conexiones SSH
+cleanup_ssh() {
+    show_message "Cerrando conexión SSH master..."
+    ssh -O exit $SSH_OPTS $VPS_USER@$VPS_IP 2>/dev/null
+    if [ -S "$SSH_CONTROL_PATH" ]; then
+        rm -f "$SSH_CONTROL_PATH"
+    fi
+    show_success "Conexión SSH cerrada"
+}
+
 # Función principal
 main() {
     echo ""
     echo "🚀 ===== DESPLIEGUE VPS RECETASAPI ====="
     echo ""
+    
+    # Trap para limpiar conexiones al salir
+    trap cleanup_ssh EXIT
     
     # Verificar argumentos
     case "${1:-full}" in
@@ -228,17 +248,14 @@ main() {
         "logs")
             check_vps_connection
             show_logs
-            exit 0
             ;;
         "status")
             check_vps_connection
             run_vps_command "pm2 status"
-            exit 0
             ;;
         "test")
             check_vps_connection
             test_deployment
-            exit 0
             ;;
         "backend")
             check_vps_connection

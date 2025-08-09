@@ -43,7 +43,7 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'chef'), async (req,
 
   try {
     const [result] = await req.tenantDb.query('INSERT INTO ALLERGENS (name) VALUES (?)', [name.trim()]);
-    await logAudit(req.user.user_id, 'create', 'ALLERGENS', result.insertId, `Alérgeno "${name}" creado`);
+    await logAudit(req.tenantDb, req.user.user_id, 'create', 'ALLERGENS', result.insertId, `Alérgeno "${name}" creado`);
     res.status(201).json({ message: 'Alérgeno creado correctamente', id: result.insertId });
   } catch (error) {
     console.error('Error al crear el alérgeno:', error);
@@ -70,7 +70,7 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'chef'), async (re
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'Alérgeno no encontrado' });
     }
-    await logAudit(req.user.user_id, 'update', 'ALLERGENS', parseInt(id, 10), `Alérgeno con ID ${id} actualizado`);
+    await logAudit(req.tenantDb, req.user.user_id, 'update', 'ALLERGENS', parseInt(id, 10), `Alérgeno con ID ${id} actualizado`);
     res.json({ message: 'Alérgeno actualizado correctamente' });
   } catch (error) {
     console.error('Error al actualizar el alérgeno:', error);
@@ -89,7 +89,7 @@ router.delete('/:id', authenticateToken, authorizeRoles('admin'), async (req, re
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'Alérgeno no encontrado' });
     }
-    await logAudit(req.user.user_id, 'delete', 'ALLERGENS', parseInt(id, 10), `Alérgeno con ID ${id} eliminado`);
+    await logAudit(req.tenantDb, req.user.user_id, 'delete', 'ALLERGENS', parseInt(id, 10), `Alérgeno con ID ${id} eliminado`);
     res.json({ message: 'Alérgeno eliminado correctamente' });
   } catch (error) {
     console.error('Error al eliminar el alérgeno:', error);

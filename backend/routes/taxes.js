@@ -31,7 +31,7 @@ router.post('/', authenticateToken, authorizeRoles('admin'), async (req, res) =>
     [name, percent]
   );
 
-  await logAudit(req.user.user_id, 'create', 'TAXES', result.insertId, `Impuesto "${name}" creado con ${percent}%`);
+  await logAudit(req.tenantDb, req.user.user_id, 'create', 'TAXES', result.insertId, `Impuesto "${name}" creado con ${percent}%`);
   res.status(201).json({ message: 'Impuesto creado correctamente' });
 });
 
@@ -45,7 +45,7 @@ router.put('/:id', authenticateToken, authorizeRoles('admin'), async (req, res) 
     [name, percent, id]
   );
 
-  await logAudit(req.user.user_id, 'update', 'TAXES', id, `Impuesto actualizado a "${name}" (${percent}%)`);
+  await logAudit(req.tenantDb, req.user.user_id, 'update', 'TAXES', id, `Impuesto actualizado a "${name}" (${percent}%`);
   res.json({ message: 'Impuesto actualizado correctamente' });
 });
 
@@ -55,7 +55,7 @@ router.delete('/:id', authenticateToken, authorizeRoles('admin'), async (req, re
 
   await req.tenantDb.query('DELETE FROM TAXES WHERE tax_id = ?', [id]);
 
-  await logAudit(req.user.user_id, 'delete', 'TAXES', id, `Impuesto con ID ${id} eliminado`);
+  await logAudit(req.tenantDb, req.user.user_id, 'delete', 'TAXES', id, `Impuesto con ID ${id} eliminado`);
   res.json({ message: 'Impuesto eliminado correctamente' });
 });
 

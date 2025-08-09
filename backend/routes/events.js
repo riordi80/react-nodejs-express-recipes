@@ -269,7 +269,7 @@ router.post('/', authenticateToken, authorizeRoles('admin','chef'), async (req, 
     const eventId = result.insertId;
 
     // Registrar auditoría
-    await logAudit(req.user.user_id, 'create', 'EVENTS', eventId, `Evento creado: ${name}`);
+    await logAudit(req.tenantDb, req.user.user_id, 'create', 'EVENTS', eventId, `Evento creado: ${name}`);
 
     res.status(201).json({ 
       message: 'Evento creado correctamente',
@@ -325,7 +325,7 @@ router.put('/:id', authenticateToken, authorizeRoles('admin','chef'), async (req
     `, [name, description, event_date, event_time, guests_count, location, status, budget, notes, id]);
 
     // Registrar auditoría
-    await logAudit(req.user.user_id, 'update', 'EVENTS', id, `Evento actualizado: ${name}`);
+    await logAudit(req.tenantDb, req.user.user_id, 'update', 'EVENTS', id, `Evento actualizado: ${name}`);
 
     res.json({ message: 'Evento actualizado correctamente' });
   } catch (error) {
@@ -351,7 +351,7 @@ router.delete('/:id', authenticateToken, authorizeRoles('admin','chef'), async (
     await req.tenantDb.execute('DELETE FROM EVENTS WHERE event_id = ?', [id]);
 
     // Registrar auditoría
-    await logAudit(req.user.user_id, 'delete', 'EVENTS', id, `Evento eliminado: ${eventName}`);
+    await logAudit(req.tenantDb, req.user.user_id, 'delete', 'EVENTS', id, `Evento eliminado: ${eventName}`);
 
     res.json({ message: 'Evento eliminado correctamente' });
   } catch (error) {
@@ -415,7 +415,7 @@ router.post('/:id/recipes', authenticateToken, authorizeRoles('admin','chef'), a
 
     // Registrar auditoría
     const recipeName = recipeExists[0].name;
-    await logAudit(req.user.user_id, 'create', 'EVENT_MENUS', null, 
+    await logAudit(req.tenantDb, req.user.user_id, 'create', 'EVENT_MENUS', null, 
       `Receta "${recipeName}" añadida al evento ${id}`);
 
     res.status(201).json({ message: 'Receta añadida al menú correctamente' });
@@ -464,7 +464,7 @@ router.put('/:id/recipes/:recipe_id', authenticateToken, authorizeRoles('admin',
     `, [portions || 1, course_type, notes, id, recipe_id]);
 
     // Registrar auditoría
-    await logAudit(req.user.user_id, 'update', 'EVENT_MENUS', null, 
+    await logAudit(req.tenantDb, req.user.user_id, 'update', 'EVENT_MENUS', null, 
       `Receta ${recipe_id} actualizada en evento ${id}`);
 
     res.json({ message: 'Receta del menú actualizada correctamente' });
@@ -492,7 +492,7 @@ router.delete('/:id/recipes/:recipe_id', authenticateToken, authorizeRoles('admi
     await req.tenantDb.execute('DELETE FROM EVENT_MENUS WHERE event_id = ? AND recipe_id = ?', [id, recipe_id]);
 
     // Registrar auditoría
-    await logAudit(req.user.user_id, 'delete', 'EVENT_MENUS', null, 
+    await logAudit(req.tenantDb, req.user.user_id, 'delete', 'EVENT_MENUS', null, 
       `Receta ${recipe_id} eliminada del evento ${id}`);
 
     res.json({ message: 'Receta eliminada del menú correctamente' });

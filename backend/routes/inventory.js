@@ -56,6 +56,7 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'inventory_manager')
   `, [ingredient_id, date, quantity, movement_type, comment, user_id]);
 
   await logAudit(
+    req.tenantDb,
     user_id,
     'create',
     'INVENTORY_MOVEMENTS',

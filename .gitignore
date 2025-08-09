@@ -1,8 +1,11 @@
 # Ignorar directorio de documentación técnica en la raíz
 /documentacion/
 
-#Ignorar version 2 frontend
-/frontend-v2/
+#Ignorar directorios archivos schema sql
+/database/
+
+# Debug tools
+/debug-tools/
 
 # Ignorar archivos de entorno (en cualquier lugar)
 **/.env
@@ -15,6 +18,7 @@
 **/config.json.cloudflare.template
 **/config.json.local.template
 **/config.json.production.template
+**/config.json.production.vps
 
 # Ignorar configuración runtime (generada por switch-env.sh)
 /frontend/public/config.json
@@ -112,15 +116,40 @@ scripts/backup-db.sh
 scripts/deploy-*.sh
 scripts/quick-deploy.sh
 
-# Debug tools con configuraciones sensibles
-debug-tools/.env.hosting
-debug-tools/status.json
-debug-tools/monitor-*.json
-
 # Deployment y backups
 backups/
 deploy-*.log
-.deploy-config.local
 
 # Temporales y archivos de desarrollo adicionales
 .env.backup
+
+# Scripts y utilidades de base de datos (pueden contener credenciales o ser temporales)
+/backend/cleanup_master.js
+
+# Archivos temporales generados por scripts de tenant
+/database/temp_*.sql
+
+# Archivos de configuración con información sensible
+backend/.env*
+!backend/.env.template
+!backend/.env.local.template
+
+# Logs específicos del servidor
+/backend/server.log
+/backend/backend.log
+**/pm2.log
+**/error.log
+**/access.log
+
+# Archivos de configuración Next.js con información sensible
+/frontend-v2/next-env.d.ts
+
+# Archivos de prueba y desarrollo temporal
+test_*.js
+debug_*.js
+temp_*.js
+
+# Backups de base de datos (información sensible)
+*.sql.backup
+database_backup_*
+backup_*.sql

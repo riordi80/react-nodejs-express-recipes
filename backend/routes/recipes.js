@@ -232,7 +232,7 @@ router.put('/:recipe_id/ingredients/:ingredient_id/section', authenticateToken, 
       'UPDATE RECIPE_INGREDIENTS SET section_id = ? WHERE recipe_id = ? AND ingredient_id = ?',
       [section_id, recipe_id, ingredient_id]
     );
-    await logAudit(req.user.user_id, 'update', 'RECIPE_INGREDIENTS', null,
+    await logAudit(req.tenantDb, req.user.user_id, 'update', 'RECIPE_INGREDIENTS', null,
       `Asignación de sección ${section_id} al ingrediente ${ingredient_id} en receta ${recipe_id}`
     );
     res.json({ message: 'Sección actualizada para el ingrediente' });
@@ -260,7 +260,7 @@ router.post('/', authenticateToken, authorizeRoles('admin','chef'), async (req, 
        prep_time, difficulty, is_featured_recipe,
        instructions, tax_id]
     );
-    await logAudit(req.user.user_id, 'create', 'RECIPES', result.insertId,
+    await logAudit(req.tenantDb, req.user.user_id, 'create', 'RECIPES', result.insertId,
       `Receta "${name}" creada`
     );
     res.status(201).json({ message: 'Receta creada correctamente', id: result.insertId });
@@ -299,7 +299,7 @@ router.put('/:id', authenticateToken, authorizeRoles('admin','chef'), async (req
        difficulty, is_featured_recipe, instructions, tax_id, id]
     );
     
-    await logAudit(req.user.user_id, 'update', 'RECIPES', id,
+    await logAudit(req.tenantDb, req.user.user_id, 'update', 'RECIPES', id,
       `Receta "${name}" actualizada`
     );
     res.json({ message: 'Receta actualizada correctamente' });
@@ -344,7 +344,7 @@ router.put('/:id/categories', authenticateToken, authorizeRoles('admin','chef'),
     
     await connection.commit();
     
-    await logAudit(req.user.user_id, 'update', 'RECIPE_CATEGORY_ASSIGNMENTS', null,
+    await logAudit(req.tenantDb, req.user.user_id, 'update', 'RECIPE_CATEGORY_ASSIGNMENTS', null,
       `Categorías actualizadas para receta ${id}: [${categoryIds.join(', ')}]`
     );
     
@@ -363,7 +363,7 @@ router.put('/:id/costs', authenticateToken, authorizeRoles('admin','chef'), asyn
   const { id } = req.params;
   try {
     await req.tenantDb.query('CALL sp_update_recipe_costs(?)', [id]);
-    await logAudit(req.user.user_id, 'update', 'RECIPES', id,
+    await logAudit(req.tenantDb, req.user.user_id, 'update', 'RECIPES', id,
       `Costos recalculados para receta ${id}`
     );
     res.json({ message: 'Costos actualizados correctamente' });
@@ -393,7 +393,7 @@ router.delete('/:id', authenticateToken, authorizeRoles('admin'), async (req, re
     
     await connection.commit();
     
-    await logAudit(req.user.user_id, 'delete', 'RECIPES', id,
+    await logAudit(req.tenantDb, req.user.user_id, 'delete', 'RECIPES', id,
       `Receta con ID ${id} eliminada con todas sus referencias`
     );
     res.json({ message: 'Receta eliminada correctamente' });
@@ -431,7 +431,7 @@ router.post('/:id/ingredients', authenticateToken, authorizeRoles('admin','chef'
       [recipe_id, ingredient_id, quantity_per_serving, section_id || null]
     );
     
-    await logAudit(req.user.user_id, 'create', 'RECIPE_INGREDIENTS', null,
+    await logAudit(req.tenantDb, req.user.user_id, 'create', 'RECIPE_INGREDIENTS', null,
       `Ingrediente ${ingredient_id} añadido a receta ${recipe_id}`
     );
     
@@ -459,7 +459,7 @@ router.put('/:id/ingredients/:ingredient_id', authenticateToken, authorizeRoles(
       return res.status(404).json({ message: 'Ingrediente no encontrado en la sección especificada' });
     }
     
-    await logAudit(req.user.user_id, 'update', 'RECIPE_INGREDIENTS', null,
+    await logAudit(req.tenantDb, req.user.user_id, 'update', 'RECIPE_INGREDIENTS', null,
       `Ingrediente ${ingredient_id} actualizado en receta ${recipe_id}`
     );
     
@@ -491,7 +491,7 @@ router.delete('/:id/ingredients/:ingredient_id', authenticateToken, authorizeRol
       return res.status(404).json({ message: 'Ingrediente no encontrado en la receta' });
     }
     
-    await logAudit(req.user.user_id, 'delete', 'RECIPE_INGREDIENTS', null,
+    await logAudit(req.tenantDb, req.user.user_id, 'delete', 'RECIPE_INGREDIENTS', null,
       `Ingrediente ${ingredient_id} eliminado de receta ${recipe_id}`
     );
     
@@ -516,7 +516,7 @@ router.delete('/:recipe_id/recipe-ingredients/:id', authenticateToken, authorize
       return res.status(404).json({ message: 'Registro de ingrediente no encontrado' });
     }
     
-    await logAudit(req.user.user_id, 'delete', 'RECIPE_INGREDIENTS', null,
+    await logAudit(req.tenantDb, req.user.user_id, 'delete', 'RECIPE_INGREDIENTS', null,
       `Registro de ingrediente ${id} eliminado de receta ${recipe_id}`
     );
     
@@ -581,7 +581,7 @@ router.post('/:id/sections', authenticateToken, authorizeRoles('admin','chef'), 
       [recipe_id, name.trim(), finalOrder]
     );
     
-    await logAudit(req.user.user_id, 'create', 'RECIPE_SECTIONS', null,
+    await logAudit(req.tenantDb, req.user.user_id, 'create', 'RECIPE_SECTIONS', null,
       `Sección "${name}" creada en receta ${recipe_id}`
     );
     
@@ -634,7 +634,7 @@ router.put('/:id/sections/:section_id', authenticateToken, authorizeRoles('admin
       return res.status(404).json({ message: 'Sección no encontrada' });
     }
     
-    await logAudit(req.user.user_id, 'update', 'RECIPE_SECTIONS', null,
+    await logAudit(req.tenantDb, req.user.user_id, 'update', 'RECIPE_SECTIONS', null,
       `Sección ${section_id} actualizada en receta ${recipe_id}`
     );
     
@@ -681,7 +681,7 @@ router.delete('/:id/sections/:section_id', authenticateToken, authorizeRoles('ad
       return res.status(404).json({ message: 'Sección no encontrada' });
     }
     
-    await logAudit(req.user.user_id, 'delete', 'RECIPE_SECTIONS', null,
+    await logAudit(req.tenantDb, req.user.user_id, 'delete', 'RECIPE_SECTIONS', null,
       `Sección "${section[0].name}" eliminada de receta ${recipe_id}`
     );
     
