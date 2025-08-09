@@ -4,6 +4,8 @@ import axios from 'axios';
 type RuntimeConfig = {
   apiBaseUrl: string;
   environment: string;
+  multitenant?: boolean;
+  tenantBaseUrl?: string;
 };
 
 // Configuración runtime similar al frontend original
@@ -108,5 +110,28 @@ export const apiPut = <T = any>(url: string, data?: any, config?: any) =>
 
 export const apiDelete = <T = any>(url: string, config?: any) => 
   api.delete<T>(url, config);
+
+// Función para detectar si estamos en un dominio principal
+export const isMainDomain = async () => {
+  if (typeof window === 'undefined') return false;
+  
+  const config = await waitForConfig();
+  const hostname = window.location.hostname;
+  
+  // Si no es multitenant, siempre es dominio principal (desarrollo local)
+  if (!config.multitenant) return true;
+  
+  const tenantBaseUrl = config.tenantBaseUrl || 'localhost';
+  
+  // Lista de dominios principales
+  const mainDomains = [
+    tenantBaseUrl,
+    `www.${tenantBaseUrl}`,
+    `recipes.${tenantBaseUrl}`,
+    'localhost'
+  ];
+  
+  return mainDomains.includes(hostname);
+};
 
 export default api;

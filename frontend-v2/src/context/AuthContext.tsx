@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import { User, AuthResponse } from '@/types'
-import { apiGet, apiPost, waitForConfig } from '@/lib/api'
+import { apiGet, apiPost, waitForConfig, isMainDomain } from '@/lib/api'
 
 interface AuthContextType {
   user: User | null
@@ -95,7 +95,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     // Solo ejecutar en cliente, no en servidor (Next.js SSR)
     if (typeof window !== 'undefined') {
-      checkAuth()
+      const checkAuthCondition = async () => {
+        const pathname = window.location.pathname
+        const mainDomain = await isMainDomain()
+        
+        // No hacer auth check en dominio principal o en página central-login
+        if (!mainDomain && !pathname.startsWith('/central-login')) {
+          checkAuth()
+        } else {
+          // En dominio principal, establecer loading como false sin auth check
+          setLoading(false)
+        }
+      }
+      
+      checkAuthCondition()
     }
   }, [])
 
