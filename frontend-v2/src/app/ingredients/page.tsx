@@ -27,6 +27,8 @@ interface Ingredient {
   category?: string
   unit?: string
   cost_per_unit?: number
+  base_price?: number
+  net_price?: number
   stock?: number
   stock_minimum?: number
   is_available: boolean
@@ -761,10 +763,10 @@ export default function IngredientsPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center text-sm text-gray-900">
                         <Euro className="h-4 w-4 mr-1 text-gray-400" />
-                        {ingredient.cost_per_unit ? 
-                          ingredient.cost_per_unit.toLocaleString('es-ES', { 
+                        {(ingredient.base_price || ingredient.net_price) ? 
+                          (ingredient.base_price || ingredient.net_price)!.toLocaleString('es-ES', { 
                             minimumFractionDigits: 2,
-                            maximumFractionDigits: 2 
+                            maximumFractionDigits: 4 
                           }) : 
                           'Sin precio'
                         }

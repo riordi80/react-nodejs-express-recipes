@@ -16,11 +16,6 @@ const FooterWrapper = () => {
                           pathname.startsWith('/orders') ||
                           pathname.startsWith('/settings')
 
-  // Si estamos en páginas de autenticación, no mostrar footer
-  if (pathname === '/login' || pathname === '/recovery-password') {
-    return null
-  }
-
   // Si estamos en el dashboard, mostrar AppFooter
   if (isDashboardRoute) {
     return <AppFooter />

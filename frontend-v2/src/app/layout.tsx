@@ -1,5 +1,7 @@
-import type { Metadata } from "next";
+'use client'
+
 import { Inter } from "next/font/google";
+import { usePathname } from "next/navigation";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { SettingsProvider } from "@/context/SettingsContext";
@@ -15,16 +17,23 @@ const inter = Inter({
   preload: true,   // Explícitamente precargar
 });
 
-export const metadata: Metadata = {
-  title: "RecetasAPI - Gestión de Recetas",
-  description: "Sistema de gestión de recetas, ingredientes y eventos gastronómicos",
-};
-
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const pathname = usePathname();
+  
+  // Páginas que tienen su propio layout independiente
+  const hasIndependentLayout = pathname === '/login' || 
+                              pathname === '/central-login' || 
+                              pathname === '/recovery-password';
+
+  if (hasIndependentLayout) {
+    // Para páginas con layout independiente, solo devolver children sin estructura
+    return children;
+  }
+
   return (
     <html lang="es">
       <body className={`${inter.variable} font-sans antialiased bg-white text-gray-900 flex flex-col min-h-screen`}>

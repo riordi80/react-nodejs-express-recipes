@@ -30,11 +30,8 @@ const Header = () => {
                           pathname.startsWith('/orders') ||
                           pathname.startsWith('/settings')
 
-  // Verificar si estamos en páginas de autenticación
-  const isAuthPage = pathname === '/login' || pathname === '/recovery-password'
-
-  // Si estamos en el dashboard o en páginas de auth, no mostrar el header público
-  if (isDashboardRoute || isAuthPage) {
+  // Si estamos en el dashboard, no mostrar el header público
+  if (isDashboardRoute) {
     return null
   }
 
@@ -182,7 +179,7 @@ const Header = () => {
                 ) : (
                   <>
                     <Link
-                      href="/login"
+                      href="/central-login"
                       className="block px-3 py-2 text-base font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50"
                       onClick={() => setIsMenuOpen(false)}
                     >

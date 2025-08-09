@@ -244,11 +244,14 @@ router.put('/:recipe_id/ingredients/:ingredient_id/section', authenticateToken, 
 
 // POST /recipes - Crear nueva receta
 router.post('/', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
+
   const {
     name, servings, production_servings,
     net_price, prep_time, difficulty,
     is_featured_recipe, instructions, tax_id
   } = req.body;
+
+
   try {
     const [result] = await req.tenantDb.query(
       `INSERT INTO RECIPES
@@ -260,9 +263,11 @@ router.post('/', authenticateToken, authorizeRoles('admin','chef'), async (req, 
        prep_time, difficulty, is_featured_recipe,
        instructions, tax_id]
     );
+    
     await logAudit(req.tenantDb, req.user.user_id, 'create', 'RECIPES', result.insertId,
       `Receta "${name}" creada`
     );
+    
     res.status(201).json({ message: 'Receta creada correctamente', id: result.insertId });
   } catch (err) {
     console.error('Error creating recipe:', err);
@@ -305,7 +310,6 @@ router.put('/:id', authenticateToken, authorizeRoles('admin','chef'), async (req
     res.json({ message: 'Receta actualizada correctamente' });
   } catch (err) {
     console.error('Error updating recipe:', err);
-    console.error('SQL Error details:', err.sqlMessage);
     res.status(500).json({ 
       message: 'Error interno del servidor',
       details: err.sqlMessage || err.message 

@@ -31,7 +31,7 @@ interface Ingredient {
   name: string
   category?: string
   unit?: string
-  cost_per_unit?: number
+  net_price?: number
   base_price?: number
   waste_percent?: number
   stock?: number
@@ -101,7 +101,7 @@ export default function IngredientDetailPage() {
     name: '',
     category: '',
     unit: 'kg',
-    cost_per_unit: '',
+    net_price: '',
     base_price: '',
     waste_percent: '',
     stock: '',
@@ -171,7 +171,7 @@ export default function IngredientDetailPage() {
       name: '',
       category: '',
       unit: 'kg',
-      cost_per_unit: 0,
+      net_price: 0,
       base_price: 0,
       waste_percent: 0,
       stock: 0,
@@ -299,7 +299,7 @@ export default function IngredientDetailPage() {
         name: ingredientData.name || '',
         category: ingredientData.category || '',
         unit: ingredientData.unit || 'kg',
-        cost_per_unit: ingredientData.cost_per_unit?.toString() || '',
+        net_price: ingredientData.net_price?.toString() || '',
         base_price: ingredientData.base_price?.toString() || '',
         waste_percent: ingredientData.waste_percent ? (ingredientData.waste_percent * 100).toString() : '',
         stock: ingredientData.stock?.toString() || '',
@@ -375,7 +375,7 @@ export default function IngredientDetailPage() {
         return true
       }
 
-      validateNumericField(formData.cost_per_unit, 'Costo por unidad')
+      validateNumericField(formData.net_price, 'Costo por unidad')
       validateNumericField(formData.base_price, 'Precio base')
       validateNumericField(formData.waste_percent, 'Porcentaje de merma')
       validateNumericField(formData.stock, 'Stock')
@@ -404,18 +404,18 @@ export default function IngredientDetailPage() {
       // Calcular el precio neto automáticamente
       const basePrice = parseNumberOrNull(formData.base_price)
       const wastePercent = parseNumberOrNull(formData.waste_percent)
-      let calculatedCostPerUnit = parseNumberOrNull(formData.cost_per_unit)
+      let calculatedNetPrice = parseNumberOrNull(formData.net_price)
       
       // Si tenemos precio base y merma, calcular el precio neto
       if (basePrice && wastePercent !== null) {
-        calculatedCostPerUnit = basePrice * (1 + wastePercent / 100)
+        calculatedNetPrice = basePrice * (1 + wastePercent / 100)
       }
 
       const ingredientData = {
         name: formData.name.trim(),
         category: formData.category.trim() || null,
         unit: formData.unit,
-        cost_per_unit: calculatedCostPerUnit,
+        net_price: calculatedNetPrice,
         base_price: basePrice,
         waste_percent: wastePercent !== null ? wastePercent / 100 : null,
         stock: parseNumberOrNull(formData.stock),
@@ -478,16 +478,16 @@ export default function IngredientDetailPage() {
 
     const stock = Number(formData.stock) || Number(ingredient.stock) || 0
     const stockMin = Number(formData.stock_minimum) || Number(ingredient.stock_minimum) || 0
-    const costPerUnit = Number(formData.cost_per_unit) || Number(ingredient.cost_per_unit) || 0
+    const netPrice = Number(formData.net_price) || Number(ingredient.net_price) || 0
     
-    const totalValue = stock * costPerUnit
+    const totalValue = stock * netPrice
     const stockStatus = stock === 0 ? 'Sin stock' : stock < stockMin && stockMin > 0 ? 'Stock bajo' : 'Stock OK'
     const stockDeficit = stock < stockMin ? stockMin - stock : 0
 
     return {
       stock,
       stockMin,
-      costPerUnit,
+      netPrice,
       totalValue,
       stockStatus,
       stockDeficit
@@ -638,13 +638,13 @@ export default function IngredientDetailPage() {
                 <input
                   type="number"
                   step="0.01"
-                  value={formData.cost_per_unit}
-                  onChange={(e) => setFormData({ ...formData, cost_per_unit: e.target.value })}
+                  value={formData.net_price}
+                  onChange={(e) => setFormData({ ...formData, net_price: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   placeholder="0.00"
                 />
               ) : (
-                <p className="text-gray-900">{formatCurrency(ingredient?.cost_per_unit)}</p>
+                <p className="text-gray-900">{formatCurrency(ingredient?.net_price)}</p>
               )}
             </div>
 
@@ -1227,7 +1227,7 @@ export default function IngredientDetailPage() {
                 <div>
                   <p className="text-sm font-medium text-gray-600">Costo/Unidad</p>
                   <p className="text-2xl font-bold text-gray-900 mt-1">
-                    {formatCurrency(ingredient.cost_per_unit)}
+                    {formatCurrency(ingredient.net_price)}
                   </p>
                 </div>
                 <div className="bg-orange-100 p-3 rounded-lg">

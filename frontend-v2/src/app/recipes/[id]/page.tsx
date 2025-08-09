@@ -291,6 +291,16 @@ export default function RecipeDetailPage() {
     }
   }
 
+  // Sync selectedCategoryIds when categories and availableCategories are loaded
+  useEffect(() => {
+    if (categories.length > 0 && availableCategories.length > 0) {
+      const categoryIds = categories
+        .map(catName => availableCategories.find(ac => ac.name === catName)?.category_id)
+        .filter((id): id is number => id !== undefined)
+      setSelectedCategoryIds(categoryIds)
+    }
+  }, [categories, availableCategories])
+
   const handleSave = async () => {
     try {
       // Validation
@@ -329,7 +339,11 @@ export default function RecipeDetailPage() {
         difficulty: formData.difficulty || null
       }
 
+      console.log('📊 RecipeData preparado:', JSON.stringify(recipeData, null, 2));
+      console.log('🆕 Es nueva receta:', isNewRecipe);
+
       if (isNewRecipe) {
+        console.log('🍽️ Creando nueva receta con apiPost...');
         const response = await apiPost<{ id: number }>('/recipes', recipeData)
         const newRecipeId = response.data.id
         
@@ -402,9 +416,12 @@ export default function RecipeDetailPage() {
       }
       
       setValidationErrors({})
-    } catch (err) {
+    } catch (err: any) {
+      console.error('❌ Error detallado saving recipe:', err);
+      console.error('❌ Error response:', err.response?.data);
+      console.error('❌ Error status:', err.response?.status);
+      console.error('❌ Error stack:', err.stack);
       showError(isNewRecipe ? 'Error al crear la receta' : 'Error al guardar la receta')
-      console.error('Error saving recipe:', err)
     }
   }
 
