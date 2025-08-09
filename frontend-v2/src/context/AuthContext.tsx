@@ -78,9 +78,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
       console.error('Error cerrando sesión:', error)
     } finally {
       setUser(null)
-      // Redirigir al login
+      // Redirigir al dominio principal
       if (typeof window !== 'undefined') {
-        window.location.href = '/login'
+        try {
+          const config = await waitForConfig()
+          const tenantBaseUrl = config.tenantBaseUrl || 'localhost'
+          
+          if (config.multitenant) {
+            // En multitenant, redirigir al dominio principal recipes.domain.com
+            const protocol = window.location.protocol
+            const mainDomain = `${protocol}//recipes.${tenantBaseUrl}`
+            window.location.href = mainDomain
+          } else {
+            // En desarrollo local, redirigir a la página principal
+            window.location.href = '/'
+          }
+        } catch (configError) {
+          console.error('Error obteniendo configuración:', configError)
+          // Fallback al comportamiento anterior
+          window.location.href = '/login'
+        }
       }
     }
   }
