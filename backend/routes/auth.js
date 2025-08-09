@@ -8,6 +8,17 @@ const authenticateToken = require('../middleware/authMiddleware');
 
 // Multi-tenant: usar req.tenantDb en lugar de pool estático
 
+// Pool de conexión a la base de datos maestra para login centralizado
+const masterPool = mysql.createPool({
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: 'recetario_master',
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
+});
+
 // Función para obtener configuración de sesión
 async function getSessionConfig(tenantDb) {
   try {
@@ -36,6 +47,82 @@ async function getSessionConfig(tenantDb) {
     };
   }
 }
+
+// POST /find-tenant - Buscar tenant por email (para login centralizado)
+router.post('/find-tenant', async (req, res) => {
+  const { email } = req.body;
+  
+  try {
+    // Validar que se proporcione email
+    if (!email || email.trim() === '') {
+      return res.status(400).json({ 
+        message: 'Email is required',
+        code: 'EMAIL_REQUIRED' 
+      });
+    }
+
+    // Buscar usuario en la base de datos master
+    const [rows] = await masterPool.execute(
+      `SELECT mu.tenant_id, mu.email, t.subdomain, t.business_name, t.is_active, t.subscription_status
+       FROM MASTER_USERS mu
+       JOIN TENANTS t ON mu.tenant_id = t.tenant_id
+       WHERE mu.email = ? AND mu.is_active = TRUE`,
+      [email.toLowerCase().trim()]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({
+        message: 'User not found',
+        code: 'USER_NOT_FOUND'
+      });
+    }
+
+    const user = rows[0];
+
+    // Verificar estado del tenant
+    if (!user.is_active) {
+      return res.status(403).json({
+        message: 'Account is inactive',
+        code: 'TENANT_INACTIVE'
+      });
+    }
+
+    if (user.subscription_status === 'suspended') {
+      return res.status(403).json({
+        message: 'Account is suspended',
+        code: 'TENANT_SUSPENDED'
+      });
+    }
+
+    if (user.subscription_status === 'cancelled') {
+      return res.status(403).json({
+        message: 'Account is cancelled',
+        code: 'TENANT_CANCELLED'
+      });
+    }
+
+    // Obtener dominio base de las variables de entorno
+    const tenantBaseUrl = process.env.TENANT_BASE_URL || 'ordidev.com';
+    const protocol = process.env.PROTOCOL || 'https';
+    
+    // Devolver información del tenant
+    res.json({
+      success: true,
+      tenant: {
+        subdomain: user.subdomain,
+        business_name: user.business_name,
+        login_url: `${protocol}://${user.subdomain}.${tenantBaseUrl}/login`
+      }
+    });
+
+  } catch (error) {
+    console.error('Error finding tenant:', error);
+    res.status(500).json({
+      message: 'Internal server error',
+      code: 'INTERNAL_ERROR'
+    });
+  }
+});
 
 // POST /login — Iniciar sesión
 router.post('/login', async (req, res) => {
