@@ -5,23 +5,14 @@ const mysql = require('mysql2/promise');
 const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
 
-// OPTIMIZACIÓN: Pool de conexiones con límites para evitar agotamiento de memoria
-const pool = mysql.createPool({
-  host:     process.env.DB_HOST,
-  user:     process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  // Límites críticos para servidores con poca memoria
-  connectionLimit: 5,          // Máximo 5 conexiones simultáneas
-  idleTimeout: 300000,         // Cerrar conexiones inactivas después de 5min
-  maxIdle: 2                   // Máximo 2 conexiones idle
-});
+// Multi-tenant: usar req.tenantDb en lugar de pool estático
+// Nota: Los límites de conexión se manejan ahora en databaseManager.js
 
 // GET /dashboard/low-stock-ingredients - Ingredientes con stock bajo (alertas)
 router.get('/low-stock-ingredients', authenticateToken, authorizeRoles('admin', 'chef', 'inventory_manager'), async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 10;
-    const [rows] = await pool.query(`
+    const [rows] = await req.tenantDb.query(`
       SELECT 
         ingredient_id,
         name,
@@ -46,7 +37,7 @@ router.get('/low-stock-ingredients', authenticateToken, authorizeRoles('admin', 
 // GET /dashboard/recipes-by-category - Recetas por categoría (gráfico)
 router.get('/recipes-by-category', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
   try {
-    const [rows] = await pool.query(`
+    const [rows] = await req.tenantDb.query(`
       SELECT 
         rc.name as category_name,
         COUNT(rca.recipe_id) as recipe_count
@@ -67,7 +58,7 @@ router.get('/recipes-by-category', authenticateToken, authorizeRoles('admin', 'c
 router.get('/latest-recipes', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 5;
-    const [rows] = await pool.query(`
+    const [rows] = await req.tenantDb.query(`
       SELECT 
         recipe_id,
         name,
@@ -95,7 +86,7 @@ router.get('/upcoming-events', authenticateToken, authorizeRoles('admin', 'chef'
     const limit = parseInt(req.query.limit) || 10;
     const interval = period === 'week' ? 7 : 30;
     
-    const [rows] = await pool.query(`
+    const [rows] = await req.tenantDb.query(`
       SELECT 
         event_id,
         name,
@@ -124,7 +115,7 @@ router.get('/events-with-menus', authenticateToken, authorizeRoles('admin', 'che
   try {
     // OPTIMIZACIÓN: Limitar consulta para evitar agotamiento de memoria
     const maxRows = 50; // Límite de seguridad
-    const [rows] = await pool.query(`
+    const [rows] = await req.tenantDb.query(`
       SELECT 
         e.event_id,
         e.name as event_name,
@@ -184,7 +175,7 @@ router.get('/events-with-menus', authenticateToken, authorizeRoles('admin', 'che
 router.get('/supplier-order-reminders', authenticateToken, authorizeRoles('admin', 'supplier_manager'), async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 10;
-    const [rows] = await pool.query(`
+    const [rows] = await req.tenantDb.query(`
       SELECT 
         so.order_id,
         so.order_date,
@@ -221,7 +212,7 @@ router.get('/seasonal-ingredients', authenticateToken, authorizeRoles('admin', '
     
     // OPTIMIZACIÓN CRÍTICA: Limitar consulta para evitar agotamiento de memoria
     const maxIngredients = 100; // Límite de seguridad
-    const [rows] = await pool.query(`
+    const [rows] = await req.tenantDb.query(`
       SELECT 
         ingredient_id,
         name,
@@ -260,7 +251,7 @@ router.get('/seasonal-ingredients', authenticateToken, authorizeRoles('admin', '
 router.get('/cost-trends', authenticateToken, authorizeRoles('admin', 'chef', 'supplier_manager'), async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 10;
-    const [rows] = await pool.query(`
+    const [rows] = await req.tenantDb.query(`
       SELECT 
         i.ingredient_id,
         i.name,
@@ -287,7 +278,7 @@ router.get('/cost-trends', authenticateToken, authorizeRoles('admin', 'chef', 's
     // Si no hay datos de price_history, mostrar ingredientes más caros como fallback
     if (rows.length === 0) {
       const fallbackLimit = Math.min(limit, 5); // Limitar fallback a máximo 5
-      const [fallbackRows] = await pool.query(`
+      const [fallbackRows] = await req.tenantDb.query(`
         SELECT 
           ingredient_id,
           name,
@@ -323,7 +314,7 @@ router.get('/seasonal-alerts', authenticateToken, authorizeRoles('admin', 'chef'
     
     // OPTIMIZACIÓN CRÍTICA: Limitar consulta para evitar agotamiento de memoria
     const maxIngredients = 50; // Límite más restrictivo para alertas
-    const [rows] = await pool.query(`
+    const [rows] = await req.tenantDb.query(`
       SELECT 
         ingredient_id,
         name,
@@ -408,22 +399,22 @@ router.get('/seasonal-alerts', authenticateToken, authorizeRoles('admin', 'chef'
 // GET /dashboard/summary - Resumen general del dashboard
 router.get('/summary', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
   try {
-    const [totalRecipes] = await pool.query('SELECT COUNT(*) as count FROM RECIPES');
-    const [totalEvents] = await pool.query('SELECT COUNT(*) as count FROM EVENTS');
-    const [totalSuppliers] = await pool.query('SELECT COUNT(*) as count FROM SUPPLIERS');
-    const [lowStockCount] = await pool.query('SELECT COUNT(*) as count FROM INGREDIENTS WHERE stock < stock_minimum AND is_available = 1');
-    const [upcomingEvents] = await pool.query('SELECT COUNT(*) as count FROM EVENTS WHERE event_date >= CURDATE() AND event_date <= DATE_ADD(CURDATE(), INTERVAL 7 DAY)');
-    const [pendingOrders] = await pool.query('SELECT COUNT(*) as count FROM SUPPLIER_ORDERS WHERE status IN ("pending", "ordered")');
-    const [urgentOrders] = await pool.query('SELECT COUNT(*) as count FROM SUPPLIER_ORDERS WHERE status IN ("pending", "ordered") AND delivery_date IS NOT NULL AND delivery_date <= DATE_ADD(CURDATE(), INTERVAL 2 DAY)');
-    const [overdueOrders] = await pool.query('SELECT COUNT(*) as count FROM SUPPLIER_ORDERS WHERE status IN ("pending", "ordered") AND delivery_date IS NOT NULL AND delivery_date < CURDATE()');
+    const [totalRecipes] = await req.tenantDb.query('SELECT COUNT(*) as count FROM RECIPES');
+    const [totalEvents] = await req.tenantDb.query('SELECT COUNT(*) as count FROM EVENTS');
+    const [totalSuppliers] = await req.tenantDb.query('SELECT COUNT(*) as count FROM SUPPLIERS');
+    const [lowStockCount] = await req.tenantDb.query('SELECT COUNT(*) as count FROM INGREDIENTS WHERE stock < stock_minimum AND is_available = 1');
+    const [upcomingEvents] = await req.tenantDb.query('SELECT COUNT(*) as count FROM EVENTS WHERE event_date >= CURDATE() AND event_date <= DATE_ADD(CURDATE(), INTERVAL 7 DAY)');
+    const [pendingOrders] = await req.tenantDb.query('SELECT COUNT(*) as count FROM SUPPLIER_ORDERS WHERE status IN ("pending", "ordered")');
+    const [urgentOrders] = await req.tenantDb.query('SELECT COUNT(*) as count FROM SUPPLIER_ORDERS WHERE status IN ("pending", "ordered") AND delivery_date IS NOT NULL AND delivery_date <= DATE_ADD(CURDATE(), INTERVAL 2 DAY)');
+    const [overdueOrders] = await req.tenantDb.query('SELECT COUNT(*) as count FROM SUPPLIER_ORDERS WHERE status IN ("pending", "ordered") AND delivery_date IS NOT NULL AND delivery_date < CURDATE()');
     
     // Datos adicionales para Eventos
-    const [eventsWithoutMenu] = await pool.query('SELECT COUNT(*) as count FROM EVENTS WHERE status IN ("planned", "confirmed") AND event_date >= CURDATE() AND event_date <= DATE_ADD(CURDATE(), INTERVAL 7 DAY) AND event_id NOT IN (SELECT DISTINCT event_id FROM EVENT_MENUS)');
-    const [upcomingEventsNoMenu] = await pool.query('SELECT COUNT(*) as count FROM EVENTS WHERE status IN ("planned", "confirmed") AND event_date >= CURDATE() AND event_date <= DATE_ADD(CURDATE(), INTERVAL 2 DAY) AND event_id NOT IN (SELECT DISTINCT event_id FROM EVENT_MENUS)');
+    const [eventsWithoutMenu] = await req.tenantDb.query('SELECT COUNT(*) as count FROM EVENTS WHERE status IN ("planned", "confirmed") AND event_date >= CURDATE() AND event_date <= DATE_ADD(CURDATE(), INTERVAL 7 DAY) AND event_id NOT IN (SELECT DISTINCT event_id FROM EVENT_MENUS)');
+    const [upcomingEventsNoMenu] = await req.tenantDb.query('SELECT COUNT(*) as count FROM EVENTS WHERE status IN ("planned", "confirmed") AND event_date >= CURDATE() AND event_date <= DATE_ADD(CURDATE(), INTERVAL 2 DAY) AND event_id NOT IN (SELECT DISTINCT event_id FROM EVENT_MENUS)');
     
     // Datos adicionales para Stock Bajo
-    const [zeroStockCount] = await pool.query('SELECT COUNT(*) as count FROM INGREDIENTS WHERE stock = 0 AND is_available = 1');
-    const [criticalStockCount] = await pool.query('SELECT COUNT(*) as count FROM INGREDIENTS WHERE stock < (stock_minimum * 0.5) AND stock > 0 AND is_available = 1');
+    const [zeroStockCount] = await req.tenantDb.query('SELECT COUNT(*) as count FROM INGREDIENTS WHERE stock = 0 AND is_available = 1');
+    const [criticalStockCount] = await req.tenantDb.query('SELECT COUNT(*) as count FROM INGREDIENTS WHERE stock < (stock_minimum * 0.5) AND stock > 0 AND is_available = 1');
     
     // Datos adicionales para Recetas
     const currentMonth = new Date().getMonth() + 1;
@@ -432,7 +423,7 @@ router.get('/summary', authenticateToken, authorizeRoles('admin', 'chef'), async
     const currentMonthName = monthNames[currentMonth - 1];
     
     // OPTIMIZACIÓN: Consultas más eficientes con límites
-    const [recipesWithSeasonalIngredients] = await pool.query(`
+    const [recipesWithSeasonalIngredients] = await req.tenantDb.query(`
       SELECT COUNT(DISTINCT r.recipe_id) as count 
       FROM RECIPES r
       INNER JOIN RECIPE_INGREDIENTS ri ON r.recipe_id = ri.recipe_id

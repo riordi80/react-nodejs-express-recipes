@@ -6,18 +6,12 @@ const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
 const logAudit = require('../utils/audit');
 
-// Configura la conexión a tu base de datos
-const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-});
+// Multi-tenant: usar req.tenantDb en lugar de pool estático
 
 // GET /ingredient-categories - Obtener todas las categorías de ingredientes
 router.get('/', authenticateToken, authorizeRoles('admin', 'chef', 'waiter'), async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM INGREDIENT_CATEGORIES ORDER BY category_id ASC');
+    const [rows] = await req.tenantDb.query('SELECT * FROM INGREDIENT_CATEGORIES ORDER BY category_id ASC');
     res.json(rows);
   } catch (error) {
     console.error('Error al obtener las categorías de ingredientes:', error);
@@ -29,7 +23,7 @@ router.get('/', authenticateToken, authorizeRoles('admin', 'chef', 'waiter'), as
 router.get('/:id', authenticateToken, authorizeRoles('admin', 'chef', 'waiter'), async (req, res) => {
   const { id } = req.params;
   try {
-    const [rows] = await pool.query('SELECT * FROM INGREDIENT_CATEGORIES WHERE category_id = ?', [id]);
+    const [rows] = await req.tenantDb.query('SELECT * FROM INGREDIENT_CATEGORIES WHERE category_id = ?', [id]);
     if (rows.length === 0) {
       return res.status(404).json({ message: 'Categoría de ingrediente no encontrada' });
     }
@@ -48,8 +42,8 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'chef'), async (req,
   }
 
   try {
-    const [result] = await pool.query('INSERT INTO INGREDIENT_CATEGORIES (name) VALUES (?)', [name.trim()]);
-    await logAudit(req.user.user_id, 'create', 'INGREDIENT_CATEGORIES', result.insertId, `Categoría de ingrediente "${name}" creada`);
+    const [result] = await req.tenantDb.query('INSERT INTO INGREDIENT_CATEGORIES (name) VALUES (?)', [name.trim()]);
+    await logAudit(req.tenantDb, req.user.user_id, 'create', 'INGREDIENT_CATEGORIES', result.insertId, `Categoría de ingrediente "${name}" creada`);
     res.status(201).json({ message: 'Categoría de ingrediente creada correctamente', id: result.insertId });
   } catch (error) {
     console.error('Error al crear la categoría de ingrediente:', error);
@@ -69,14 +63,14 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'chef'), async (re
   }
 
   try {
-    const [result] = await pool.query(
+    const [result] = await req.tenantDb.query(
       'UPDATE INGREDIENT_CATEGORIES SET name = ? WHERE category_id = ?',
       [name.trim(), id]
     );
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'Categoría de ingrediente no encontrada' });
     }
-    await logAudit(req.user.user_id, 'update', 'INGREDIENT_CATEGORIES', parseInt(id, 10), `Categoría de ingrediente con ID ${id} actualizada`);
+    await logAudit(req.tenantDb, req.user.user_id, 'update', 'INGREDIENT_CATEGORIES', parseInt(id, 10), `Categoría de ingrediente con ID ${id} actualizada`);
     res.json({ message: 'Categoría de ingrediente actualizada correctamente' });
   } catch (error) {
     console.error('Error al actualizar la categoría de ingrediente:', error);
@@ -91,11 +85,11 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'chef'), async (re
 router.delete('/:id', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   const { id } = req.params;
   try {
-    const [result] = await pool.query('DELETE FROM INGREDIENT_CATEGORIES WHERE category_id = ?', [id]);
+    const [result] = await req.tenantDb.query('DELETE FROM INGREDIENT_CATEGORIES WHERE category_id = ?', [id]);
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'Categoría de ingrediente no encontrada' });
     }
-    await logAudit(req.user.user_id, 'delete', 'INGREDIENT_CATEGORIES', parseInt(id, 10), `Categoría de ingrediente con ID ${id} eliminada`);
+    await logAudit(req.tenantDb, req.user.user_id, 'delete', 'INGREDIENT_CATEGORIES', parseInt(id, 10), `Categoría de ingrediente con ID ${id} eliminada`);
     res.json({ message: 'Categoría de ingrediente eliminada correctamente' });
   } catch (error) {
     console.error('Error al eliminar la categoría de ingrediente:', error);

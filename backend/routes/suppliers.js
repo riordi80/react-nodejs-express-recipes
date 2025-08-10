@@ -6,24 +6,18 @@ const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
 const logAudit = require('../utils/audit');
 
-// Configura la conexión a tu base de datos
-const pool = mysql.createPool({
-  host:     process.env.DB_HOST,
-  user:     process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-});
+// Multi-tenant: usar req.tenantDb en lugar de pool estático
 
 // GET /suppliers
 router.get('/', authenticateToken, authorizeRoles('admin', 'supplier_manager'), async (req, res) => {
-  const [rows] = await pool.query('SELECT * FROM SUPPLIERS ORDER BY name');
+  const [rows] = await req.tenantDb.query('SELECT * FROM SUPPLIERS ORDER BY name');
   res.json(rows);
 });
 
 // GET /suppliers/:id
 router.get('/:id', authenticateToken, authorizeRoles('admin', 'supplier_manager'), async (req, res) => {
   const { id } = req.params;
-  const [rows] = await pool.query('SELECT * FROM SUPPLIERS WHERE supplier_id = ?', [id]);
+  const [rows] = await req.tenantDb.query('SELECT * FROM SUPPLIERS WHERE supplier_id = ?', [id]);
   if (rows.length === 0) return res.status(404).json({ message: 'Proveedor no encontrado' });
   res.json(rows[0]);
 });
@@ -38,14 +32,17 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'supplier_manager'),
       return res.status(400).json({ message: 'El nombre es requerido' });
     }
     
-    const [result] = await pool.query(
+    const [result] = await req.tenantDb.query(
       'INSERT INTO SUPPLIERS (name, phone, email, website_url, address) VALUES (?, ?, ?, ?, ?)',
       [name, phone, email, website_url, address]
     );
 
-    await logAudit(req.user.user_id, 'create', 'SUPPLIERS', result.insertId, `Proveedor "${name}" creado`);
+    await logAudit(req.tenantDb, req.user.user_id, 'create', 'SUPPLIERS', result.insertId, `Proveedor "${name}" creado`);
     
-    res.status(201).json({ message: 'Proveedor creado correctamente' });
+    res.status(201).json({ 
+      message: 'Proveedor creado correctamente',
+      supplier_id: result.insertId
+    });
   } catch (error) {
     console.error('Error en POST /suppliers:', error);
     res.status(500).json({ message: 'Error interno del servidor', error: error.message });
@@ -57,29 +54,29 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'supplier_manager'
   const { id } = req.params;
   const { name, phone, email, website_url, address } = req.body;
 
-  await pool.query(
+  await req.tenantDb.query(
     'UPDATE SUPPLIERS SET name = ?, phone = ?, email = ?, website_url = ?, address = ? WHERE supplier_id = ?',
     [name, phone, email, website_url, address, id]
   );
 
-  await logAudit(req.user.user_id, 'update', 'SUPPLIERS', id, `Proveedor actualizado: ${name}`);
+  await logAudit(req.tenantDb, req.user.user_id, 'update', 'SUPPLIERS', id, `Proveedor actualizado: ${name}`);
   res.json({ message: 'Proveedor actualizado' });
 });
 
 // DELETE /suppliers/:id
 router.delete('/:id', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   const { id } = req.params;
-  await pool.query('DELETE FROM SUPPLIER_INGREDIENTS WHERE supplier_id = ?', [id]);
-  await pool.query('DELETE FROM SUPPLIERS WHERE supplier_id = ?', [id]);
+  await req.tenantDb.query('DELETE FROM SUPPLIER_INGREDIENTS WHERE supplier_id = ?', [id]);
+  await req.tenantDb.query('DELETE FROM SUPPLIERS WHERE supplier_id = ?', [id]);
 
-  await logAudit(req.user.user_id, 'delete', 'SUPPLIERS', id, `Proveedor con ID ${id} eliminado`);
+  await logAudit(req.tenantDb, req.user.user_id, 'delete', 'SUPPLIERS', id, `Proveedor con ID ${id} eliminado`);
   res.json({ message: 'Proveedor eliminado' });
 });
 
 // GET /suppliers/:id/ingredients
 router.get('/:id/ingredients', authenticateToken, authorizeRoles('admin', 'supplier_manager'), async (req, res) => {
   const { id } = req.params;
-  const [rows] = await pool.query(`
+  const [rows] = await req.tenantDb.query(`
     SELECT si.ingredient_id, i.name, si.price, si.delivery_time, si.is_preferred_supplier, 
            si.package_size, si.package_unit, si.minimum_order_quantity
     FROM SUPPLIER_INGREDIENTS si
@@ -113,7 +110,7 @@ router.post('/:id/ingredients', authenticateToken, authorizeRoles('admin', 'supp
     // Validar que no haya ingredientes duplicados
     const duplicateChecks = await Promise.all(
       ingredientsArray.map(async (ingredient) => {
-        const [exists] = await pool.query(
+        const [exists] = await req.tenantDb.query(
           'SELECT 1 FROM SUPPLIER_INGREDIENTS WHERE supplier_id = ? AND ingredient_id = ?',
           [id, ingredient.ingredient_id]
         );
@@ -131,7 +128,7 @@ router.post('/:id/ingredients', authenticateToken, authorizeRoles('admin', 'supp
     // Insertar todos los ingredientes
     await Promise.all(
       ingredientsArray.map(async (ingredient) => {
-        await pool.query(
+        await req.tenantDb.query(
           `INSERT INTO SUPPLIER_INGREDIENTS 
            (supplier_id, ingredient_id, price, delivery_time, is_preferred_supplier, package_size, package_unit, minimum_order_quantity) 
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -149,7 +146,7 @@ router.post('/:id/ingredients', authenticateToken, authorizeRoles('admin', 'supp
       })
     );
 
-    await logAudit(req.user.user_id, 'create', 'SUPPLIER_INGREDIENTS', null, `${ingredientsArray.length} ingrediente(s) asignado(s) al proveedor ${id}`);
+    await logAudit(req.tenantDb, req.user.user_id, 'create', 'SUPPLIER_INGREDIENTS', null, `${ingredientsArray.length} ingrediente(s) asignado(s) al proveedor ${id}`);
     res.status(201).json({ message: `${ingredientsArray.length} ingrediente(s) asignado(s) al proveedor correctamente` });
   } catch (error) {
     console.error('Error al asignar ingredientes:', error);
@@ -164,7 +161,7 @@ router.put('/:id/ingredients/:ingredient_id', authenticateToken, authorizeRoles(
 
   try {
     // Verificar que la relación existe
-    const [exists] = await pool.query(
+    const [exists] = await req.tenantDb.query(
       'SELECT 1 FROM SUPPLIER_INGREDIENTS WHERE supplier_id = ? AND ingredient_id = ?',
       [id, ingredient_id]
     );
@@ -174,14 +171,14 @@ router.put('/:id/ingredients/:ingredient_id', authenticateToken, authorizeRoles(
     }
 
     // Actualizar la relación
-    await pool.query(
+    await req.tenantDb.query(
       `UPDATE SUPPLIER_INGREDIENTS 
        SET price = ?, delivery_time = ?, is_preferred_supplier = ?, package_size = ?, package_unit = ?, minimum_order_quantity = ?
        WHERE supplier_id = ? AND ingredient_id = ?`,
       [price, delivery_time, is_preferred_supplier, package_size || 1.0, package_unit || 'unidad', minimum_order_quantity || 1.0, id, ingredient_id]
     );
 
-    await logAudit(req.user.user_id, 'update', 'SUPPLIER_INGREDIENTS', null, `Relación proveedor ${id} - ingrediente ${ingredient_id} actualizada`);
+    await logAudit(req.tenantDb, req.user.user_id, 'update', 'SUPPLIER_INGREDIENTS', null, `Relación proveedor ${id} - ingrediente ${ingredient_id} actualizada`);
     res.json({ message: 'Relación proveedor-ingrediente actualizada correctamente' });
   } catch (error) {
     console.error('Error al actualizar relación proveedor-ingrediente:', error);
@@ -195,7 +192,7 @@ router.delete('/:id/ingredients/:ingredient_id', authenticateToken, authorizeRol
   
   try {
     // Verificar que la relación existe
-    const [exists] = await pool.query(
+    const [exists] = await req.tenantDb.query(
       'SELECT 1 FROM SUPPLIER_INGREDIENTS WHERE supplier_id = ? AND ingredient_id = ?',
       [id, ingredient_id]
     );
@@ -204,12 +201,12 @@ router.delete('/:id/ingredients/:ingredient_id', authenticateToken, authorizeRol
       return res.status(404).json({ message: 'La relación proveedor-ingrediente no existe' });
     }
 
-    await pool.query(
+    await req.tenantDb.query(
       'DELETE FROM SUPPLIER_INGREDIENTS WHERE supplier_id = ? AND ingredient_id = ?',
       [id, ingredient_id]
     );
 
-    await logAudit(req.user.user_id, 'delete', 'SUPPLIER_INGREDIENTS', null, `Ingrediente ${ingredient_id} desvinculado del proveedor ${id}`);
+    await logAudit(req.tenantDb, req.user.user_id, 'delete', 'SUPPLIER_INGREDIENTS', null, `Ingrediente ${ingredient_id} desvinculado del proveedor ${id}`);
     res.json({ message: 'Ingrediente eliminado del proveedor' });
   } catch (error) {
     console.error('Error al eliminar relación proveedor-ingrediente:', error);
