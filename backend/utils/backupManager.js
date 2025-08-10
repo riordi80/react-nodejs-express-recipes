@@ -21,6 +21,14 @@ class BackupManager {
   async initialize() {
     if (this.isInitialized) return;
     
+    // En sistema multi-tenant, deshabilitamos el backup automático
+    // El backup se debe manejar a nivel de servidor por cada base de datos tenant
+    console.log('ℹ️  BackupManager deshabilitado en sistema multi-tenant');
+    this.isInitialized = true;
+    return;
+    
+    // Código original comentado para sistemas single-tenant
+    /*
     // Crear directorio de backups si no existe
     try {
       await fs.access(this.backupDir);
@@ -32,7 +40,7 @@ class BackupManager {
     // Inicializar scheduler
     await this.initializeScheduler();
     this.isInitialized = true;
-    
+    */
   }
 
   async initializeScheduler() {

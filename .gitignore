@@ -112,9 +112,11 @@ ehthumbs.db
 # Scripts con información sensible del servidor
 deploy-vps.sh
 switch-env.sh
-scripts/backup-db.sh
-scripts/deploy-*.sh
-scripts/quick-deploy.sh
+/scripts/
+/scripts/backup-db.sh
+/scripts/quick-deploy.sh
+/scripts/backup-tenants.sh
+/scripts/setup-vps-backups.sh
 
 # Deployment y backups
 backups/
