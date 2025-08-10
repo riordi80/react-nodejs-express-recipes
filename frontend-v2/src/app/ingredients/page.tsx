@@ -19,6 +19,11 @@ import {
 } from 'lucide-react'
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api'
 import ConfirmModal from '@/components/ui/ConfirmModal'
+import IngredientsCarousel from '@/components/ui/IngredientsCarousel'
+import SeasonalIngredientsModal from '@/components/modals/SeasonalIngredientsModal'
+import LowStockIngredientsModal from '@/components/modals/LowStockIngredientsModal'
+import ExpiringIngredientsModal from '@/components/modals/ExpiringIngredientsModal'
+import NoSupplierIngredientsModal from '@/components/modals/NoSupplierIngredientsModal'
 import { useToastHelpers } from '@/context/ToastContext'
 
 interface Ingredient {
@@ -47,6 +52,7 @@ interface DashboardWidget {
     stock_minimum: number
     unit: string
     deficit: number
+    is_available: boolean
   }>
   expiringSoon: Array<{
     ingredient_id: number
@@ -55,18 +61,34 @@ interface DashboardWidget {
     stock: number
     unit: string
     days_until_expiry: number
+    is_available: boolean
   }>
   seasonal: Array<{
     ingredient_id: number
     name: string
     season: string
+    stock: number
+    unit: string
+    base_price?: number
+    net_price?: number
+    preferred_supplier_price?: number
     is_available: boolean
   }>
   noSuppliers: Array<{
     ingredient_id: number
     name: string
     category: string
+    stock: number
+    unit: string
+    base_price?: number
+    is_available: boolean
   }>
+  totals: {
+    lowStock: number
+    expiringSoon: number
+    seasonal: number
+    noSuppliers: number
+  }
 }
 
 const availabilityOptions = [
@@ -112,18 +134,40 @@ export default function IngredientsPage() {
     lowStock: [],
     expiringSoon: [],
     seasonal: [],
-    noSuppliers: []
+    noSuppliers: [],
+    totals: {
+      lowStock: 0,
+      expiringSoon: 0,
+      seasonal: 0,
+      noSuppliers: 0
+    }
   })
   const [loading, setLoading] = useState(true)
   const [widgetsLoading, setWidgetsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   
   // Toast helpers
   const { success, error: showError } = useToastHelpers()
   
+  // Función para determinar si mostrar estático basado en cantidad de elementos
+  const shouldShowStatic = (ingredients: any[], itemsPerSlide: number = 3) => {
+    return ingredients.length <= itemsPerSlide
+  }
+  
   // Delete modal state
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const [currentIngredient, setCurrentIngredient] = useState<Ingredient | null>(null)
+  
+  // Seasonal modal state
+  const [isSeasonalModalOpen, setIsSeasonalModalOpen] = useState(false)
+  
+  // Low stock modal state
+  const [isLowStockModalOpen, setIsLowStockModalOpen] = useState(false)
+  
+  // Expiring modal state
+  const [isExpiringModalOpen, setIsExpiringModalOpen] = useState(false)
+  
+  // No suppliers modal state
+  const [isNoSuppliersModalOpen, setIsNoSuppliersModalOpen] = useState(false)
   
   // Search input ref for autofocus
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -165,9 +209,7 @@ export default function IngredientsPage() {
 
       const response = await apiGet<Ingredient[]>(`/ingredients?${params.toString()}`)
       setIngredients(response.data)
-      setError(null)
     } catch (err: unknown) {
-      setError('Error al cargar ingredientes')
       console.error('Error loading ingredients:', err)
     } finally {
       setLoading(false)
@@ -386,85 +428,7 @@ export default function IngredientsPage() {
 
       {/* Widgets */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {/* Stock Bajo */}
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-              <div className="bg-orange-100 p-2 rounded-lg">
-                <TrendingDown className="h-5 w-5 text-orange-600" />
-              </div>
-              Stock Crítico
-            </h3>
-          </div>
-          <div className="p-4">
-            {widgetsLoading ? (
-              <div className="animate-pulse space-y-2">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="h-4 bg-gray-200 rounded"></div>
-                ))}
-              </div>
-            ) : widgets.lowStock.length > 0 ? (
-              <div className="space-y-2">
-                {widgets.lowStock.slice(0, 3).map((item) => (
-                  <div key={item.ingredient_id} className="text-sm">
-                    <div className="font-medium text-gray-900">{item.name}</div>
-                    <div className="text-red-600">
-                      Faltan {item.deficit} {item.unit}
-                    </div>
-                  </div>
-                ))}
-                {widgets.lowStock.length > 3 && (
-                  <div className="text-xs text-gray-500 pt-2">
-                    +{widgets.lowStock.length - 3} más
-                  </div>
-                )}
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500">Todo en orden</p>
-            )}
-          </div>
-        </div>
-
-        {/* Próximos a Caducar */}
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-              <div className="bg-orange-100 p-2 rounded-lg">
-                <Clock className="h-5 w-5 text-orange-600" />
-              </div>
-              Próximos a Caducar
-            </h3>
-          </div>
-          <div className="p-4">
-            {widgetsLoading ? (
-              <div className="animate-pulse space-y-2">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="h-4 bg-gray-200 rounded"></div>
-                ))}
-              </div>
-            ) : widgets.expiringSoon.length > 0 ? (
-              <div className="space-y-2">
-                {widgets.expiringSoon.slice(0, 3).map((item) => (
-                  <div key={item.ingredient_id} className="text-sm">
-                    <div className="font-medium text-gray-900">{item.name}</div>
-                    <div className="text-yellow-600">
-                      {item.days_until_expiry} días restantes
-                    </div>
-                  </div>
-                ))}
-                {widgets.expiringSoon.length > 3 && (
-                  <div className="text-xs text-gray-500 pt-2">
-                    +{widgets.expiringSoon.length - 3} más
-                  </div>
-                )}
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500">Nada próximo a caducar</p>
-            )}
-          </div>
-        </div>
-
-        {/* Estacionales */}
+        {/* 1º Estacionales */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
           <div className="px-6 py-4 border-b border-gray-200">
             <h3 className="font-semibold text-gray-900 flex items-center gap-2">
@@ -474,72 +438,82 @@ export default function IngredientsPage() {
               Estacionales
             </h3>
           </div>
-          <div className="p-4">
-            {widgetsLoading ? (
-              <div className="animate-pulse space-y-2">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="h-4 bg-gray-200 rounded"></div>
-                ))}
-              </div>
-            ) : widgets.seasonal.length > 0 ? (
-              <div className="space-y-2">
-                {widgets.seasonal.slice(0, 3).map((item) => (
-                  <div key={item.ingredient_id} className="text-sm">
-                    <div className="font-medium text-gray-900">{item.name}</div>
-                    <div className="text-green-600 capitalize">
-                      {item.season}
-                    </div>
-                  </div>
-                ))}
-                {widgets.seasonal.length > 3 && (
-                  <div className="text-xs text-gray-500 pt-2">
-                    +{widgets.seasonal.length - 3} más
-                  </div>
-                )}
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500">Sin ingredientes estacionales</p>
-            )}
-          </div>
+          <IngredientsCarousel 
+            ingredients={widgets.seasonal} 
+            type="seasonal"
+            isLoading={widgetsLoading}
+            itemsPerSlide={3}
+            animationType="ticker"
+            onViewAll={() => setIsSeasonalModalOpen(true)}
+            totalCount={widgets.totals.seasonal}
+            showStatic={shouldShowStatic(widgets.seasonal, 3)}
+          />
         </div>
 
-        {/* Sin Proveedores */}
+        {/* 2º Próximos a Caducar */}
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+              <div className="bg-orange-100 p-2 rounded-lg">
+                <Clock className="h-5 w-5 text-orange-600" />
+              </div>
+              Próximos a Caducar
+            </h3>
+          </div>
+          <IngredientsCarousel 
+            ingredients={widgets.expiringSoon} 
+            type="expiring"
+            isLoading={widgetsLoading}
+            itemsPerSlide={3}
+            animationType="ticker"
+            onViewAll={() => setIsExpiringModalOpen(true)}
+            totalCount={widgets.totals.expiringSoon}
+            showStatic={shouldShowStatic(widgets.expiringSoon, 3)}
+          />
+        </div>
+
+        {/* 3º Stock Crítico */}
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+              <div className="bg-orange-100 p-2 rounded-lg">
+                <TrendingDown className="h-5 w-5 text-orange-600" />
+              </div>
+              Stock Crítico
+            </h3>
+          </div>
+          <IngredientsCarousel 
+            ingredients={widgets.lowStock} 
+            type="lowStock"
+            isLoading={widgetsLoading}
+            itemsPerSlide={3}
+            animationType="ticker"
+            onViewAll={() => setIsLowStockModalOpen(true)}
+            totalCount={widgets.totals.lowStock}
+            showStatic={shouldShowStatic(widgets.lowStock, 3)}
+          />
+        </div>
+
+        {/* 4º Sin Proveedores */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
           <div className="px-6 py-4 border-b border-gray-200">
             <h3 className="font-semibold text-gray-900 flex items-center gap-2">
               <div className="bg-orange-100 p-2 rounded-lg">
                 <AlertTriangle className="h-5 w-5 text-orange-600" />
               </div>
-              Sin Proveedores
+              Sin Proveedor Asignado
             </h3>
           </div>
-          <div className="p-4">
-            {widgetsLoading ? (
-              <div className="animate-pulse space-y-2">
-                {[...Array(3)].map((_, i) => (
-                  <div key={i} className="h-4 bg-gray-200 rounded"></div>
-                ))}
-              </div>
-            ) : widgets.noSuppliers.length > 0 ? (
-              <div className="space-y-2">
-                {widgets.noSuppliers.slice(0, 3).map((item) => (
-                  <div key={item.ingredient_id} className="text-sm">
-                    <div className="font-medium text-gray-900">{item.name}</div>
-                    <div className="text-blue-600">
-                      {item.category}
-                    </div>
-                  </div>
-                ))}
-                {widgets.noSuppliers.length > 3 && (
-                  <div className="text-xs text-gray-500 pt-2">
-                    +{widgets.noSuppliers.length - 3} más
-                  </div>
-                )}
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500">Todos tienen proveedores</p>
-            )}
-          </div>
+          <IngredientsCarousel 
+            ingredients={widgets.noSuppliers} 
+            type="noSuppliers"
+            isLoading={widgetsLoading}
+            itemsPerSlide={3}
+            animationType="slide"
+            onViewAll={() => setIsNoSuppliersModalOpen(true)}
+            totalCount={widgets.totals.noSuppliers}
+            showStatic={shouldShowStatic(widgets.noSuppliers, 3)}
+          />
         </div>
       </div>
 
@@ -871,6 +845,30 @@ export default function IngredientsPage() {
           confirmText="Eliminar"
           cancelText="Cancelar"
           type="danger"
+        />
+
+        {/* Seasonal Ingredients Modal */}
+        <SeasonalIngredientsModal
+          isOpen={isSeasonalModalOpen}
+          onClose={() => setIsSeasonalModalOpen(false)}
+        />
+
+        {/* Low Stock Ingredients Modal */}
+        <LowStockIngredientsModal
+          isOpen={isLowStockModalOpen}
+          onClose={() => setIsLowStockModalOpen(false)}
+        />
+        
+        {/* Expiring Ingredients Modal */}
+        <ExpiringIngredientsModal
+          isOpen={isExpiringModalOpen}
+          onClose={() => setIsExpiringModalOpen(false)}
+        />
+        
+        {/* No Suppliers Ingredients Modal */}
+        <NoSupplierIngredientsModal
+          isOpen={isNoSuppliersModalOpen}
+          onClose={() => setIsNoSuppliersModalOpen(false)}
         />
       </div>
     </>

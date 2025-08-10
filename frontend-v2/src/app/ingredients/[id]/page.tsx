@@ -440,8 +440,8 @@ export default function IngredientDetailPage() {
         router.push(`/ingredients/${response.data.ingredient_id}`)
       } else {
         await apiPut(`/ingredients/${ingredientId}`, ingredientData)
-        await loadIngredientData()
         success('Ingrediente actualizado correctamente', 'Ingrediente Actualizado')
+        router.back()
       }
       
       setValidationErrors({})
@@ -1023,7 +1023,7 @@ export default function IngredientDetailPage() {
               className="inline-flex items-center text-orange-600 hover:text-orange-700 text-sm font-medium transition-colors"
             >
               <Plus className="h-4 w-4 mr-1" />
-              <span className="hidden md:inline">Añadir proveedor</span>
+              <span className="hidden md:inline">Asignar proveedor</span>
               <span className="md:hidden">Añadir</span>
             </button>
           )}

@@ -28,7 +28,7 @@ interface PasswordPolicy {
 }
 
 const ProfileSection = () => {
-  const { user, setUser } = useAuth()
+  const { user, checkAuth } = useAuth()
   const { showToast } = useToast()
   
   const [formData, setFormData] = useState<FormData>({
@@ -119,9 +119,8 @@ const ProfileSection = () => {
       
       const response = await api.put('/profile', profileData)
       
-      if (setUser) {
-        setUser({ ...user, ...profileData })
-      }
+      // Refresh user data after profile update
+      await checkAuth()
       
       showToast({ message: 'Perfil actualizado correctamente', type: 'success' })
     } catch (error: any) {
