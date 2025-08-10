@@ -84,8 +84,13 @@ tunnel.yml
 **/ssl/
 **/certs/
 
-# Archivos de configuración para Claude Code
+# Archivos de configuración sensibles
 CLAUDE.md
+.claude/
+**/api-keys.json
+**/secrets.json
+**/credentials.json
+**/private-config.*
 
 # Cache de herramientas de desarrollo
 **/.turbo/
@@ -142,6 +147,26 @@ backend/.env*
 **/pm2.log
 **/error.log
 **/access.log
+**/audit.log
+**/security.log
+**/auth.log
+combined.log
+application.log
+
+# Docker y contenedores (pueden contener secretos)
+docker-compose.override.yml
+docker-compose.prod.yml
+.dockerenv
+**/Dockerfile.prod
+**/docker-secrets.*
+
+# Variables de entorno y configuraciones adicionales
+.envrc
+.env.*.local
+.environment
+**/runtime-config.*
+**/app-config.json
+heroku.json
 
 # Archivos de configuración Next.js con información sensible
 /frontend-v2/next-env.d.ts
@@ -155,3 +180,64 @@ temp_*.js
 *.sql.backup
 database_backup_*
 backup_*.sql
+*.dump
+*.mysqldump
+db-backup-*
+tenant-backup-*
+
+# Archivos con URLs y endpoints privados
+**/config/urls.js
+**/config/endpoints.js
+**/config/domains.js
+tunnel-config.*
+cloudflare-tunnel.*
+domain-config.*
+
+# Datos de testing con información sensible
+test-data.json
+mock-users.json
+sample-data.sql
+**/fixtures/private-*
+
+# Archivos de configuración de servicios externos
+stripe-config.*
+payment-config.*
+email-config.*
+sms-config.*
+oauth-config.*
+social-auth.*
+
+# Archivos temporales con posibles credenciales
+temp-config.*
+local-config.*
+dev-config.*
+*.config.backup
+
+# Configuraciones específicas del sistema multi-tenant
+tenant-config.*
+tenant-list.json
+tenant-registry.*
+**/tenant-secrets.*
+**/multi-tenant-config.*
+subdomain-config.*
+
+# Archivos de monitoreo y analytics (pueden contener datos sensibles)
+analytics-config.*
+monitoring-config.*
+**/telemetry.*
+performance-data.*
+user-analytics.*
+
+# Archivos de desarrollo que pueden contener URLs privadas
+dev-urls.json
+staging-urls.json
+prod-urls.json
+**/endpoints-config.*
+api-documentation-private.*
+postman-collection-private.*
+
+# Backups específicos del proyecto
+recetario-backup-*
+ingredient-data-backup.*
+recipe-data-backup.*
+user-data-backup.*
