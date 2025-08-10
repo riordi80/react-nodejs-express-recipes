@@ -39,7 +39,10 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'supplier_manager'),
 
     await logAudit(req.tenantDb, req.user.user_id, 'create', 'SUPPLIERS', result.insertId, `Proveedor "${name}" creado`);
     
-    res.status(201).json({ message: 'Proveedor creado correctamente' });
+    res.status(201).json({ 
+      message: 'Proveedor creado correctamente',
+      supplier_id: result.insertId
+    });
   } catch (error) {
     console.error('Error en POST /suppliers:', error);
     res.status(500).json({ message: 'Error interno del servidor', error: error.message });

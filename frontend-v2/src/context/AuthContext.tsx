@@ -42,7 +42,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } catch (error: unknown) {
       setUser(null)
       // No mostrar error en consola para 401 (normal cuando no hay sesión)
-      if (error?.response?.status !== 401) {
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response: { status: number } }
+        if (axiosError.response?.status !== 401) {
+          console.error('Auth check failed:', error)
+        }
+      } else {
         console.error('Auth check failed:', error)
       }
     } finally {
@@ -64,9 +69,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       return { success: true }
     } catch (error: unknown) {
+      let errorMessage = 'Error al iniciar sesión'
+      
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response: { data: { message?: string } } }
+        errorMessage = axiosError.response?.data?.message || errorMessage
+      }
+      
       return {
         success: false,
-        message: error.response?.data?.message || 'Error al iniciar sesión',
+        message: errorMessage,
       }
     }
   }

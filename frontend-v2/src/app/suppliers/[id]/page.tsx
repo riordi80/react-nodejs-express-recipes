@@ -9,7 +9,6 @@ import {
   X, 
   Users,
   Building,
-  AlertTriangle,
   CheckCircle,
   Phone,
   Mail,
@@ -41,7 +40,6 @@ interface Supplier {
   address?: string
   contact_person?: string
   notes?: string
-  active: boolean
   created_at: string
   updated_at: string
   rating?: number
@@ -103,7 +101,6 @@ export default function SupplierDetailPage() {
     address: '',
     contact_person: '',
     notes: '',
-    active: true
   })
 
   // Load data
@@ -134,7 +131,6 @@ export default function SupplierDetailPage() {
       address: '',
       contact_person: '',
       notes: '',
-      active: true,
       created_at: '',
       updated_at: '',
       ingredients_count: 0
@@ -158,7 +154,6 @@ export default function SupplierDetailPage() {
         address: supplierData.address || '',
         contact_person: supplierData.contact_person || '',
         notes: supplierData.notes || '',
-        active: supplierData.active
       })
       
       setError(null)
@@ -214,13 +209,24 @@ export default function SupplierDetailPage() {
         address: formData.address.trim() || null,
         contact_person: formData.contact_person.trim() || null,
         notes: formData.notes.trim() || null,
-        active: Boolean(formData.active)
       }
 
       if (isNewSupplier) {
-        const response = await apiPost<{ supplier_id: number }>('/suppliers', supplierData)
+        const response = await apiPost<{ supplier_id?: number; id?: number }>('/suppliers', supplierData)
+        console.log('🔧 Response data:', response.data)
+        
+        // Get the ID from response (handle both supplier_id and id)
+        const newSupplierId = response.data.supplier_id || response.data.id
+        console.log('🔧 New supplier ID:', newSupplierId)
+        
+        if (!newSupplierId) {
+          console.error('❌ No supplier ID returned from API')
+          showError('Error: No se recibió el ID del proveedor creado')
+          return
+        }
+        
         success('Proveedor creado correctamente', 'Proveedor Creado')
-        router.push(`/suppliers/${response.data.supplier_id}`)
+        router.push(`/suppliers/${newSupplierId}`)
       } else {
         await apiPut(`/suppliers/${supplierId}`, supplierData)
         await loadSupplierData()
@@ -317,7 +323,7 @@ export default function SupplierDetailPage() {
       preferredIngredients,
       avgDeliveryTime: Math.round(avgDeliveryTime),
       totalValue,
-      supplierStatus: supplier.active ? 'Activo' : 'Inactivo'
+      supplierStatus: 'Activo'
     }
   }
 
@@ -505,16 +511,6 @@ export default function SupplierDetailPage() {
             {/* Active checkbox */}
             {isEditing && (
               <div className="flex items-center space-x-3">
-                <input
-                  type="checkbox"
-                  id="active"
-                  checked={formData.active}
-                  onChange={(e) => setFormData({ ...formData, active: e.target.checked })}
-                  className="rounded border-gray-300 text-orange-600 focus:ring-orange-500"
-                />
-                <label htmlFor="active" className="text-sm font-medium text-gray-700">
-                  Proveedor activo
-                </label>
               </div>
             )}
           </div>
@@ -611,12 +607,6 @@ export default function SupplierDetailPage() {
               Información Adicional
             </h3>
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Estado:</span>
-                <span className={`text-sm font-medium ${supplier.active ? 'text-green-600' : 'text-red-600'}`}>
-                  {supplier.active ? 'Activo' : 'Inactivo'}
-                </span>
-              </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600">Creado:</span>
                 <span className="text-sm font-medium text-gray-900">
@@ -881,12 +871,10 @@ export default function SupplierDetailPage() {
               {supplier && !isEditing && supplier.contact_person && (
                 <div className="flex items-center space-x-2 mt-1">
                   <span className="text-sm text-gray-500">{supplier.contact_person}</span>
-                  {supplier.active && (
-                    <>
-                      <span className="text-sm text-gray-500">•</span>
-                      <span className="text-sm text-green-600">Activo</span>
-                    </>
-                  )}
+                  <>
+                    <span className="text-sm text-gray-500">•</span>
+                    <span className="text-sm text-green-600">Activo</span>
+                  </>
                 </div>
               )}
             </div>
@@ -987,7 +975,7 @@ export default function SupplierDetailPage() {
                   <p className="text-sm font-medium text-gray-600">Estado</p>
                   {(() => {
                     const metrics = calculateSupplierMetrics()
-                    const statusColor = supplier.active ? 'text-green-600' : 'text-red-600'
+                    const statusColor = 'text-green-600'
                     return (
                       <p className={`text-lg font-bold mt-1 ${statusColor}`}>
                         {metrics?.supplierStatus || 'Desconocido'}
@@ -1000,7 +988,7 @@ export default function SupplierDetailPage() {
                 </div>
                 <div className="bg-orange-100 p-3 rounded-lg">
                   {(() => {
-                    const IconComponent = supplier.active ? CheckCircle : AlertTriangle
+                    const IconComponent = CheckCircle
                     return <IconComponent className="h-6 w-6 text-orange-600" />
                   })()}
                 </div>

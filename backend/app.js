@@ -125,6 +125,7 @@ app.use('/api/audit',          require('./routes/audit'));
 app.use('/api/settings',       require('./routes/settings'));
 app.use('/api/data',           require('./routes/data'));
 app.use('/api/supplier-orders', require('./routes/supplier-orders'));
+app.use('/api/restaurant-info', require('./routes/restaurant-info'));
 
 // 5) Ruta raíz
 app.get('/', (req, res) => {

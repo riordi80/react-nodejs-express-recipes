@@ -179,7 +179,7 @@ export default function EventDetailPage() {
       setFormData({
         name: eventData.name,
         description: eventData.description || '',
-        event_date: eventData.event_date,
+        event_date: eventData.event_date ? eventData.event_date.split('T')[0] : '',
         event_time: eventData.event_time || '',
         guests_count: eventData.guests_count,
         location: eventData.location || '',
@@ -205,6 +205,7 @@ export default function EventDetailPage() {
 
       if (isNewEvent) {
         const response = await apiPost<{ event_id: number }>('/events', eventData)
+        success('Evento creado correctamente', 'Evento Creado')
         router.push(`/events/${response.data.event_id}`)
       } else {
         await apiPut(`/events/${eventId}`, eventData)

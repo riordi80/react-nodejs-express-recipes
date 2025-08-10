@@ -380,6 +380,8 @@ export default function RecipeDetailPage() {
           }
         }
         
+        // Show success toast for new recipe
+        success('Receta creada correctamente', 'Receta Creada')
         router.push(`/recipes/${newRecipeId}`)
       } else {
         await apiPut(`/recipes/${recipeId}`, recipeData)

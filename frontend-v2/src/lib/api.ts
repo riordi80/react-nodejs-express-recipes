@@ -100,38 +100,26 @@ export const isConfigReady = () => configReady;
 
 // Utilidades API (ya incluyen /api en la baseURL)
 export const apiGet = async <T = any>(url: string, config?: any) => {
-  console.log('🔍 ApiGet llamada:', url);
-  
   // Esperar a que la configuración esté lista
   if (!configReady) {
-    console.log('⏳ Esperando configuración runtime...');
     await configPromise;
   }
-  
-  console.log('📍 BaseURL actual:', api.defaults.baseURL);
-  console.log('🏗️ Config ready:', configReady);
-  console.log('🌐 Runtime config:', runtimeConfig);
   
   return api.get<T>(url, config);
 };
 
 export const apiPost = async <T = any>(url: string, data?: any, config?: any) => {
-  console.log('🚀 ApiPost llamada:', url, 'con datos:', data);
-  
   // Esperar a que la configuración esté lista
   if (!configReady) {
-    console.log('⏳ Esperando configuración runtime para POST...');
     await configPromise;
   }
   
-  console.log('📍 BaseURL actual:', api.defaults.baseURL);
   return api.post<T>(url, data, config);
 };
 
 export const apiPut = async <T = any>(url: string, data?: any, config?: any) => {
   // Esperar a que la configuración esté lista
   if (!configReady) {
-    console.log('⏳ Esperando configuración runtime para PUT...');
     await configPromise;
   }
   
@@ -141,7 +129,6 @@ export const apiPut = async <T = any>(url: string, data?: any, config?: any) => 
 export const apiDelete = async <T = any>(url: string, config?: any) => {
   // Esperar a que la configuración esté lista
   if (!configReady) {
-    console.log('⏳ Esperando configuración runtime para DELETE...');
     await configPromise;
   }
   
