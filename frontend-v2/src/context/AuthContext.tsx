@@ -1,0 +1,158 @@
+'use client'
+
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { User, AuthResponse } from '@/types'
+import { apiGet, apiPost, waitForConfig, isMainDomain } from '@/lib/api'
+
+interface AuthContextType {
+  user: User | null
+  loading: boolean
+  login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>
+  logout: () => Promise<void>
+  checkAuth: () => Promise<void>
+  updateRestaurantName: (name: string) => void
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined)
+
+export function useAuth() {
+  const context = useContext(AuthContext)
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider')
+  }
+  return context
+}
+
+interface AuthProviderProps {
+  children: ReactNode
+}
+
+export function AuthProvider({ children }: AuthProviderProps) {
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  const checkAuth = async () => {
+    try {
+      setLoading(true)
+      // Esperar a que axios esté completamente configurado
+      await waitForConfig()
+      
+      const response = await apiGet<{ authenticated: boolean; user: User }>('/me')
+      setUser(response.data.user)
+    } catch (error: unknown) {
+      setUser(null)
+      // No mostrar error en consola para 401 (normal cuando no hay sesión)
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response: { status: number } }
+        if (axiosError.response?.status !== 401) {
+          console.error('Auth check failed:', error)
+        }
+      } else {
+        console.error('Auth check failed:', error)
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const login = async (email: string, password: string): Promise<{ success: boolean; message?: string }> => {
+    try {
+      const response = await apiPost<AuthResponse>('/login', {
+        email,
+        password
+      })
+
+      // Obtener datos del usuario de la respuesta del login
+      if (response.data.user) {
+        setUser(response.data.user)
+      }
+      
+      return { success: true }
+    } catch (error: unknown) {
+      let errorMessage = 'Error al iniciar sesión'
+      
+      if (error && typeof error === 'object' && 'response' in error) {
+        const axiosError = error as { response: { data: { message?: string } } }
+        errorMessage = axiosError.response?.data?.message || errorMessage
+      }
+      
+      return {
+        success: false,
+        message: errorMessage,
+      }
+    }
+  }
+
+  const logout = async () => {
+    try {
+      await apiPost('/logout')
+    } catch (error) {
+      console.error('Error cerrando sesión:', error)
+    } finally {
+      setUser(null)
+      // Redirigir al dominio principal
+      if (typeof window !== 'undefined') {
+        try {
+          const config = await waitForConfig()
+          const tenantBaseUrl = config.tenantBaseUrl || 'localhost'
+          
+          if (config.multitenant) {
+            // En multitenant, redirigir al dominio principal recipes.domain.com
+            const protocol = window.location.protocol
+            const mainDomain = `${protocol}//recipes.${tenantBaseUrl}`
+            window.location.href = mainDomain
+          } else {
+            // En desarrollo local, redirigir a la página principal
+            window.location.href = '/'
+          }
+        } catch (configError) {
+          console.error('Error obteniendo configuración:', configError)
+          // Fallback al comportamiento anterior
+          window.location.href = '/login'
+        }
+      }
+    }
+  }
+
+  const updateRestaurantName = (name: string) => {
+    if (user) {
+      setUser({ ...user, restaurant_name: name })
+    }
+  }
+
+  // Verificar autenticación al cargar la app
+  useEffect(() => {
+    // Solo ejecutar en cliente, no en servidor (Next.js SSR)
+    if (typeof window !== 'undefined') {
+      const checkAuthCondition = async () => {
+        const pathname = window.location.pathname
+        const mainDomain = await isMainDomain()
+        
+        // No hacer auth check en dominio principal o en página central-login
+        if (!mainDomain && !pathname.startsWith('/central-login')) {
+          checkAuth()
+        } else {
+          // En dominio principal, establecer loading como false sin auth check
+          setLoading(false)
+        }
+      }
+      
+      checkAuthCondition()
+    }
+  }, [])
+
+  const value = {
+    user,
+    loading,
+    login,
+    logout,
+    checkAuth,
+    updateRestaurantName
+  }
+
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  )
+}

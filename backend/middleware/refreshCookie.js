@@ -17,7 +17,7 @@ let sessionConfigCache = {
   ttl: 5 * 60 * 1000 // 5 minutos de cache
 };
 
-async function getSessionConfig() {
+async function getSessionConfig(tenantDb = null) {
   const now = Date.now();
   
   // Si tenemos configuración en cache y no ha expirado, usarla
@@ -26,7 +26,9 @@ async function getSessionConfig() {
   }
   
   try {
-    const [result] = await pool.execute(`
+    // Usar la base de datos del tenant si está disponible, sino usar pool estático
+    const db = tenantDb || pool;
+    const [result] = await db.execute(`
       SELECT setting_key, setting_value 
       FROM SYSTEM_SETTINGS 
       WHERE setting_key IN ('session_timeout', 'session_auto_close')
@@ -62,7 +64,7 @@ module.exports = async (req, res, next) => {
   // Si authenticateToken ha validado y dejó req.user...
   if (req.user && req.cookies.token) {
     try {
-      const sessionConfig = await getSessionConfig();
+      const sessionConfig = await getSessionConfig(req.tenantDb);
       
       // Convertir minutos a milisegundos
       const sessionTimeoutMs = sessionConfig.session_timeout * 60 * 1000;

@@ -6,14 +6,7 @@ const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles   = require('../middleware/roleMiddleware');
 const logAudit         = require('../utils/audit');
 
-// Configura la conexión a tu base de datos
-const pool = mysql.createPool({
-  host:     process.env.DB_HOST,
-  user:     process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  dateStrings: true // Devuelve fechas como strings, evita conversiones de timezone
-});
+// Multi-tenant: usar req.tenantDb en lugar de pool estático
 
 // GET /events - Obtener eventos con filtros
 router.get('/', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
@@ -77,7 +70,7 @@ router.get('/', authenticateToken, authorizeRoles('admin','chef'), async (req, r
   sql += ' GROUP BY e.event_id ORDER BY e.event_date DESC, e.created_at DESC';
 
   try {
-    const [rows] = await pool.execute(sql, params);
+    const [rows] = await req.tenantDb.execute(sql, params);
     res.json(rows);
   } catch (error) {
     console.error('Error al obtener eventos:', error);
@@ -89,7 +82,7 @@ router.get('/', authenticateToken, authorizeRoles('admin','chef'), async (req, r
 router.get('/dashboard-widgets', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
   try {
     // Widget 1: Eventos Próximos (7 días)
-    const [upcomingEvents] = await pool.execute(`
+    const [upcomingEvents] = await req.tenantDb.execute(`
       SELECT 
         event_id,
         name,
@@ -105,7 +98,7 @@ router.get('/dashboard-widgets', authenticateToken, authorizeRoles('admin','chef
     `);
 
     // Widget 2: Sin Menú Asignado
-    const [eventsWithoutMenu] = await pool.execute(`
+    const [eventsWithoutMenu] = await req.tenantDb.execute(`
       SELECT 
         e.event_id,
         e.name,
@@ -122,7 +115,7 @@ router.get('/dashboard-widgets', authenticateToken, authorizeRoles('admin','chef
     `);
 
     // Widget 3: Presupuesto Excedido
-    const [budgetExceededEvents] = await pool.execute(`
+    const [budgetExceededEvents] = await req.tenantDb.execute(`
       SELECT 
         e.event_id,
         e.name,
@@ -144,7 +137,7 @@ router.get('/dashboard-widgets', authenticateToken, authorizeRoles('admin','chef
     `);
 
     // Widget 4: Eventos Grandes (>50 invitados)
-    const [largeEvents] = await pool.execute(`
+    const [largeEvents] = await req.tenantDb.execute(`
       SELECT 
         event_id,
         name,
@@ -178,7 +171,7 @@ router.get('/:id', authenticateToken, authorizeRoles('admin','chef'), async (req
 
   try {
     // Obtener información del evento
-    const [eventRows] = await pool.execute(`
+    const [eventRows] = await req.tenantDb.execute(`
       SELECT 
         e.*,
         CONCAT(u.first_name, ' ', u.last_name) as created_by_name
@@ -192,7 +185,7 @@ router.get('/:id', authenticateToken, authorizeRoles('admin','chef'), async (req
     }
 
     // Obtener menú del evento con información nutricional y alérgenos
-    const [menuRows] = await pool.execute(`
+    const [menuRows] = await req.tenantDb.execute(`
       SELECT 
         em.*,
         r.name as recipe_name,
@@ -266,7 +259,7 @@ router.post('/', authenticateToken, authorizeRoles('admin','chef'), async (req, 
   }
 
   try {
-    const [result] = await pool.execute(`
+    const [result] = await req.tenantDb.execute(`
       INSERT INTO EVENTS (
         name, description, event_date, event_time, guests_count, 
         location, status, budget, notes, created_by_user_id
@@ -276,7 +269,7 @@ router.post('/', authenticateToken, authorizeRoles('admin','chef'), async (req, 
     const eventId = result.insertId;
 
     // Registrar auditoría
-    await logAudit(req.user.user_id, 'create', 'EVENTS', eventId, `Evento creado: ${name}`);
+    await logAudit(req.tenantDb, req.user.user_id, 'create', 'EVENTS', eventId, `Evento creado: ${name}`);
 
     res.status(201).json({ 
       message: 'Evento creado correctamente',
@@ -318,13 +311,13 @@ router.put('/:id', authenticateToken, authorizeRoles('admin','chef'), async (req
 
   try {
     // Verificar que el evento existe
-    const [existingEvent] = await pool.execute('SELECT name FROM EVENTS WHERE event_id = ?', [id]);
+    const [existingEvent] = await req.tenantDb.execute('SELECT name FROM EVENTS WHERE event_id = ?', [id]);
     if (existingEvent.length === 0) {
       return res.status(404).json({ message: 'Evento no encontrado' });
     }
 
     // Actualizar evento
-    await pool.execute(`
+    await req.tenantDb.execute(`
       UPDATE EVENTS SET 
         name = ?, description = ?, event_date = ?, event_time = ?, 
         guests_count = ?, location = ?, status = ?, budget = ?, notes = ?
@@ -332,7 +325,7 @@ router.put('/:id', authenticateToken, authorizeRoles('admin','chef'), async (req
     `, [name, description, event_date, event_time, guests_count, location, status, budget, notes, id]);
 
     // Registrar auditoría
-    await logAudit(req.user.user_id, 'update', 'EVENTS', id, `Evento actualizado: ${name}`);
+    await logAudit(req.tenantDb, req.user.user_id, 'update', 'EVENTS', id, `Evento actualizado: ${name}`);
 
     res.json({ message: 'Evento actualizado correctamente' });
   } catch (error) {
@@ -347,7 +340,7 @@ router.delete('/:id', authenticateToken, authorizeRoles('admin','chef'), async (
 
   try {
     // Verificar que el evento existe
-    const [existingEvent] = await pool.execute('SELECT name FROM EVENTS WHERE event_id = ?', [id]);
+    const [existingEvent] = await req.tenantDb.execute('SELECT name FROM EVENTS WHERE event_id = ?', [id]);
     if (existingEvent.length === 0) {
       return res.status(404).json({ message: 'Evento no encontrado' });
     }
@@ -355,10 +348,10 @@ router.delete('/:id', authenticateToken, authorizeRoles('admin','chef'), async (
     const eventName = existingEvent[0].name;
 
     // Eliminar evento (EVENT_MENUS se eliminará automáticamente por CASCADE)
-    await pool.execute('DELETE FROM EVENTS WHERE event_id = ?', [id]);
+    await req.tenantDb.execute('DELETE FROM EVENTS WHERE event_id = ?', [id]);
 
     // Registrar auditoría
-    await logAudit(req.user.user_id, 'delete', 'EVENTS', id, `Evento eliminado: ${eventName}`);
+    await logAudit(req.tenantDb, req.user.user_id, 'delete', 'EVENTS', id, `Evento eliminado: ${eventName}`);
 
     res.json({ message: 'Evento eliminado correctamente' });
   } catch (error) {
@@ -394,19 +387,19 @@ router.post('/:id/recipes', authenticateToken, authorizeRoles('admin','chef'), a
 
   try {
     // Verificar que el evento existe
-    const [eventExists] = await pool.execute('SELECT event_id FROM EVENTS WHERE event_id = ?', [id]);
+    const [eventExists] = await req.tenantDb.execute('SELECT event_id FROM EVENTS WHERE event_id = ?', [id]);
     if (eventExists.length === 0) {
       return res.status(404).json({ message: 'Evento no encontrado' });
     }
 
     // Verificar que la receta existe
-    const [recipeExists] = await pool.execute('SELECT name FROM RECIPES WHERE recipe_id = ?', [recipe_id]);
+    const [recipeExists] = await req.tenantDb.execute('SELECT name FROM RECIPES WHERE recipe_id = ?', [recipe_id]);
     if (recipeExists.length === 0) {
       return res.status(404).json({ message: 'Receta no encontrada' });
     }
 
     // Verificar que la receta no esté ya en el menú del evento
-    const [existingMenu] = await pool.execute(
+    const [existingMenu] = await req.tenantDb.execute(
       'SELECT event_id FROM EVENT_MENUS WHERE event_id = ? AND recipe_id = ?', 
       [id, recipe_id]
     );
@@ -415,14 +408,14 @@ router.post('/:id/recipes', authenticateToken, authorizeRoles('admin','chef'), a
     }
 
     // Añadir receta al menú
-    await pool.execute(`
+    await req.tenantDb.execute(`
       INSERT INTO EVENT_MENUS (event_id, recipe_id, portions, course_type, notes)
       VALUES (?, ?, ?, ?, ?)
     `, [id, recipe_id, portions, course_type, notes]);
 
     // Registrar auditoría
     const recipeName = recipeExists[0].name;
-    await logAudit(req.user.user_id, 'create', 'EVENT_MENUS', null, 
+    await logAudit(req.tenantDb, req.user.user_id, 'create', 'EVENT_MENUS', null, 
       `Receta "${recipeName}" añadida al evento ${id}`);
 
     res.status(201).json({ message: 'Receta añadida al menú correctamente' });
@@ -455,7 +448,7 @@ router.put('/:id/recipes/:recipe_id', authenticateToken, authorizeRoles('admin',
 
   try {
     // Verificar que la combinación evento-receta existe
-    const [existingMenu] = await pool.execute(
+    const [existingMenu] = await req.tenantDb.execute(
       'SELECT event_id FROM EVENT_MENUS WHERE event_id = ? AND recipe_id = ?', 
       [id, recipe_id]
     );
@@ -464,14 +457,14 @@ router.put('/:id/recipes/:recipe_id', authenticateToken, authorizeRoles('admin',
     }
 
     // Actualizar receta en el menú
-    await pool.execute(`
+    await req.tenantDb.execute(`
       UPDATE EVENT_MENUS 
       SET portions = ?, course_type = ?, notes = ?
       WHERE event_id = ? AND recipe_id = ?
     `, [portions || 1, course_type, notes, id, recipe_id]);
 
     // Registrar auditoría
-    await logAudit(req.user.user_id, 'update', 'EVENT_MENUS', null, 
+    await logAudit(req.tenantDb, req.user.user_id, 'update', 'EVENT_MENUS', null, 
       `Receta ${recipe_id} actualizada en evento ${id}`);
 
     res.json({ message: 'Receta del menú actualizada correctamente' });
@@ -487,7 +480,7 @@ router.delete('/:id/recipes/:recipe_id', authenticateToken, authorizeRoles('admi
 
   try {
     // Verificar que la combinación evento-receta existe
-    const [existingMenu] = await pool.execute(
+    const [existingMenu] = await req.tenantDb.execute(
       'SELECT event_id FROM EVENT_MENUS WHERE event_id = ? AND recipe_id = ?', 
       [id, recipe_id]
     );
@@ -496,10 +489,10 @@ router.delete('/:id/recipes/:recipe_id', authenticateToken, authorizeRoles('admi
     }
 
     // Eliminar receta del menú
-    await pool.execute('DELETE FROM EVENT_MENUS WHERE event_id = ? AND recipe_id = ?', [id, recipe_id]);
+    await req.tenantDb.execute('DELETE FROM EVENT_MENUS WHERE event_id = ? AND recipe_id = ?', [id, recipe_id]);
 
     // Registrar auditoría
-    await logAudit(req.user.user_id, 'delete', 'EVENT_MENUS', null, 
+    await logAudit(req.tenantDb, req.user.user_id, 'delete', 'EVENT_MENUS', null, 
       `Receta ${recipe_id} eliminada del evento ${id}`);
 
     res.json({ message: 'Receta eliminada del menú correctamente' });
@@ -515,7 +508,7 @@ router.get('/:id/shopping-list', authenticateToken, authorizeRoles('admin','chef
 
   try {
     // Verificar que el evento existe
-    const [eventExists] = await pool.execute(
+    const [eventExists] = await req.tenantDb.execute(
       'SELECT name, guests_count FROM EVENTS WHERE event_id = ?', [id]
     );
     if (eventExists.length === 0) {
@@ -525,7 +518,7 @@ router.get('/:id/shopping-list', authenticateToken, authorizeRoles('admin','chef
     const event = eventExists[0];
 
     // Obtener ingredientes necesarios para todas las recetas del evento
-    const [ingredients] = await pool.execute(`
+    const [ingredients] = await req.tenantDb.execute(`
       SELECT 
         i.ingredient_id,
         i.name as ingredient_name,

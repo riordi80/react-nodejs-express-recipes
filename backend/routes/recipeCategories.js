@@ -6,13 +6,7 @@ const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles    = require('../middleware/roleMiddleware');
 const logAudit          = require('../utils/audit');
 
-// Configura la conexión a tu base de datos
-const pool = mysql.createPool({
-  host:     process.env.DB_HOST,
-  user:     process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-});
+// Multi-tenant: usar req.tenantDb en lugar de pool estático
 
 // GET /recipe-categories — Obtener todas las categorías
 router.get(
@@ -21,7 +15,7 @@ router.get(
   authorizeRoles('admin', 'chef', 'waiter'),
   async (req, res) => {
     try {
-      const [rows] = await pool.query(
+      const [rows] = await req.tenantDb.query(
         'SELECT category_id, name FROM RECIPE_CATEGORIES ORDER BY category_id ASC'
       );
       res.json(rows);
@@ -40,7 +34,7 @@ router.get(
   async (req, res) => {
     const { id } = req.params;
     try {
-      const [rows] = await pool.query(
+      const [rows] = await req.tenantDb.query(
         'SELECT category_id, name FROM RECIPE_CATEGORIES WHERE category_id = ?',
         [id]
       );
@@ -69,11 +63,12 @@ router.post(
     }
 
     try {
-      const [result] = await pool.query(
+      const [result] = await req.tenantDb.query(
         'INSERT INTO RECIPE_CATEGORIES (name) VALUES (?)',
         [name.trim()]
       );
       await logAudit(
+        req.tenantDb,
         req.user.user_id,
         'create',
         'RECIPE_CATEGORIES',
@@ -106,7 +101,7 @@ router.put(
     }
 
     try {
-      const [result] = await pool.query(
+      const [result] = await req.tenantDb.query(
         'UPDATE RECIPE_CATEGORIES SET name = ? WHERE category_id = ?',
         [name.trim(), id]
       );
@@ -114,6 +109,7 @@ router.put(
         return res.status(404).json({ message: 'Categoría no encontrada' });
       }
       await logAudit(
+        req.tenantDb,
         req.user.user_id,
         'update',
         'RECIPE_CATEGORIES',
@@ -139,7 +135,7 @@ router.delete(
   async (req, res) => {
     const { id } = req.params;
     try {
-      const [result] = await pool.query(
+      const [result] = await req.tenantDb.query(
         'DELETE FROM RECIPE_CATEGORIES WHERE category_id = ?',
         [id]
       );
@@ -147,6 +143,7 @@ router.delete(
         return res.status(404).json({ message: 'Categoría no encontrada' });
       }
       await logAudit(
+        req.tenantDb,
         req.user.user_id,
         'delete',
         'RECIPE_CATEGORIES',

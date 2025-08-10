@@ -1,8 +1,11 @@
 # Ignorar directorio de documentación técnica en la raíz
 /documentacion/
 
-#Ignorar version 2 frontend
-/frontend-v2/
+#Ignorar directorios archivos schema sql
+/database/
+
+# Debug tools
+/debug-tools/
 
 # Ignorar archivos de entorno (en cualquier lugar)
 **/.env
@@ -10,19 +13,33 @@
 **/.env.cloudflare
 **/.env.production
 **/.env.development
+**/.env.vps
+**/.env.backup
+**/config.json.cloudflare.template
+**/config.json.local.template
+**/config.json.production.template
+**/config.json.production.vps
 
 # Ignorar configuración runtime (generada por switch-env.sh)
 /frontend/public/config.json
+/frontend-v2/public/config.json
 
 # Ignorar dependencias node_modules solo en backend y frontend
 /backend/node_modules/
 /frontend/node_modules/
+/frontend-v2/node_modules/
 
 # Ignorar builds y distribuciones solo en backend y frontend
 /backend/build/
 /backend/dist/
 /frontend/build/
 /frontend/dist/
+/frontend-v2/.next/
+/frontend-v2/out/
+/frontend-v2/build/
+/frontend-v2/dist/
+/frontend-v2/.vercel/
+/frontend-v2/*.tsbuildinfo
 
 # Ignorar archivos de copias de seguridad (mantener carpeta pero no archivos)
 /backend/backups/*
@@ -76,6 +93,11 @@ CLAUDE.md
 **/.nuxt/
 **/vite.config.js.timestamp-*
 
+# Frontend-v2 additional ignores
+/frontend-v2/config.json.*template
+/frontend-v2/.env.*
+!/frontend-v2/.env.local.template
+
 # Archivos temporales de editores
 **/*~
 **/.#*
@@ -87,3 +109,47 @@ CLAUDE.md
 .Trashes
 ehthumbs.db
 
+# Scripts con información sensible del servidor
+deploy-vps.sh
+switch-env.sh
+scripts/backup-db.sh
+scripts/deploy-*.sh
+scripts/quick-deploy.sh
+
+# Deployment y backups
+backups/
+deploy-*.log
+
+# Temporales y archivos de desarrollo adicionales
+.env.backup
+
+# Scripts y utilidades de base de datos (pueden contener credenciales o ser temporales)
+/backend/cleanup_master.js
+
+# Archivos temporales generados por scripts de tenant
+/database/temp_*.sql
+
+# Archivos de configuración con información sensible
+backend/.env*
+!backend/.env.template
+!backend/.env.local.template
+
+# Logs específicos del servidor
+/backend/server.log
+/backend/backend.log
+**/pm2.log
+**/error.log
+**/access.log
+
+# Archivos de configuración Next.js con información sensible
+/frontend-v2/next-env.d.ts
+
+# Archivos de prueba y desarrollo temporal
+test_*.js
+debug_*.js
+temp_*.js
+
+# Backups de base de datos (información sensible)
+*.sql.backup
+database_backup_*
+backup_*.sql

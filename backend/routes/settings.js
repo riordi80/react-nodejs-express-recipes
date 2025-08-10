@@ -5,18 +5,12 @@ const mysql = require('mysql2/promise');
 const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
 
-// Configura la conexión a tu base de datos
-const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-});
+// Multi-tenant: usar req.tenantDb en lugar de pool estático
 
 // GET /settings/password-policy - Obtener configuración de política de contraseñas
 router.get('/password-policy', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   try {
-    const [result] = await pool.execute(`
+    const [result] = await req.tenantDb.execute(`
       SELECT 
         setting_key, 
         setting_value 
@@ -65,7 +59,7 @@ router.put('/password-policy', authenticateToken, authorizeRoles('admin'), async
     ];
     
     // Usar transacción para actualizar todas las configuraciones
-    const connection = await pool.getConnection();
+    const connection = await req.tenantDb.getConnection();
     await connection.beginTransaction();
     
     try {
@@ -106,7 +100,7 @@ router.put('/password-policy', authenticateToken, authorizeRoles('admin'), async
 // GET /settings/session-policy - Obtener configuración de política de sesiones
 router.get('/session-policy', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   try {
-    const [result] = await pool.execute(`
+    const [result] = await req.tenantDb.execute(`
       SELECT 
         setting_key, 
         setting_value 
@@ -153,7 +147,7 @@ router.put('/session-policy', authenticateToken, authorizeRoles('admin'), async 
     ];
     
     // Usar transacción para actualizar todas las configuraciones
-    const connection = await pool.getConnection();
+    const connection = await req.tenantDb.getConnection();
     await connection.beginTransaction();
     
     try {

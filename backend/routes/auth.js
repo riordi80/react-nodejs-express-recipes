@@ -6,18 +6,23 @@ const jwt = require('jsonwebtoken');
 const mysql = require('mysql2/promise');
 const authenticateToken = require('../middleware/authMiddleware');
 
-// Configura la conexión a tu base de datos
-const pool = mysql.createPool({
-  host:     process.env.DB_HOST,
-  user:     process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
+// Multi-tenant: usar req.tenantDb en lugar de pool estático
+
+// Pool de conexión a la base de datos maestra para login centralizado
+const masterPool = mysql.createPool({
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: 'recetario_master',
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
 });
 
 // Función para obtener configuración de sesión
-async function getSessionConfig() {
+async function getSessionConfig(tenantDb) {
   try {
-    const [result] = await pool.execute(`
+    const [result] = await tenantDb.execute(`
       SELECT setting_key, setting_value 
       FROM SYSTEM_SETTINGS 
       WHERE setting_key IN ('session_timeout', 'session_auto_close')
@@ -43,12 +48,106 @@ async function getSessionConfig() {
   }
 }
 
+// POST /find-tenant - Buscar tenant por email (para login centralizado)
+router.post('/find-tenant', async (req, res) => {
+  const { email } = req.body;
+  
+  try {
+    console.log('🔍 Find-tenant request for email:', email);
+    
+    // Validar que se proporcione email
+    if (!email || email.trim() === '') {
+      console.log('❌ Email not provided');
+      return res.status(400).json({ 
+        message: 'Email is required',
+        code: 'EMAIL_REQUIRED' 
+      });
+    }
+
+    // Buscar usuario en la base de datos master
+    console.log('🔍 Searching in master database for:', email.toLowerCase().trim());
+    const [rows] = await masterPool.execute(
+      `SELECT mu.tenant_id, mu.email, t.subdomain, t.business_name, t.is_active, t.subscription_status
+       FROM MASTER_USERS mu
+       JOIN TENANTS t ON mu.tenant_id = t.tenant_id
+       WHERE mu.email = ? AND mu.is_active = TRUE`,
+      [email.toLowerCase().trim()]
+    );
+    
+    console.log('🔍 Master DB query result:', rows.length > 0 ? 'User found' : 'User not found');
+
+    if (rows.length === 0) {
+      return res.status(404).json({
+        message: 'User not found',
+        code: 'USER_NOT_FOUND'
+      });
+    }
+
+    const user = rows[0];
+
+    // Verificar estado del tenant
+    if (!user.is_active) {
+      return res.status(403).json({
+        message: 'Account is inactive',
+        code: 'TENANT_INACTIVE'
+      });
+    }
+
+    if (user.subscription_status === 'suspended') {
+      return res.status(403).json({
+        message: 'Account is suspended',
+        code: 'TENANT_SUSPENDED'
+      });
+    }
+
+    if (user.subscription_status === 'cancelled') {
+      return res.status(403).json({
+        message: 'Account is cancelled',
+        code: 'TENANT_CANCELLED'
+      });
+    }
+
+    // Obtener dominio base de las variables de entorno
+    const tenantBaseUrl = process.env.TENANT_BASE_URL || 'ordidev.com';
+    const protocol = process.env.PROTOCOL || 'https';
+    
+    // Devolver información del tenant
+    res.json({
+      success: true,
+      tenant: {
+        subdomain: user.subdomain,
+        business_name: user.business_name,
+        login_url: `${protocol}://${user.subdomain}.${tenantBaseUrl}/login`
+      }
+    });
+
+  } catch (error) {
+    console.error('Error finding tenant:', error);
+    res.status(500).json({
+      message: 'Internal server error',
+      code: 'INTERNAL_ERROR'
+    });
+  }
+});
+
 // POST /login — Iniciar sesión
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
   try {
+    console.log('🔍 Login attempt - tenant:', req.tenant?.subdomain, 'email:', email);
+    console.log('🔍 Login attempt - tenantDb exists:', !!req.tenantDb);
+    
+    // El login requiere tenant (solo funciona en subdominios)
+    if (!req.tenantDb || !req.tenant) {
+      console.error('❌ req.tenantDb or req.tenant is undefined');
+      return res.status(400).json({ 
+        message: 'Este endpoint requiere acceso desde un subdominio de tenant',
+        code: 'TENANT_REQUIRED'
+      });
+    }
+    
     // 1) Buscar usuario
-    const [rows] = await pool.execute(
+    const [rows] = await req.tenantDb.execute(
       'SELECT user_id, first_name, last_name, email, password_hash, role, language, timezone FROM USERS WHERE email = ?',
       [email]
     );
@@ -64,7 +163,7 @@ router.post('/login', async (req, res) => {
     }
 
     // 3) Obtener configuración de sesión
-    const sessionConfig = await getSessionConfig();
+    const sessionConfig = await getSessionConfig(req.tenantDb);
     
     // 4) Generar JWT con configuración dinámica
     const token = jwt.sign(
@@ -129,8 +228,16 @@ router.post('/login', async (req, res) => {
 // GET /me — Verificar sesión activa
 router.get('/me', authenticateToken, async (req, res) => {
   try {
+    // Verificar que existe tenantDb (requerido para /me)
+    if (!req.tenantDb || !req.tenant) {
+      return res.status(400).json({ 
+        message: 'Este endpoint requiere acceso desde un subdominio de tenant',
+        code: 'TENANT_REQUIRED'
+      });
+    }
+    
     // Obtener información completa del usuario
-    const [rows] = await pool.execute(
+    const [rows] = await req.tenantDb.execute(
       'SELECT user_id, first_name, last_name, email, role, language, timezone FROM USERS WHERE user_id = ?',
       [req.user.user_id]
     );
@@ -179,13 +286,13 @@ router.put('/profile', authenticateToken, async (req, res) => {
     }
 
     // Verificar si el email ya existe (solo si cambió)
-    const [currentUser] = await pool.execute(
+    const [currentUser] = await req.tenantDb.execute(
       'SELECT email FROM USERS WHERE user_id = ?',
       [req.user.user_id]
     );
 
     if (currentUser[0].email !== email) {
-      const [existingUser] = await pool.execute(
+      const [existingUser] = await req.tenantDb.execute(
         'SELECT user_id FROM USERS WHERE email = ? AND user_id != ?',
         [email, req.user.user_id]
       );
@@ -198,13 +305,13 @@ router.put('/profile', authenticateToken, async (req, res) => {
     }
 
     // Actualizar el perfil
-    await pool.execute(
+    await req.tenantDb.execute(
       'UPDATE USERS SET first_name = ?, last_name = ?, email = ?, language = ?, timezone = ? WHERE user_id = ?',
       [first_name, last_name, email, language || 'es', timezone || 'Europe/Madrid', req.user.user_id]
     );
 
     // Obtener los datos actualizados
-    const [updatedUser] = await pool.execute(
+    const [updatedUser] = await req.tenantDb.execute(
       'SELECT user_id, first_name, last_name, email, role, language, timezone FROM USERS WHERE user_id = ?',
       [req.user.user_id]
     );
@@ -241,7 +348,7 @@ router.put('/password', authenticateToken, async (req, res) => {
     }
 
     // Obtener políticas de contraseña
-    const [policyRows] = await pool.execute(`
+    const [policyRows] = await req.tenantDb.execute(`
       SELECT setting_key, setting_value 
       FROM SYSTEM_SETTINGS 
       WHERE setting_key IN ('password_min_length', 'password_require_special', 'password_require_numbers')
@@ -277,7 +384,7 @@ router.put('/password', authenticateToken, async (req, res) => {
     }
 
     // Obtener la contraseña actual del usuario
-    const [rows] = await pool.execute(
+    const [rows] = await req.tenantDb.execute(
       'SELECT password_hash FROM USERS WHERE user_id = ?',
       [req.user.user_id]
     );
@@ -297,7 +404,7 @@ router.put('/password', authenticateToken, async (req, res) => {
     const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
 
     // Actualizar contraseña
-    await pool.execute(
+    await req.tenantDb.execute(
       'UPDATE USERS SET password_hash = ? WHERE user_id = ?',
       [newPasswordHash, req.user.user_id]
     );

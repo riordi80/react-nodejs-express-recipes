@@ -6,24 +6,14 @@ const authenticateToken = require('../middleware/authMiddleware');
 const authorizeRoles = require('../middleware/roleMiddleware');
 const logAudit = require('../utils/audit');
 
-// OPTIMIZACIÓN: Pool de conexiones con límites para evitar agotamiento de memoria
-const pool = mysql.createPool({
-  host:     process.env.DB_HOST,
-  user:     process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-  dateStrings: true, // Devuelve fechas como strings, evita conversiones de timezone
-  // Límites críticos para servidores con poca memoria
-  connectionLimit: 3,          // Máximo 3 conexiones simultáneas
-  idleTimeout: 300000,         // Cerrar conexiones inactivas después de 5min
-  maxIdle: 1                   // Máximo 1 conexión idle
-});
+// Multi-tenant: usar req.tenantDb en lugar de pool estático
+// Nota: Los límites de conexión se manejan ahora en databaseManager.js
 
 // GET /ingredients/dashboard-widgets - Datos para widgets del dashboard de ingredientes
 router.get('/dashboard-widgets', authenticateToken, authorizeRoles('admin', 'chef', 'inventory_manager'), async (req, res) => {
   try {
     // 1. Stock Crítico - Ingredientes con stock por debajo del mínimo
-    const [lowStockRows] = await pool.query(`
+    const [lowStockRows] = await req.tenantDb.query(`
       SELECT ingredient_id, name, stock, stock_minimum, unit,
              (stock_minimum - stock) as deficit
       FROM INGREDIENTS 
@@ -35,7 +25,7 @@ router.get('/dashboard-widgets', authenticateToken, authorizeRoles('admin', 'che
     `);
 
     // 2. Próximos a Caducar - Ingredientes con fecha de caducidad en los próximos 15 días
-    const [expiringRows] = await pool.query(`
+    const [expiringRows] = await req.tenantDb.query(`
       SELECT ingredient_id, name, expiration_date, stock, unit,
              DATEDIFF(expiration_date, CURDATE()) as days_until_expiry
       FROM INGREDIENTS 
@@ -48,7 +38,7 @@ router.get('/dashboard-widgets', authenticateToken, authorizeRoles('admin', 'che
     `);
 
     // 3. Ingredientes Estacionales - Basado en el campo season
-    const [seasonalRows] = await pool.query(`
+    const [seasonalRows] = await req.tenantDb.query(`
       SELECT ingredient_id, name, season, stock, is_available
       FROM INGREDIENTS 
       WHERE season IS NOT NULL 
@@ -59,7 +49,7 @@ router.get('/dashboard-widgets', authenticateToken, authorizeRoles('admin', 'che
     `);
 
     // 4. Sin Proveedores Asignados - Ingredientes que no tienen relación con proveedores
-    const [noSuppliersRows] = await pool.query(`
+    const [noSuppliersRows] = await req.tenantDb.query(`
       SELECT i.ingredient_id, i.name, i.stock, i.unit, i.base_price
       FROM INGREDIENTS i
       LEFT JOIN SUPPLIER_INGREDIENTS si ON i.ingredient_id = si.ingredient_id
@@ -122,7 +112,7 @@ router.get('/', authenticateToken, authorizeRoles('admin', 'chef', 'inventory_ma
     query += ' LIMIT ?';
     params.push(maxIngredients);
     
-    let [rows] = await pool.query(query, params);
+    let [rows] = await req.tenantDb.query(query, params);
     
     // Aplicar filtros de JavaScript para lógica compleja
     if (expiryStatus || stockStatus) {
@@ -191,7 +181,7 @@ router.get('/', authenticateToken, authorizeRoles('admin', 'chef', 'inventory_ma
 router.get('/:id/price-history', authenticateToken, authorizeRoles('admin', 'supplier_manager'), async (req, res) => {
   const { id } = req.params;
 
-  const [rows] = await pool.query(`
+  const [rows] = await req.tenantDb.query(`
     SELECT ph.history_id, ph.old_price, ph.new_price, ph.change_date,
            u.user_id, u.first_name, u.last_name, u.email
     FROM PRICE_HISTORY ph
@@ -205,7 +195,7 @@ router.get('/:id/price-history', authenticateToken, authorizeRoles('admin', 'sup
 
 // GET /ingredients/:id/allergens - Obtener alérgenos de un ingrediente
 router.get('/:id/allergens', authenticateToken, authorizeRoles('admin', 'chef', 'inventory_manager'), async (req, res) => {
-  const [rows] = await pool.query(`
+  const [rows] = await req.tenantDb.query(`
     SELECT a.allergen_id, a.name
     FROM ALLERGENS a
     JOIN INGREDIENT_ALLERGENS ia ON a.allergen_id = ia.allergen_id
@@ -218,7 +208,7 @@ router.get('/:id/allergens', authenticateToken, authorizeRoles('admin', 'chef', 
 router.get('/:id', authenticateToken, authorizeRoles('admin', 'chef', 'inventory_manager'), async (req, res) => {
   try {
     // 1. Obtener datos básicos del ingrediente
-    const [ingredientRows] = await pool.query('SELECT * FROM INGREDIENTS WHERE ingredient_id = ?', [req.params.id]);
+    const [ingredientRows] = await req.tenantDb.query('SELECT * FROM INGREDIENTS WHERE ingredient_id = ?', [req.params.id]);
     if (ingredientRows.length === 0) {
       return res.status(404).json({ message: 'Ingrediente no encontrado' });
     }
@@ -226,7 +216,7 @@ router.get('/:id', authenticateToken, authorizeRoles('admin', 'chef', 'inventory
     const ingredient = ingredientRows[0];
 
     // 2. Obtener alérgenos asignados a este ingrediente
-    const [allergenRows] = await pool.query(`
+    const [allergenRows] = await req.tenantDb.query(`
       SELECT a.allergen_id, a.name
       FROM INGREDIENT_ALLERGENS ia
       JOIN ALLERGENS a ON ia.allergen_id = a.allergen_id
@@ -261,19 +251,30 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'chef'), async (req,
   } = req.body;
 
   // Convertir fecha ISO a formato MySQL DATE (YYYY-MM-DD)
-  let mysql_expiration_date = expiration_date;
-  if (expiration_date && expiration_date.includes('T')) {
-    mysql_expiration_date = expiration_date.split('T')[0];
+  let mysql_expiration_date = null;
+  if (expiration_date) {
+    if (typeof expiration_date === 'string') {
+      if (expiration_date.includes('T')) {
+        // Formato ISO: "2025-07-16T23:00:00.000Z" -> "2025-07-16"
+        mysql_expiration_date = expiration_date.split('T')[0];
+      } else if (expiration_date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        // Ya está en formato MySQL: "2025-07-16"
+        mysql_expiration_date = expiration_date;
+      }
+    } else if (expiration_date instanceof Date) {
+      // Es un objeto Date
+      mysql_expiration_date = expiration_date.toISOString().split('T')[0];
+    }
   }
 
-  const [result] = await pool.query(`
+  const [result] = await req.tenantDb.query(`
     INSERT INTO INGREDIENTS
     (name, unit, base_price, waste_percent, net_price, stock, stock_minimum, season, expiration_date, is_available, comment)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [name, unit, base_price, waste_percent, net_price, stock, stock_minimum, season, mysql_expiration_date, is_available, comment]
   );
 
-  await logAudit(req.user.user_id, 'create', 'INGREDIENTS', result.insertId, `Ingrediente "${name}" creado`);
+  await logAudit(req.tenantDb, req.user.user_id, 'create', 'INGREDIENTS', result.insertId, `Ingrediente "${name}" creado`);
   res.status(201).json({ 
     message: 'Ingrediente creado correctamente', 
     ingredient_id: result.insertId 
@@ -282,7 +283,7 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'chef'), async (req,
 
 // PUT /ingredients/:id - Actualizar ingrediente
 router.put('/:id', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
-  const connection = await pool.getConnection();
+  const connection = await req.tenantDb.getConnection();
   
   try {
     await connection.beginTransaction();
@@ -295,9 +296,20 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'chef'), async (re
     } = req.body;
 
     // Convertir fecha ISO a formato MySQL DATE (YYYY-MM-DD)
-    let mysql_expiration_date = expiration_date;
-    if (expiration_date && typeof expiration_date === 'string' && expiration_date.includes('T')) {
-      mysql_expiration_date = expiration_date.split('T')[0];
+    let mysql_expiration_date = null;
+    if (expiration_date) {
+      if (typeof expiration_date === 'string') {
+        if (expiration_date.includes('T')) {
+          // Formato ISO: "2025-07-16T23:00:00.000Z" -> "2025-07-16"
+          mysql_expiration_date = expiration_date.split('T')[0];
+        } else if (expiration_date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          // Ya está en formato MySQL: "2025-07-16"
+          mysql_expiration_date = expiration_date;
+        }
+      } else if (expiration_date instanceof Date) {
+        // Es un objeto Date
+        mysql_expiration_date = expiration_date.toISOString().split('T')[0];
+      }
     }
 
     // Procesar season para permitir múltiples temporadas
@@ -346,7 +358,7 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'chef'), async (re
     }
 
     await connection.commit();
-    await logAudit(req.user.user_id, 'UPDATE', 'INGREDIENTS', req.params.id, `Ingrediente "${name}" actualizado`);
+    await logAudit(req.tenantDb, req.user.user_id, 'UPDATE', 'INGREDIENTS', req.params.id, `Ingrediente "${name}" actualizado`);
     
     res.json({ message: 'Ingrediente actualizado' });
   } catch (error) {
@@ -368,7 +380,7 @@ router.post('/:id/allergens', authenticateToken, authorizeRoles('admin', 'chef')
     return res.status(400).json({ message: 'allergen_ids debe ser un array' });
   }
 
-  const connection = await pool.getConnection();
+  const connection = await req.tenantDb.getConnection();
   try {
     await connection.beginTransaction();
 
@@ -387,7 +399,7 @@ router.post('/:id/allergens', authenticateToken, authorizeRoles('admin', 'chef')
     await connection.commit();
     
     try {
-      await logAudit(req.user.user_id, 'update', 'INGREDIENT_ALLERGENS', ingredient_id, `Alérgenos actualizados para ingrediente ${ingredient_id}`);
+      await logAudit(req.tenantDb, req.user.user_id, 'update', 'INGREDIENT_ALLERGENS', ingredient_id, `Alérgenos actualizados para ingrediente ${ingredient_id}`);
     } catch (auditError) {
       console.error('Error en auditoría (no crítico):', auditError);
     }
@@ -407,9 +419,9 @@ router.delete('/:id/allergens/:allergen_id', authenticateToken, authorizeRoles('
   try {
     const { id, allergen_id } = req.params;
 
-    await pool.query('DELETE FROM INGREDIENT_ALLERGENS WHERE ingredient_id = ? AND allergen_id = ?', [id, allergen_id]);
+    await req.tenantDb.query('DELETE FROM INGREDIENT_ALLERGENS WHERE ingredient_id = ? AND allergen_id = ?', [id, allergen_id]);
 
-    await logAudit(req.user.user_id, 'DELETE', 'INGREDIENT_ALLERGENS', id, `Alérgeno ${allergen_id} eliminado del ingrediente ${id}`);
+    await logAudit(req.tenantDb, req.user.user_id, 'DELETE', 'INGREDIENT_ALLERGENS', id, `Alérgeno ${allergen_id} eliminado del ingrediente ${id}`);
     res.json({ message: 'Alérgeno eliminado correctamente' });
   } catch (error) {
     console.error('Error al eliminar alérgeno:', error);
@@ -423,15 +435,15 @@ router.delete('/:id', authenticateToken, authorizeRoles('admin'), async (req, re
 
   try {
     // Obtener el nombre del ingrediente para la auditoría
-    const [ingredient] = await pool.query('SELECT name FROM INGREDIENTS WHERE ingredient_id = ?', [id]);
+    const [ingredient] = await req.tenantDb.query('SELECT name FROM INGREDIENTS WHERE ingredient_id = ?', [id]);
     if (ingredient.length === 0) {
       return res.status(404).json({ message: 'Ingrediente no encontrado' });
     }
 
     // Soft delete: marcar como no disponible
-    await pool.query('UPDATE INGREDIENTS SET is_available = FALSE WHERE ingredient_id = ?', [id]);
+    await req.tenantDb.query('UPDATE INGREDIENTS SET is_available = FALSE WHERE ingredient_id = ?', [id]);
 
-    await logAudit(req.user.user_id, 'update', 'INGREDIENTS', id, `Ingrediente "${ingredient[0].name}" desactivado (soft delete)`);
+    await logAudit(req.tenantDb, req.user.user_id, 'update', 'INGREDIENTS', id, `Ingrediente "${ingredient[0].name}" desactivado (soft delete)`);
     res.json({ message: 'Ingrediente desactivado correctamente' });
   } catch (error) {
     console.error('Error al desactivar ingrediente:', error);
@@ -445,15 +457,15 @@ router.put('/:id/activate', authenticateToken, authorizeRoles('admin'), async (r
 
   try {
     // Obtener el nombre del ingrediente para la auditoría
-    const [ingredient] = await pool.query('SELECT name FROM INGREDIENTS WHERE ingredient_id = ?', [id]);
+    const [ingredient] = await req.tenantDb.query('SELECT name FROM INGREDIENTS WHERE ingredient_id = ?', [id]);
     if (ingredient.length === 0) {
       return res.status(404).json({ message: 'Ingrediente no encontrado' });
     }
 
     // Reactivar: marcar como disponible
-    await pool.query('UPDATE INGREDIENTS SET is_available = TRUE WHERE ingredient_id = ?', [id]);
+    await req.tenantDb.query('UPDATE INGREDIENTS SET is_available = TRUE WHERE ingredient_id = ?', [id]);
 
-    await logAudit(req.user.user_id, 'update', 'INGREDIENTS', id, `Ingrediente "${ingredient[0].name}" reactivado`);
+    await logAudit(req.tenantDb, req.user.user_id, 'update', 'INGREDIENTS', id, `Ingrediente "${ingredient[0].name}" reactivado`);
     res.json({ message: 'Ingrediente reactivado correctamente' });
   } catch (error) {
     console.error('Error al reactivar ingrediente:', error);
@@ -466,7 +478,7 @@ router.get('/:id/suppliers', authenticateToken, authorizeRoles('admin', 'chef'),
   const { id } = req.params;
 
   try {
-    const [suppliers] = await pool.query(`
+    const [suppliers] = await req.tenantDb.query(`
       SELECT 
         si.supplier_id,
         s.name as supplier_name,
@@ -508,19 +520,19 @@ router.post('/:id/suppliers', authenticateToken, authorizeRoles('admin', 'chef')
 
   try {
     // Verificar que el ingrediente existe
-    const [ingredient] = await pool.query('SELECT name FROM INGREDIENTS WHERE ingredient_id = ?', [id]);
+    const [ingredient] = await req.tenantDb.query('SELECT name FROM INGREDIENTS WHERE ingredient_id = ?', [id]);
     if (ingredient.length === 0) {
       return res.status(404).json({ message: 'Ingrediente no encontrado' });
     }
 
     // Verificar que el proveedor existe
-    const [supplier] = await pool.query('SELECT name FROM SUPPLIERS WHERE supplier_id = ?', [supplier_id]);
+    const [supplier] = await req.tenantDb.query('SELECT name FROM SUPPLIERS WHERE supplier_id = ?', [supplier_id]);
     if (supplier.length === 0) {
       return res.status(404).json({ message: 'Proveedor no encontrado' });
     }
 
     // Verificar que la relación no existe ya
-    const [existing] = await pool.query(
+    const [existing] = await req.tenantDb.query(
       'SELECT * FROM SUPPLIER_INGREDIENTS WHERE ingredient_id = ? AND supplier_id = ?',
       [id, supplier_id]
     );
@@ -529,14 +541,14 @@ router.post('/:id/suppliers', authenticateToken, authorizeRoles('admin', 'chef')
     }
 
     // Añadir la relación
-    await pool.query(`
+    await req.tenantDb.query(`
       INSERT INTO SUPPLIER_INGREDIENTS (
         ingredient_id, supplier_id, price, delivery_time, 
         is_preferred_supplier, package_size, package_unit, minimum_order_quantity
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `, [id, supplier_id, price, delivery_time, is_preferred_supplier, package_size, package_unit, minimum_order_quantity]);
 
-    await logAudit(req.user.user_id, 'create', 'SUPPLIER_INGREDIENTS', null, 
+    await logAudit(req.tenantDb, req.user.user_id, 'create', 'SUPPLIER_INGREDIENTS', null, 
       `Proveedor "${supplier[0].name}" añadido al ingrediente "${ingredient[0].name}"`);
 
     res.status(201).json({ message: 'Proveedor añadido correctamente' });
@@ -560,7 +572,7 @@ router.put('/:id/suppliers/:supplier_id', authenticateToken, authorizeRoles('adm
 
   try {
     // Verificar que la relación existe
-    const [existing] = await pool.query(
+    const [existing] = await req.tenantDb.query(
       'SELECT * FROM SUPPLIER_INGREDIENTS WHERE ingredient_id = ? AND supplier_id = ?',
       [id, supplier_id]
     );
@@ -570,7 +582,7 @@ router.put('/:id/suppliers/:supplier_id', authenticateToken, authorizeRoles('adm
 
     // Si se está marcando como preferido, desmarcar otros proveedores preferidos del mismo ingrediente
     if (is_preferred_supplier === true) {
-      await pool.query(
+      await req.tenantDb.query(
         'UPDATE SUPPLIER_INGREDIENTS SET is_preferred_supplier = FALSE WHERE ingredient_id = ? AND supplier_id != ?',
         [id, supplier_id]
       );
@@ -611,12 +623,12 @@ router.put('/:id/suppliers/:supplier_id', authenticateToken, authorizeRoles('adm
 
     values.push(id, supplier_id);
 
-    await pool.query(
+    await req.tenantDb.query(
       `UPDATE SUPPLIER_INGREDIENTS SET ${updates.join(', ')} WHERE ingredient_id = ? AND supplier_id = ?`,
       values
     );
 
-    await logAudit(req.user.user_id, 'update', 'SUPPLIER_INGREDIENTS', null, 
+    await logAudit(req.tenantDb, req.user.user_id, 'update', 'SUPPLIER_INGREDIENTS', null, 
       `Relación ingrediente-proveedor actualizada: ingrediente ${id}, proveedor ${supplier_id}`);
 
     res.json({ message: 'Relación actualizada correctamente' });
@@ -632,7 +644,7 @@ router.delete('/:id/suppliers/:supplier_id', authenticateToken, authorizeRoles('
 
   try {
     // Verificar que la relación existe
-    const [existing] = await pool.query(
+    const [existing] = await req.tenantDb.query(
       'SELECT * FROM SUPPLIER_INGREDIENTS WHERE ingredient_id = ? AND supplier_id = ?',
       [id, supplier_id]
     );
@@ -641,12 +653,12 @@ router.delete('/:id/suppliers/:supplier_id', authenticateToken, authorizeRoles('
     }
 
     // Eliminar la relación
-    await pool.query(
+    await req.tenantDb.query(
       'DELETE FROM SUPPLIER_INGREDIENTS WHERE ingredient_id = ? AND supplier_id = ?',
       [id, supplier_id]
     );
 
-    await logAudit(req.user.user_id, 'delete', 'SUPPLIER_INGREDIENTS', null, 
+    await logAudit(req.tenantDb, req.user.user_id, 'delete', 'SUPPLIER_INGREDIENTS', null, 
       `Proveedor eliminado del ingrediente: ingrediente ${id}, proveedor ${supplier_id}`);
 
     res.json({ message: 'Proveedor eliminado correctamente' });

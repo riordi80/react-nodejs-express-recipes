@@ -1,0 +1,46 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+/* Asegurar que Inter se use correctamente */
+.font-sans {
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* Table column widths for consistent shopping list tables */
+@layer utilities {
+  /* Shopping table consistent widths */
+  .shopping-table {
+    width: 100%;
+    min-width: 800px;
+  }
+  
+  .shopping-table colgroup col:nth-child(1) { width: 20%; } /* Ingrediente */
+  .shopping-table colgroup col:nth-child(2) { width: 10%; } /* Necesario */
+  .shopping-table colgroup col:nth-child(3) { width: 10%; } /* En Stock */
+  .shopping-table colgroup col:nth-child(4) { width: 10%; } /* A Comprar */
+  .shopping-table colgroup col:nth-child(5) { width: 12%; } /* Unidad Venta */
+  .shopping-table colgroup col:nth-child(6) { width: 12%; } /* Cantidad Real */
+  .shopping-table colgroup col:nth-child(7) { width: 13%; } /* Precio Real */
+  .shopping-table colgroup col:nth-child(8) { width: 13%; } /* Total Real */
+  
+  /* Mobile: Fixed pixel widths for consistency on small screens */
+  @media (max-width: 768px) {
+    .shopping-table colgroup col:nth-child(1) { width: 140px; } /* Ingrediente */
+    .shopping-table colgroup col:nth-child(2) { width: 80px; } /* Necesario */
+    .shopping-table colgroup col:nth-child(3) { width: 80px; } /* En Stock */
+    .shopping-table colgroup col:nth-child(4) { width: 80px; } /* A Comprar */
+    .shopping-table colgroup col:nth-child(5) { width: 90px; } /* Unidad Venta */
+    .shopping-table colgroup col:nth-child(6) { width: 90px; } /* Cantidad Real */
+    .shopping-table colgroup col:nth-child(7) { width: 100px; } /* Precio Real */
+    .shopping-table colgroup col:nth-child(8) { width: 100px; } /* Total Real */
+  }
+}
