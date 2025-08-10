@@ -134,7 +134,7 @@ const SystemSection = () => {
             </label>
             <Select
               value={settings.pageSize}
-              onChange={(e) => handleSettingChange('pageSize', parseInt(e.target.value))}
+              onChange={(e) => handleSettingChange('pageSize', e.target.value)}
               options={pageSizeOptions}
             />
             <p className="text-sm text-gray-500">

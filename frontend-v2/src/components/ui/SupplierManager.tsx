@@ -17,7 +17,8 @@ import AddSupplierModal from './AddSupplierModal'
 
 interface Supplier {
   supplier_id: number
-  name: string
+  supplier_name: string  // El backend devuelve supplier_name, no name
+  name?: string  // Mantener compatibilidad
   price?: number
   delivery_time?: number
   is_preferred_supplier?: boolean
@@ -161,14 +162,30 @@ export default function SupplierManager({
   }
 
   const handleDeleteClick = (supplier: Supplier) => {
-    setSupplierToDelete({ id: supplier.supplier_id, name: supplier.name })
+    setSupplierToDelete({ id: supplier.supplier_id, name: supplier.supplier_name || supplier.name || 'Sin nombre' })
   }
 
   const togglePreferred = async (supplierId: number) => {
     try {
-      await apiPut(`${endpoints.preferred}/${supplierId}/preferred`)
+      // Encontrar el proveedor actual para saber su estado
+      const currentSupplier = suppliers.find(s => s.supplier_id === supplierId)
+      const isCurrentlyPreferred = currentSupplier?.is_preferred_supplier
+      
+      if (isCurrentlyPreferred) {
+        // Si ya es preferido, desmarcarlo (sin preferido)
+        await apiPut(`${endpoints.update}/${supplierId}`, {
+          is_preferred_supplier: false
+        })
+        success('Proveedor desmarcado como preferido')
+      } else {
+        // Si no es preferido, marcarlo como preferido (el backend automáticamente desmarca otros)
+        await apiPut(`${endpoints.update}/${supplierId}`, {
+          is_preferred_supplier: true
+        })
+        success('Proveedor marcado como preferido')
+      }
+      
       await loadSuppliers()
-      success('Proveedor preferido actualizado')
     } catch (err) {
       console.error('Error updating preferred supplier:', err)
     }
@@ -198,6 +215,7 @@ export default function SupplierManager({
       })
       
       await loadSuppliers()
+      setExpandedSupplierId(null)  // Plegar el contenedor después de guardar
       success('Datos del proveedor actualizados')
     } catch (err) {
       console.error('Error updating supplier data:', err)
@@ -285,7 +303,7 @@ export default function SupplierManager({
                         <Star className="h-5 w-5 text-yellow-500 fill-current" />
                       )}
                       <div className="flex-1">
-                        <h4 className="font-semibold text-gray-900">{supplier.name}</h4>
+                        <h4 className="font-semibold text-gray-900">{supplier.supplier_name || supplier.name}</h4>
                         <div className="flex items-center gap-4 mt-1">
                           <span className="text-sm text-gray-600">
                             Precio: <span className="font-medium">{formatCurrency(supplier.price || 0)}</span>

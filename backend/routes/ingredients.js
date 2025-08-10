@@ -14,15 +14,25 @@ router.get('/dashboard-widgets', authenticateToken, authorizeRoles('admin', 'che
   try {
     // 1. Stock Crítico - Ingredientes con stock por debajo del mínimo
     const [lowStockRows] = await req.tenantDb.query(`
-      SELECT ingredient_id, name, stock, stock_minimum, unit,
+      SELECT ingredient_id, name, stock, stock_minimum, unit, is_available,
              (stock_minimum - stock) as deficit
       FROM INGREDIENTS 
       WHERE is_available = TRUE 
         AND stock < stock_minimum 
         AND stock_minimum > 0
       ORDER BY (stock_minimum - stock) DESC
-      LIMIT 8
+      LIMIT 6
     `);
+
+    // 1b. Contar total de ingredientes en stock crítico
+    const [lowStockCountResult] = await req.tenantDb.query(`
+      SELECT COUNT(*) as total
+      FROM INGREDIENTS 
+      WHERE is_available = TRUE 
+        AND stock < stock_minimum 
+        AND stock_minimum > 0
+    `);
+    const lowStockTotal = lowStockCountResult[0].total;
 
     // 2. Próximos a Caducar - Ingredientes con fecha de caducidad en los próximos 15 días
     const [expiringRows] = await req.tenantDb.query(`
@@ -34,36 +44,121 @@ router.get('/dashboard-widgets', authenticateToken, authorizeRoles('admin', 'che
         AND expiration_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 15 DAY)
         AND stock > 0
       ORDER BY expiration_date ASC
-      LIMIT 8
+      LIMIT 6
     `);
 
-    // 3. Ingredientes Estacionales - Basado en el campo season
+    // 2b. Contar total de ingredientes próximos a caducar
+    const [expiringCountResult] = await req.tenantDb.query(`
+      SELECT COUNT(*) as total
+      FROM INGREDIENTS 
+      WHERE is_available = TRUE 
+        AND expiration_date IS NOT NULL 
+        AND expiration_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 15 DAY)
+        AND stock > 0
+    `);
+    const expiringTotal = expiringCountResult[0].total;
+
+    // 3. Ingredientes Estacionales - Versión optimizada manteniendo funcionalidad
+    const currentMonth = new Date().toLocaleString('es-ES', { month: 'long' });
     const [seasonalRows] = await req.tenantDb.query(`
-      SELECT ingredient_id, name, season, stock, is_available
+      SELECT ingredient_id, name, season, stock, unit, base_price, net_price, is_available
       FROM INGREDIENTS 
       WHERE season IS NOT NULL 
         AND season != ''
+        AND season != 'todo_año'
+        AND season != 'todo el año'
         AND is_available = TRUE
-      ORDER BY name ASC
-      LIMIT 8
+        AND season LIKE ?
+      ORDER BY stock DESC, name ASC
+      LIMIT 6
+    `, [`%${currentMonth}%`]);
+
+    // 3b. Contar total de ingredientes estacionales
+    const [seasonalCountResult] = await req.tenantDb.query(`
+      SELECT COUNT(*) as total
+      FROM INGREDIENTS 
+      WHERE season IS NOT NULL 
+        AND season != ''
+        AND season != 'todo_año'
+        AND season != 'todo el año'
+        AND is_available = TRUE
+        AND season LIKE ?
+    `, [`%${currentMonth}%`]);
+    const seasonalTotal = seasonalCountResult[0].total;
+
+    // 4. Sin Proveedor Preferido - CONSULTA OPTIMIZADA
+    const [noPreferredRows] = await req.tenantDb.query(`
+      SELECT 
+        i.ingredient_id, 
+        i.name, 
+        i.stock, 
+        i.unit, 
+        i.base_price, 
+        i.is_available,
+        COALESCE(ic.name, 'Sin categoría') as category
+      FROM INGREDIENTS i
+      LEFT JOIN INGREDIENT_CATEGORY_ASSIGNMENTS ica ON i.ingredient_id = ica.ingredient_id
+      LEFT JOIN INGREDIENT_CATEGORIES ic ON ica.category_id = ic.category_id
+      WHERE i.is_available = TRUE 
+        AND i.ingredient_id NOT IN (
+          SELECT DISTINCT ingredient_id FROM SUPPLIER_INGREDIENTS 
+          WHERE ingredient_id IS NOT NULL AND is_preferred_supplier = TRUE
+        )
+      ORDER BY i.name ASC
+      LIMIT 6
     `);
 
-    // 4. Sin Proveedores Asignados - Ingredientes que no tienen relación con proveedores
-    const [noSuppliersRows] = await req.tenantDb.query(`
-      SELECT i.ingredient_id, i.name, i.stock, i.unit, i.base_price
+    // 4b. Contar total de ingredientes sin proveedor preferido
+    const [noPreferredCountResult] = await req.tenantDb.query(`
+      SELECT COUNT(*) as total
       FROM INGREDIENTS i
-      LEFT JOIN SUPPLIER_INGREDIENTS si ON i.ingredient_id = si.ingredient_id
       WHERE i.is_available = TRUE 
-        AND si.ingredient_id IS NULL
-      ORDER BY i.name ASC
-      LIMIT 8
+        AND i.ingredient_id NOT IN (
+          SELECT DISTINCT ingredient_id FROM SUPPLIER_INGREDIENTS 
+          WHERE ingredient_id IS NOT NULL AND is_preferred_supplier = TRUE
+        )
     `);
+    const noPreferredTotal = noPreferredCountResult[0].total;
+
+    // DEBUG TEMPORAL - verificar resultados
+    console.log('🔍 Resultados widgets:', {
+      lowStock: lowStockRows.length,
+      expiringSoon: expiringRows.length, 
+      seasonal: seasonalRows.length,
+      noPreferred: noPreferredRows.length,
+      currentMonth,
+      totals: {
+        lowStock: lowStockTotal,
+        expiringSoon: expiringTotal,
+        seasonal: seasonalTotal,
+        noPreferred: noPreferredTotal
+      }
+    });
+
+    // DEBUG ESPECÍFICO para ingredientes próximos a caducar
+    console.log('🕐 DEBUG Próximos a Caducar:', {
+      fecha_actual: new Date().toISOString().split('T')[0],
+      ingredientes_encontrados: expiringRows.length,
+      total_ingredientes: expiringTotal,
+      primeros_resultados: expiringRows.slice(0, 3).map(ing => ({
+        name: ing.name,
+        expiration_date: ing.expiration_date,
+        days_until_expiry: ing.days_until_expiry,
+        stock: ing.stock
+      }))
+    });
 
     res.json({
       lowStock: lowStockRows,
       expiringSoon: expiringRows,
       seasonal: seasonalRows,
-      noSuppliers: noSuppliersRows
+      noSuppliers: noPreferredRows,  // Mantener el nombre noSuppliers para compatibilidad frontend
+      totals: {
+        lowStock: lowStockTotal,
+        expiringSoon: expiringTotal,
+        seasonal: seasonalTotal,
+        noSuppliers: noPreferredTotal
+      }
     });
 
   } catch (error) {
@@ -665,6 +760,82 @@ router.delete('/:id/suppliers/:supplier_id', authenticateToken, authorizeRoles('
   } catch (error) {
     console.error('Error al eliminar proveedor del ingrediente:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// GET /ingredients/seasonal/all - Todos los ingredientes estacionales
+router.get('/seasonal/all', authenticateToken, authorizeRoles('admin', 'chef', 'inventory_manager'), async (req, res) => {
+  try {
+    const currentMonth = new Date().toLocaleString('es-ES', { month: 'long' });
+    const [seasonalRows] = await req.tenantDb.query(`
+      SELECT 
+        i.ingredient_id, 
+        i.name, 
+        i.season, 
+        i.stock, 
+        i.unit, 
+        i.base_price, 
+        i.net_price, 
+        i.is_available,
+        si.price as preferred_supplier_price
+      FROM INGREDIENTS i
+      LEFT JOIN SUPPLIER_INGREDIENTS si ON i.ingredient_id = si.ingredient_id AND si.is_preferred_supplier = TRUE
+      WHERE i.season IS NOT NULL 
+        AND i.season != ''
+        AND i.season != 'todo_año'
+        AND i.season != 'todo el año'
+        AND i.is_available = TRUE
+        AND i.season LIKE ?
+      ORDER BY i.stock DESC, i.name ASC
+    `, [`%${currentMonth}%`]);
+
+    res.json(seasonalRows);
+  } catch (error) {
+    console.error('Error fetching all seasonal ingredients:', error);
+    res.status(500).json({ message: 'Error al obtener ingredientes estacionales' });
+  }
+});
+
+// GET /ingredients/low-stock/all - Todos los ingredientes en stock crítico (CONSULTA OPTIMIZADA)
+router.get('/low-stock/all', authenticateToken, authorizeRoles('admin', 'chef', 'inventory_manager'), async (req, res) => {
+  try {
+    const [lowStockRows] = await req.tenantDb.query(`
+      SELECT ingredient_id, name, stock, stock_minimum, unit, 
+             base_price, net_price, is_available,
+             (stock_minimum - stock) as deficit
+      FROM INGREDIENTS
+      WHERE is_available = TRUE 
+        AND stock < stock_minimum 
+        AND stock_minimum > 0
+      ORDER BY (stock_minimum - stock) DESC, name ASC
+    `);
+
+    res.json(lowStockRows);
+  } catch (error) {
+    console.error('Error fetching all low stock ingredients:', error);
+    res.status(500).json({ message: 'Error al obtener ingredientes en stock crítico' });
+  }
+});
+
+// GET /ingredients/expiring/all - Todos los ingredientes próximos a caducar
+router.get('/expiring/all', authenticateToken, authorizeRoles('admin', 'chef', 'inventory_manager'), async (req, res) => {
+  try {
+    const [expiringRows] = await req.tenantDb.query(`
+      SELECT ingredient_id, name, expiration_date, stock, unit,
+             DATEDIFF(expiration_date, CURDATE()) as days_until_expiry,
+             is_available
+      FROM INGREDIENTS 
+      WHERE is_available = TRUE 
+        AND expiration_date IS NOT NULL 
+        AND expiration_date BETWEEN CURDATE() - INTERVAL 5 DAY AND DATE_ADD(CURDATE(), INTERVAL 15 DAY)
+        AND stock > 0
+      ORDER BY DATEDIFF(expiration_date, CURDATE()) ASC, name ASC
+    `);
+
+    res.json(expiringRows);
+  } catch (error) {
+    console.error('Error fetching all expiring ingredients:', error);
+    res.status(500).json({ message: 'Error al obtener ingredientes próximos a caducar' });
   }
 });
 
