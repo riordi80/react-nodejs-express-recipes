@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { useState, useEffect } from 'react'
-import { Mail, ChefHat, ArrowRight, Building2, ExternalLink } from 'lucide-react'
+import { Mail, ChefHat, ArrowRight, Building2, Eye, EyeOff, Lock } from 'lucide-react'
 import Link from 'next/link'
 
 // Tipo para la configuración runtime
@@ -24,6 +24,10 @@ export default function CentralLoginPage() {
   } | null>(null)
   const [countdown, setCountdown] = useState(0)
   const [isRedirecting, setIsRedirecting] = useState(false)
+  const [showLogin, setShowLogin] = useState(false)
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [loginLoading, setLoginLoading] = useState(false)
 
   // Cargar configuración runtime al montar el componente
   useEffect(() => {
@@ -62,8 +66,9 @@ export default function CentralLoginPage() {
         setCountdown(countdown - 1)
       }, 1000)
     } else if (countdown === 0 && isRedirecting && tenantInfo) {
-      // Redirigir automáticamente
-      handleRedirect()
+      // Ir al tercer paso (login)
+      setShowLogin(true)
+      setIsRedirecting(false)
     }
 
     return () => {
@@ -131,19 +136,16 @@ export default function CentralLoginPage() {
     }
   }
 
-  const handleRedirect = () => {
-    if (tenantInfo?.login_url) {
-      // Agregar el email como parámetro de query
-      const url = new URL(tenantInfo.login_url)
-      url.searchParams.set('email', email.trim())
-      window.location.href = url.toString()
-    }
+  const handleContinueToLogin = () => {
+    setShowLogin(true)
   }
 
   const handleStartOver = () => {
     setEmail('')
+    setPassword('')
     setError('')
     setTenantInfo(null)
+    setShowLogin(false)
     setCountdown(0)
     setIsRedirecting(false)
   }
@@ -151,6 +153,58 @@ export default function CentralLoginPage() {
   const handleCancelRedirect = () => {
     setCountdown(0)
     setIsRedirecting(false)
+  }
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setLoginLoading(true)
+
+    if (!password.trim()) {
+      setError('Contraseña es obligatoria')
+      setLoginLoading(false)
+      return
+    }
+
+    if (!config || !tenantInfo) {
+      setError('Error de configuración')
+      setLoginLoading(false)
+      return
+    }
+
+    try {
+      // Realizar login directo usando la configuración del tenant
+      const loginUrl = new URL(tenantInfo.login_url)
+      const apiUrl = `${loginUrl.protocol}//${loginUrl.hostname}${loginUrl.port ? ':' + loginUrl.port : ''}/api/login`
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          email: email.trim(), 
+          password: password.trim() 
+        }),
+        credentials: 'include'
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        setError(data.message || 'Error al iniciar sesión')
+        return
+      }
+
+      // Login exitoso, redirigir al dashboard del tenant
+      window.location.href = `${loginUrl.protocol}//${loginUrl.hostname}${loginUrl.port ? ':' + loginUrl.port : ''}/dashboard`
+
+    } catch (err) {
+      console.error('Login error:', err)
+      setError('Error de conexión al iniciar sesión')
+    } finally {
+      setLoginLoading(false)
+    }
   }
 
   return (
@@ -171,10 +225,20 @@ export default function CentralLoginPage() {
         </div>
 
         {/* Main Content */}
-        <div className="bg-white rounded-xl shadow-lg p-8">
-          {!tenantInfo ? (
-            // Step 1: Find Tenant Form
-            <form className="space-y-6" onSubmit={handleSubmit}>
+        <div className="bg-white rounded-xl shadow-lg relative">
+          <div className="absolute inset-0 rounded-xl" style={{ 
+            overflow: 'hidden',
+            zIndex: 1,
+            pointerEvents: 'none'
+          }}></div>
+          <div className="relative z-10 overflow-hidden rounded-xl">
+            <div className="flex transition-transform duration-700 ease-in-out w-[300%]" style={{
+              transform: `translateX(${!tenantInfo ? '0%' : showLogin ? '-66.66%' : '-33.33%'})`
+            }}>
+              {/* Step 1: Find Tenant Form */}
+              <div className="w-1/3 flex-shrink-0 p-8 flex items-center">
+                <div className="w-full">
+                  <form className="space-y-6" onSubmit={handleSubmit}>
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                   Email
@@ -216,10 +280,13 @@ export default function CentralLoginPage() {
                   </>
                 )}
               </button>
-            </form>
-          ) : (
-            // Step 2: Tenant Found - Auto-redirect with countdown
-            <div className="text-center space-y-6">
+                  </form>
+                </div>
+              </div>
+
+              {/* Step 2: Tenant Found - Auto-redirect with countdown */}
+              <div className="w-1/3 flex-shrink-0 p-8 flex items-center">
+                <div className="w-full text-center space-y-6">
               <div className="flex items-center justify-center">
                 <div className="bg-green-100 rounded-full p-3">
                   <Building2 className="h-8 w-8 text-green-600" />
@@ -235,10 +302,10 @@ export default function CentralLoginPage() {
               <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                 <div className="text-center">
                   <p className="text-sm font-medium text-orange-900">
-                    {tenantInfo.business_name}
+                    {tenantInfo?.business_name}
                   </p>
                   <p className="text-xs text-orange-700">
-                    {new URL(tenantInfo.login_url).hostname}
+                    {tenantInfo?.login_url ? new URL(tenantInfo.login_url).hostname : ''}
                   </p>
                 </div>
               </div>
@@ -249,7 +316,7 @@ export default function CentralLoginPage() {
                   <div className="flex items-center justify-center space-x-3">
                     <div className="animate-spin rounded-full h-6 w-6 border-2 border-orange-600 border-t-transparent"></div>
                     <p className="text-sm text-gray-600">
-                      Redirigiendo en <span className="font-bold text-orange-600 text-lg">{countdown}</span> segundos...
+                      Continuando en <span className="font-bold text-orange-600 text-lg">{countdown}</span> segundos...
                     </p>
                   </div>
 
@@ -257,14 +324,14 @@ export default function CentralLoginPage() {
                     onClick={handleCancelRedirect}
                     className="text-sm text-gray-500 hover:text-gray-700 underline transition-colors"
                   >
-                    Cancelar redirección
+                    Cancelar
                   </button>
                 </div>
               ) : (
                 // Manual redirect buttons (fallback)
                 <div className="space-y-3">
                   <button
-                    onClick={handleRedirect}
+                    onClick={handleContinueToLogin}
                     className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors"
                   >
                     Continuar al Login
@@ -279,8 +346,84 @@ export default function CentralLoginPage() {
                   </button>
                 </div>
               )}
+                </div>
+              </div>
+
+              {/* Step 3: Login Form */}
+              <div className="w-1/3 flex-shrink-0 p-8 flex items-center">
+                <div className="w-full space-y-6">
+                  <div className="text-center">
+                    <Building2 className="h-8 w-8 mx-auto text-orange-600 mb-2" />
+                    <h3 className="text-lg font-semibold text-gray-900">
+                      {tenantInfo?.business_name}
+                    </h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                      {email}
+                    </p>
+                  </div>
+
+                  <form className="space-y-6" onSubmit={handleLogin}>
+                    <div>
+                      <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                        Contraseña
+                      </label>
+                      <div className="relative">
+                        <input
+                          id="password"
+                          name="password"
+                          type={showPassword ? 'text' : 'password'}
+                          autoComplete="current-password"
+                          required
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className="w-full px-4 py-3 pl-12 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-colors"
+                          placeholder="Tu contraseña"
+                        />
+                        <Lock className="absolute left-4 top-3.5 h-5 w-5 text-gray-400" />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-4 top-3.5 h-5 w-5 text-gray-400 hover:text-gray-600 transition-colors"
+                        >
+                          {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Error message */}
+                    {error && (
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                        <p className="text-sm text-red-600">{error}</p>
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={loginLoading}
+                      className="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-orange-600 hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {loginLoading ? (
+                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                      ) : (
+                        <>
+                          Iniciar Sesión
+                          <ArrowRight className="ml-2 h-4 w-4" />
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleStartOver}
+                      className="w-full py-2 px-4 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-orange-500 transition-colors"
+                    >
+                      Empezar de nuevo
+                    </button>
+                  </form>
+                </div>
+              </div>
             </div>
-          )}
+          </div>
         </div>
 
         {/* Footer */}
