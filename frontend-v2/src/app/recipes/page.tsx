@@ -8,7 +8,6 @@ import {
   Clock, 
   Users, 
   Euro,
-  Eye,
   Edit,
   Trash2,
   Grid3X3,
@@ -85,7 +84,7 @@ export default function RecipesPage() {
   
   // Advanced Filters
   const [searchText, setSearchText] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState('')
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [selectedPrepTime, setSelectedPrepTime] = useState<number | null>(null)
   const [selectedDifficulty, setSelectedDifficulty] = useState('')
   const [selectedIngredient, setSelectedIngredient] = useState('')
@@ -177,7 +176,7 @@ export default function RecipesPage() {
       
       // Apply all filters
       if (searchText.trim()) params.append('search', searchText.trim())
-      if (selectedCategory) params.append('category', selectedCategory)
+      if (selectedCategories.length > 0) params.append('categories', selectedCategories.join(','))
       if (selectedDifficulty) params.append('difficulty', selectedDifficulty)
       if (selectedPrepTime) params.append('prepTime', selectedPrepTime.toString())
       if (selectedIngredient) params.append('ingredient', selectedIngredient)
@@ -201,7 +200,7 @@ export default function RecipesPage() {
     }, 300) // Debounce all filters
 
     return () => clearTimeout(timeoutId)
-  }, [searchText, selectedCategory, selectedDifficulty, selectedPrepTime, selectedIngredient, selectedAllergens, isInitialized])
+  }, [searchText, selectedCategories, selectedDifficulty, selectedPrepTime, selectedIngredient, selectedAllergens, isInitialized])
 
   // Use recipes directly from API (server-side filtering)
   const filteredRecipes = recipes
@@ -249,7 +248,7 @@ export default function RecipesPage() {
     }
   }
 
-  const hasActiveFilters = searchText || selectedCategory || selectedDifficulty || 
+  const hasActiveFilters = searchText || selectedCategories.length > 0 || selectedDifficulty || 
                           selectedPrepTime || selectedIngredient || selectedAllergens.length > 0
 
   // Delete handlers
@@ -373,8 +372,8 @@ export default function RecipesPage() {
         searchText={searchText}
         onSearchTextChange={setSearchText}
         categoryOptions={filterOptions.categories}
-        selectedCategory={selectedCategory}
-        onCategoryChange={setSelectedCategory}
+        selectedCategories={selectedCategories}
+        onCategoriesChange={setSelectedCategories}
         prepTimeOptions={prepTimeOptions}
         selectedPrepTime={selectedPrepTime}
         onPrepTimeChange={setSelectedPrepTime}
@@ -471,19 +470,15 @@ export default function RecipesPage() {
                       <div className="flex items-center justify-end space-x-2">
                         <Link 
                           href={`/recipes/${recipe.recipe_id}`} 
-                          className="text-blue-600 hover:text-blue-900 p-1 rounded"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Link>
-                        <Link 
-                          href={`/recipes/${recipe.recipe_id}`} 
-                          className="text-orange-600 hover:text-orange-900 p-1 rounded"
+                          className="text-gray-600 hover:text-gray-900 p-1 rounded transition-colors"
+                          title="Editar receta"
                         >
                           <Edit className="h-4 w-4" />
                         </Link>
                         <button 
                           onClick={() => openDeleteModal(recipe)}
-                          className="text-red-600 hover:text-red-900 p-1 rounded"
+                          className="text-gray-600 hover:text-gray-900 p-1 rounded transition-colors"
+                          title="Eliminar receta"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -582,13 +577,15 @@ export default function RecipesPage() {
                   <div className="flex space-x-1">
                     <Link 
                       href={`/recipes/${recipe.recipe_id}`} 
-                      className="text-orange-600 hover:text-orange-900 p-2 rounded"
+                      className="text-gray-600 hover:text-gray-900 p-2 rounded transition-colors"
+                      title="Editar receta"
                     >
                       <Edit className="h-4 w-4" />
                     </Link>
                     <button 
                       onClick={() => openDeleteModal(recipe)}
-                      className="text-red-600 hover:text-red-900 p-2 rounded"
+                      className="text-gray-600 hover:text-gray-900 p-2 rounded transition-colors"
+                      title="Eliminar receta"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>

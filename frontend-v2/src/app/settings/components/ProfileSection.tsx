@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Eye, EyeOff, Camera, User, Globe, Shield, Settings } from 'lucide-react'
+import { Eye, EyeOff, User, Shield, Settings } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useToast } from '@/context/ToastContext'
 import Button from '@/components/ui/Button'

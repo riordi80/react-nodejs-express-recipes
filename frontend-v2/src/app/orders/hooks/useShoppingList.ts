@@ -13,7 +13,7 @@ export interface ShoppingListFilters {
 
 export interface AvailableEvent {
   event_id: number
-  name: string
+  event_name: string
   event_date: string
   event_time?: string
   guests_count: number
@@ -179,7 +179,7 @@ export const useShoppingList = () => {
               ...ingredient,
               preferredSupplier: preferredSupplier || null
             }
-          } catch (error) {
+          } catch {
             return { ...ingredient, preferredSupplier: null }
           }
         })

@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react'
 import Link from 'next/link'
-import { Calendar, Plus, Filter, Search, Users, MapPin, Clock, Euro, Eye, Edit, Trash2 } from 'lucide-react'
-import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api'
+import { Calendar, Plus, Filter, Search, Users, MapPin, Clock, Euro, Edit, Trash2 } from 'lucide-react'
+import { apiGet, apiDelete } from '@/lib/api'
 import ConfirmModal from '@/components/ui/ConfirmModal'
 import { useToastHelpers } from '@/context/ToastContext'
 
@@ -41,7 +41,7 @@ const statusLabels = {
 export default function EventsPage() {
   const [events, setEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [, setError] = useState<string | null>(null)
   
   // Toast helpers
   const { success, error: showError } = useToastHelpers()
@@ -345,15 +345,17 @@ export default function EventsPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex items-center justify-end space-x-2">
-                      <Link href={`/events/${event.event_id}`} className="text-blue-600 hover:text-blue-900 p-1 rounded">
-                        <Eye className="h-4 w-4" />
-                      </Link>
-                      <Link href={`/events/${event.event_id}`} className="text-orange-600 hover:text-orange-900 p-1 rounded">
+                      <Link 
+                        href={`/events/${event.event_id}`} 
+                        className="text-gray-600 hover:text-gray-900 p-1 rounded transition-colors"
+                        title="Editar evento"
+                      >
                         <Edit className="h-4 w-4" />
                       </Link>
                       <button 
                         onClick={() => openDeleteModal(event)}
-                        className="text-red-600 hover:text-red-900 p-1 rounded"
+                        className="text-gray-600 hover:text-gray-900 p-1 rounded transition-colors"
+                        title="Eliminar evento"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>

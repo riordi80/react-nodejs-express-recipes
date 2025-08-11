@@ -361,6 +361,7 @@ export default function CentralLoginPage() {
                           name="password"
                           type={showPassword ? 'text' : 'password'}
                           autoComplete="current-password"
+                          autoFocus
                           required
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}

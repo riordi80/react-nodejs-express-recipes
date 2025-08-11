@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Clock, Package, Euro, Calendar, AlertTriangle, Zap, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { Clock, Calendar, AlertTriangle, Zap, AlertCircle, CheckCircle2 } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import { apiGet } from '@/lib/api'
 

@@ -10,7 +10,14 @@ const logAudit = require('../utils/audit');
 
 // GET /suppliers
 router.get('/', authenticateToken, authorizeRoles('admin', 'supplier_manager'), async (req, res) => {
-  const [rows] = await req.tenantDb.query('SELECT * FROM SUPPLIERS ORDER BY name');
+  const [rows] = await req.tenantDb.query(`
+    SELECT s.*, 
+           COUNT(si.ingredient_id) as ingredients_count
+    FROM SUPPLIERS s
+    LEFT JOIN SUPPLIER_INGREDIENTS si ON s.supplier_id = si.supplier_id
+    GROUP BY s.supplier_id
+    ORDER BY s.name
+  `);
   res.json(rows);
 });
 

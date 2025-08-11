@@ -3,21 +3,11 @@
 import { useState, useEffect } from 'react'
 import { 
   Truck, 
-  Euro, 
   Building,
-  AlertTriangle, 
   List, 
   History, 
   BarChart3,
-  ChevronDown,
-  CheckCircle,
-  XCircle,
-  HelpCircle,
-  Clock,
-  LayoutGrid,
-  Table,
-  Filter,
-  Search
+  ChevronDown
 } from 'lucide-react'
 
 // Components sections
@@ -34,7 +24,7 @@ import SupplierWarningModal from '@/components/modals/SupplierWarningModal'
 import OrderDetailModal from '@/components/modals/OrderDetailModal'
 // import ReportsModal from '@/components/modals/ReportsModal'
 
-import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api'
+import { apiGet, apiPost, apiPut } from '@/lib/api'
 import { useToastHelpers } from '@/context/ToastContext'
 import { useActiveOrders } from './hooks/useActiveOrders'
 
@@ -82,7 +72,6 @@ export default function OrdersPage() {
   const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(null)
   const [showOrderDetailModal, setShowOrderDetailModal] = useState(false)
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null)
-  const [showReportsModal, setShowReportsModal] = useState(false)
   const [showGenerateOrderModal, setShowGenerateOrderModal] = useState(false)
   const [showSupplierWarningModal, setShowSupplierWarningModal] = useState(false)
   const [ingredientsWithoutProvider, setIngredientsWithoutProvider] = useState<any[]>([])

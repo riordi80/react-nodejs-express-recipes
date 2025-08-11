@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { History, Search, Calendar, Download, Filter, TrendingUp, Eye, Package, User } from 'lucide-react'
+import { History, Calendar, Download, Filter, TrendingUp, Eye, Package, User } from 'lucide-react'
 import { apiGet } from '@/lib/api'
 import { useToastHelpers } from '@/context/ToastContext'
 

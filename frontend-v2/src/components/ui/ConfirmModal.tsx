@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { AlertTriangle, Check, X, Info, AlertCircle } from 'lucide-react'
+import { AlertTriangle, Check, Info } from 'lucide-react'
 import Modal from './Modal'
 
 interface ConfirmModalProps {

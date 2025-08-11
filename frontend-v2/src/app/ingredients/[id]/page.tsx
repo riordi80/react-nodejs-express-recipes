@@ -155,14 +155,6 @@ export default function IngredientDetailPage() {
     }
   }, [])
 
-  // Debug formData changes
-  useEffect(() => {
-    console.log('FormData changed:', {
-      season: formData.season,
-      allergens: formData.allergens,
-      name: formData.name
-    })
-  }, [formData.season, formData.allergens, formData.name])
 
 
   const initializeNewIngredient = () => {
@@ -287,12 +279,6 @@ export default function IngredientDetailPage() {
         }
       }
 
-      console.log('Loading ingredient data:', {
-        originalSeason: ingredientData.season,
-        processedSeason: seasonData,
-        originalAllergens: ingredientData.allergens,
-        processedAllergens: allergensData
-      })
 
       // Set form data
       setFormData({
@@ -332,7 +318,7 @@ export default function IngredientDetailPage() {
       if (preferred) {
         setPreferredSupplier({
           id: preferred.supplier_id,
-          name: preferred.name
+          name: preferred.name || preferred.supplier_name
         })
       } else {
         setPreferredSupplier(null)
@@ -391,8 +377,6 @@ export default function IngredientDetailPage() {
         return
       }
 
-      // Log para depuración
-      console.log('FormData before save:', formData)
 
       // Función helper para convertir strings a números o null
       const parseNumberOrNull = (value: string): number | null => {
@@ -431,8 +415,6 @@ export default function IngredientDetailPage() {
         comment: formData.comment.trim() || null
       }
 
-      // Log para depuración
-      console.log('Ingredient data to send:', ingredientData)
 
       if (isNewIngredient) {
         const response = await apiPost<{ ingredient_id: number }>('/ingredients', ingredientData)
@@ -1502,7 +1484,6 @@ export default function IngredientDetailPage() {
                     <SeasonChips
                       selected={formData.season}
                       onChange={(selected) => {
-                        console.log('Season chips onChange:', selected)
                         setFormData({ ...formData, season: selected })
                       }}
                       size="sm"
@@ -1538,7 +1519,6 @@ export default function IngredientDetailPage() {
                       options={filterOptions.allergens}
                       selected={formData.allergens}
                       onChange={(selected) => {
-                        console.log('Allergen chips onChange:', selected)
                         setFormData({ ...formData, allergens: selected })
                       }}
                       size="sm"

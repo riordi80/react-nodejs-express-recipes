@@ -1,7 +1,7 @@
 'use client'
 
 import { Plus, XCircle, AlertTriangle, CheckCircle } from 'lucide-react'
-import { ShoppingList, ShoppingListIngredient, SupplierGroup } from '../hooks/useShoppingList'
+import { ShoppingList, SupplierGroup } from '../hooks/useShoppingList'
 
 interface ShoppingResultsProps {
   shoppingList: ShoppingList

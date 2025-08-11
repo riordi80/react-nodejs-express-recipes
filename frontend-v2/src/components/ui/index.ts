@@ -4,6 +4,7 @@ export { default as Input } from './Input'
 export { default as Select } from './Select'
 export { default as TextArea } from './TextArea'
 export { default as Chips, SeasonChips, AllergenChips } from './Chips'
+export { default as MultiSelectDropdown } from './MultiSelectDropdown'
 
 // Modal Components
 export { default as Modal } from './Modal'

@@ -10,7 +10,6 @@ import {
   SeasonChips,
   AllergenChips,
   Loading, 
-  LoadingPage,
   LoadingCard,
   ConfirmModal,
   Modal,
@@ -20,7 +19,8 @@ import {
   Avatar,
   EmptyState,
   Dropdown,
-  Pagination
+  Pagination,
+  MultiSelectDropdown
 } from '@/components/ui'
 import { useToast, useToastHelpers } from '@/context/ToastContext'
 import { 
@@ -34,7 +34,6 @@ import {
   Trash2, 
   Eye,
   Settings,
-  Calendar,
   Package,
   Users,
   ChevronDown,
@@ -53,12 +52,19 @@ export default function ComponentsDemoPage() {
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
+  
+  // MultiSelect states
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([])
+  const [selectedAllergens, setSelectedAllergens] = useState<string[]>([])
+  
+  const categoryOptions = ['Entrantes', 'Principales', 'Postres', 'Bebidas', 'Vegetariano', 'Vegano', 'Sin Gluten']
+  const allergenOptions = ['Gluten', 'Lácteos', 'Huevos', 'Frutos Secos', 'Mariscos', 'Pescado', 'Soja', 'Sésamo']
   const totalPages = 10
   
   // Chips state
   const [selectedSkills, setSelectedSkills] = useState<string[]>(['javascript', 'react'])
   const [selectedSeasons, setSelectedSeasons] = useState<string[]>(['primavera', 'verano'])
-  const [selectedAllergens, setSelectedAllergens] = useState<number[]>([1])
+  const [selectedChipAllergens, setSelectedChipAllergens] = useState<number[]>([1])
   
   const [formData, setFormData] = useState({
     name: '',
@@ -86,7 +92,7 @@ export default function ComponentsDemoPage() {
       } else {
         error('No se pudo guardar la receta. Intente nuevamente.', 'Error al Guardar')
       }
-    } catch (err) {
+    } catch {
       error('Error inesperado. Contacte al administrador.', 'Error del Sistema')
     } finally {
       setLoading(false)
@@ -105,7 +111,7 @@ export default function ComponentsDemoPage() {
     { value: 'hard', label: 'Difícil' }
   ]
 
-  const categoryOptions = [
+  const selectCategoryOptions = [
     { value: 'appetizer', label: 'Entrante' },
     { value: 'main', label: 'Plato Principal' },
     { value: 'dessert', label: 'Postre' },
@@ -292,11 +298,37 @@ export default function ComponentsDemoPage() {
                 
                 <Select
                   label="Categoría"
-                  options={categoryOptions}
+                  options={selectCategoryOptions}
                   value={formData.category}
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                   error={formData.category === 'appetizer' ? 'Esta categoría está temporalmente deshabilitada' : ''}
                 />
+
+                {/* MultiSelectDropdown Examples */}
+                <div className="space-y-4 pt-4 border-t border-gray-200">
+                  <h5 className="text-sm font-medium text-gray-700">Selectores Múltiples (MultiSelectDropdown)</h5>
+                  
+                  <MultiSelectDropdown
+                    options={categoryOptions}
+                    selected={selectedCategories}
+                    onChange={setSelectedCategories}
+                    placeholder="Seleccionar categorías..."
+                    className="w-full"
+                  />
+                  
+                  <MultiSelectDropdown
+                    options={allergenOptions}
+                    selected={selectedAllergens}
+                    onChange={setSelectedAllergens}
+                    placeholder="Seleccionar alérgenos..."
+                    className="w-full"
+                  />
+
+                  <div className="text-xs text-gray-600 space-y-1">
+                    <div><strong>Categorías seleccionadas:</strong> {selectedCategories.join(', ') || 'Ninguna'}</div>
+                    <div><strong>Alérgenos seleccionados:</strong> {selectedAllergens.join(', ') || 'Ninguno'}</div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -434,8 +466,8 @@ export default function ComponentsDemoPage() {
                   </p>
                   <AllergenChips
                     options={allergensOptions}
-                    selected={selectedAllergens}
-                    onChange={setSelectedAllergens}
+                    selected={selectedChipAllergens}
+                    onChange={setSelectedChipAllergens}
                   />
                 </div>
               </div>
@@ -486,7 +518,7 @@ export default function ComponentsDemoPage() {
                           Filtrar por categorías
                         </label>
                         <Chips
-                          options={categoryOptions}
+                          options={selectCategoryOptions}
                           selected={['main', 'dessert']}
                           onChange={(selected) => info(`Filtros aplicados: ${selected.join(', ')}`)}
                           variant="primary"
@@ -530,7 +562,7 @@ export default function ComponentsDemoPage() {
                     <Button 
                       size="sm" 
                       variant="outline"
-                      onClick={() => setSelectedAllergens([1, 2, 3])}
+                      onClick={() => setSelectedChipAllergens([1, 2, 3])}
                     >
                       Alérgenos Comunes
                     </Button>
@@ -543,7 +575,7 @@ export default function ComponentsDemoPage() {
                   <div className="text-xs text-blue-700 space-y-1">
                     <div><strong>Habilidades:</strong> {selectedSkills.join(', ') || 'Ninguna'}</div>
                     <div><strong>Temporadas:</strong> {selectedSeasons.join(', ') || 'Ninguna'}</div>
-                    <div><strong>Alérgenos:</strong> {selectedAllergens.map(id => allergensOptions.find(a => a.allergen_id === id)?.name).join(', ') || 'Ninguno'}</div>
+                    <div><strong>Alérgenos:</strong> {selectedChipAllergens.map(id => allergensOptions.find(a => a.allergen_id === id)?.name).join(', ') || 'Ninguno'}</div>
                   </div>
                 </div>
               </div>
@@ -1187,7 +1219,7 @@ export default function ComponentsDemoPage() {
                 />
                 <Select
                   placeholder="Filtrar por categoría"
-                  options={categoryOptions}
+                  options={selectCategoryOptions}
                 />
                 <Button fullWidth>
                   Aplicar Filtros
@@ -1310,7 +1342,7 @@ export default function ComponentsDemoPage() {
             />
             <Select
               label="Categoría"
-              options={categoryOptions}
+              options={selectCategoryOptions}
               placeholder="Selecciona categoría"
               required
             />

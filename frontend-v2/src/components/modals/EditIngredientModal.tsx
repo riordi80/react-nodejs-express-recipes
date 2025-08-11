@@ -1,6 +1,5 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import { Building, X } from 'lucide-react'
 import SupplierManager from '@/components/ui/SupplierManager'
 
@@ -27,8 +26,7 @@ interface EditIngredientModalProps {
 export default function EditIngredientModal({ 
   isOpen, 
   onClose, 
-  ingredient, 
-  onSave 
+  ingredient
 }: EditIngredientModalProps) {
 
   if (!isOpen || !ingredient) return null

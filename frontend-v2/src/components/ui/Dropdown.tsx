@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from 'react'
 import { clsx } from 'clsx'
-import { ChevronDown, LucideIcon } from 'lucide-react'
+import { LucideIcon } from 'lucide-react'
 
 interface DropdownItem {
   label: string

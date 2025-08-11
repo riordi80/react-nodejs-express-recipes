@@ -11,13 +11,12 @@ import {
   Calendar, 
   Sprout,
   Euro,
-  Eye,
   Edit,
-  Trash2,
+  Ban,
   TrendingDown,
   Clock
 } from 'lucide-react'
-import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api'
+import { apiGet, apiPut } from '@/lib/api'
 import ConfirmModal from '@/components/ui/ConfirmModal'
 import IngredientsCarousel from '@/components/ui/IngredientsCarousel'
 import SeasonalIngredientsModal from '@/components/modals/SeasonalIngredientsModal'
@@ -153,8 +152,8 @@ export default function IngredientsPage() {
     return ingredients.length <= itemsPerSlide
   }
   
-  // Delete modal state
-  const [isDeleteOpen, setIsDeleteOpen] = useState(false)
+  // Deactivate modal state
+  const [isDeactivateOpen, setIsDeactivateOpen] = useState(false)
   const [currentIngredient, setCurrentIngredient] = useState<Ingredient | null>(null)
   
   // Seasonal modal state
@@ -337,28 +336,30 @@ export default function IngredientsPage() {
     return { label: `${days}d`, color: 'bg-green-100 text-green-800' }
   }
 
-  // Delete handlers
-  const openDeleteModal = (ingredient: Ingredient) => {
+  // Deactivate handlers
+  const openDeactivateModal = (ingredient: Ingredient) => {
     setCurrentIngredient(ingredient)
-    setIsDeleteOpen(true)
+    setIsDeactivateOpen(true)
   }
 
-  const handleDelete = async () => {
+  const handleDeactivate = async () => {
     if (!currentIngredient) return
     
     try {
-      await apiDelete(`/ingredients/${currentIngredient.ingredient_id}`)
-      // Refresh ingredients after deletion
+      await apiPut(`/ingredients/${currentIngredient.ingredient_id}`, {
+        is_available: false
+      })
+      // Refresh ingredients after deactivation
       await loadIngredients()
-      setIsDeleteOpen(false)
+      setIsDeactivateOpen(false)
       setCurrentIngredient(null)
       
       // Show success toast
-      success(`Ingrediente "${currentIngredient.name}" eliminado correctamente`, 'Ingrediente Eliminado')
+      success(`Ingrediente "${currentIngredient.name}" desactivado correctamente`, 'Ingrediente Desactivado')
     } catch (error) {
-      console.error('Error al eliminar ingrediente:', error)
+      console.error('Error al desactivar ingrediente:', error)
       // Show error toast
-      showError('No se pudo eliminar el ingrediente. Intente nuevamente.', 'Error al Eliminar')
+      showError('No se pudo desactivar el ingrediente. Intente nuevamente.', 'Error al Desactivar')
       // Keep modal open on error
     }
   }
@@ -779,21 +780,16 @@ export default function IngredientsPage() {
                       <div className="flex items-center justify-end space-x-2">
                         <Link 
                           href={`/ingredients/${ingredient.ingredient_id}`} 
-                          className="text-blue-600 hover:text-blue-900 p-1 rounded"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Link>
-                        <Link 
-                          href={`/ingredients/${ingredient.ingredient_id}`} 
-                          className="text-orange-600 hover:text-orange-900 p-1 rounded"
+                          className="text-gray-600 hover:text-gray-900 p-1 rounded"
                         >
                           <Edit className="h-4 w-4" />
                         </Link>
                         <button 
-                          onClick={() => openDeleteModal(ingredient)}
-                          className="text-red-600 hover:text-red-900 p-1 rounded"
+                          onClick={() => openDeactivateModal(ingredient)}
+                          className="text-gray-600 hover:text-gray-900 p-1 rounded"
+                          title="Desactivar ingrediente"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Ban className="h-4 w-4" />
                         </button>
                       </div>
                     </td>
@@ -835,16 +831,16 @@ export default function IngredientsPage() {
         </div>
       )}
 
-        {/* Delete Confirmation Modal */}
+        {/* Deactivate Confirmation Modal */}
         <ConfirmModal
-          isOpen={isDeleteOpen}
-          onClose={() => setIsDeleteOpen(false)}
-          onConfirm={handleDelete}
-          title="Confirmar eliminación"
-          message={`¿Seguro que deseas eliminar el ingrediente "${currentIngredient?.name}"?`}
-          confirmText="Eliminar"
+          isOpen={isDeactivateOpen}
+          onClose={() => setIsDeactivateOpen(false)}
+          onConfirm={handleDeactivate}
+          title="Confirmar desactivación"
+          message={`¿Seguro que deseas desactivar el ingrediente "${currentIngredient?.name}"? Podrás reactivarlo más tarde.`}
+          confirmText="Desactivar"
           cancelText="Cancelar"
-          type="danger"
+          type="warning"
         />
 
         {/* Seasonal Ingredients Modal */}

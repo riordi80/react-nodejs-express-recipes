@@ -57,7 +57,7 @@ const ShoppingListSection = forwardRef<ShoppingListSectionRef, ShoppingListSecti
       onCloseGenerateOrderModal: () => {
         // Handled in parent component
       },
-      onConfirmGenerateOrders: async (deliveryDate: string, notes: string) => {
+      onConfirmGenerateOrders: async () => {
         // This function is now handled in the main component
         // Redirection is done automatically after generating the order
         return true

@@ -174,7 +174,7 @@ export default function RecipeDetailPage() {
     try {
       const response = await apiGet<Category[]>('/recipe-categories')
       setAvailableCategories(response.data)
-    } catch (err) {
+    } catch {
       // Fallback categories
       setAvailableCategories([
         { category_id: 1, name: 'Entrante' },
@@ -262,7 +262,7 @@ export default function RecipeDetailPage() {
         carbs: nutritionData.carbs?.toString() || '',
         fat: nutritionData.fat?.toString() || ''
       }))
-    } catch (nutritionErr) {
+    } catch {
       setNutrition(null)
     }
     
@@ -270,7 +270,7 @@ export default function RecipeDetailPage() {
     try {
       const allergensResponse = await apiGet<Allergen[]>(`/recipes/${recipeId}/allergens`)
       setAllergens(allergensResponse.data || [])
-    } catch (allergensErr) {
+    } catch {
       setAllergens([])
     }
     

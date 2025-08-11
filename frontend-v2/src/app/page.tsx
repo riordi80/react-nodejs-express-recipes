@@ -1,14 +1,11 @@
 'use client'
 
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { ChefHat, Loader2, ArrowRight, BookOpen, Package, Users, Calendar } from 'lucide-react'
 import Link from 'next/link'
 
 export default function Home() {
   const { user, loading } = useAuth()
-  const router = useRouter()
 
   // Eliminar la redirección automática - la página de inicio ahora es pública
   // Los usuarios autenticados pueden ver la página de inicio y elegir ir al dashboard

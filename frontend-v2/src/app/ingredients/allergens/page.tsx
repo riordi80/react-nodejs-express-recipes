@@ -43,7 +43,7 @@ const severityColors = {
 export default function AllergensPage() {
   const [allergens, setAllergens] = useState<Allergen[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [, setError] = useState<string | null>(null)
   
   // Filters
   const [searchTerm, setSearchTerm] = useState('')

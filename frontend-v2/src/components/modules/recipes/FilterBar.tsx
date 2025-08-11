@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Search, Filter, X, ChevronDown } from 'lucide-react'
+import MultiSelectDropdown from '@/components/ui/MultiSelectDropdown'
 
 interface FilterBarProps {
   // Search
@@ -11,8 +12,8 @@ interface FilterBarProps {
   
   // Category
   categoryOptions: string[]
-  selectedCategory: string
-  onCategoryChange: (value: string) => void
+  selectedCategories: string[]
+  onCategoriesChange: (values: string[]) => void
   
   // Prep Time
   prepTimeOptions: number[]
@@ -40,8 +41,8 @@ export default function FilterBar({
   searchText,
   onSearchTextChange,
   categoryOptions,
-  selectedCategory,
-  onCategoryChange,
+  selectedCategories,
+  onCategoriesChange,
   prepTimeOptions,
   selectedPrepTime,
   onPrepTimeChange,
@@ -56,26 +57,18 @@ export default function FilterBar({
   onAllergensChange
 }: FilterBarProps) {
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false)
-  const [showAllergenDropdown, setShowAllergenDropdown] = useState(false)
 
-  const hasActiveFilters = selectedCategory || selectedPrepTime || selectedDifficulty || 
+  const hasActiveFilters = selectedCategories.length > 0 || selectedPrepTime || selectedDifficulty || 
                           selectedIngredient || selectedAllergens.length > 0
 
   const clearAllFilters = () => {
-    onCategoryChange('')
+    onCategoriesChange([])
     onPrepTimeChange(null)
     onDifficultyChange('')
     onIngredientChange('')
     onAllergensChange([])
   }
 
-  const handleAllergenToggle = (allergen: string) => {
-    if (selectedAllergens.includes(allergen)) {
-      onAllergensChange(selectedAllergens.filter(a => a !== allergen))
-    } else {
-      onAllergensChange([...selectedAllergens, allergen])
-    }
-  }
 
   const formatPrepTime = (minutes: number) => {
     if (minutes < 60) return `${minutes}min`
@@ -83,6 +76,7 @@ export default function FilterBar({
     const mins = minutes % 60
     return mins > 0 ? `${hours}h ${mins}min` : `${hours}h`
   }
+
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 shadow-sm mb-6">
@@ -116,8 +110,8 @@ export default function FilterBar({
               <span>Filtros</span>
               {hasActiveFilters && (
                 <span className="bg-orange-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                  {[selectedCategory, selectedPrepTime, selectedDifficulty, selectedIngredient]
-                    .filter(Boolean).length + (selectedAllergens.length > 0 ? 1 : 0)}
+                  {[selectedPrepTime, selectedDifficulty, selectedIngredient]
+                    .filter(Boolean).length + (selectedCategories.length > 0 ? 1 : 0) + (selectedAllergens.length > 0 ? 1 : 0)}
                 </span>
               )}
               <ChevronDown className={`h-4 w-4 transition-transform ${showAdvancedFilters ? 'rotate-180' : ''}`} />
@@ -127,18 +121,13 @@ export default function FilterBar({
           {/* Very Large Desktop: All filters inline */}
           <div className="hidden 2xl:flex flex-wrap gap-2 flex-shrink-0">
             {/* Category */}
-            <select
-              value={selectedCategory}
-              onChange={(e) => onCategoryChange(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm whitespace-nowrap h-[42px]"
-            >
-              <option value="">Categorías</option>
-              {categoryOptions.map(category => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
+            <MultiSelectDropdown
+              options={categoryOptions}
+              selected={selectedCategories}
+              onChange={onCategoriesChange}
+              placeholder="Categorías"
+              className="whitespace-nowrap"
+            />
 
             {/* Difficulty */}
             <select
@@ -183,43 +172,13 @@ export default function FilterBar({
             </select>
 
             {/* Allergens */}
-            <div className="relative">
-              <select
-                className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm cursor-pointer whitespace-nowrap h-[42px]"
-                onClick={(e) => {
-                  e.preventDefault()
-                  setShowAllergenDropdown(!showAllergenDropdown)
-                }}
-                onFocus={(e) => e.target.blur()}
-                onChange={() => {}} // Prevent React warning
-                value=""
-              >
-                <option value="">
-                  {selectedAllergens.length === 0 
-                    ? 'Alérgenos'
-                    : selectedAllergens.length === 1
-                    ? selectedAllergens[0]
-                    : `${selectedAllergens.length} alérgenos`
-                  }
-                </option>
-              </select>
-              
-              {showAllergenDropdown && (
-                <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                  {allergenOptions.map(allergen => (
-                    <label key={allergen} className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={selectedAllergens.includes(allergen)}
-                        onChange={() => handleAllergenToggle(allergen)}
-                        className="mr-2 h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
-                      />
-                      <span className="text-sm text-gray-700">{allergen}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
+            <MultiSelectDropdown
+              options={allergenOptions}
+              selected={selectedAllergens}
+              onChange={onAllergensChange}
+              placeholder="Alérgenos"
+              className="whitespace-nowrap"
+            />
 
             {/* Clear Filters */}
             {hasActiveFilters && (
@@ -240,18 +199,13 @@ export default function FilterBar({
         <div className="2xl:hidden border-t border-gray-200 p-4 bg-gray-50">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Category */}
-            <select
-              value={selectedCategory}
-              onChange={(e) => onCategoryChange(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm"
-            >
-              <option value="">Todas las categorías</option>
-              {categoryOptions.map(category => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
+            <MultiSelectDropdown
+              options={categoryOptions}
+              selected={selectedCategories}
+              onChange={onCategoriesChange}
+              placeholder="Seleccionar categorías..."
+              className="w-full"
+            />
 
             {/* Difficulty */}
             <select
@@ -296,43 +250,13 @@ export default function FilterBar({
             </select>
 
             {/* Allergens */}
-            <div className="relative">
-              <select
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-sm cursor-pointer"
-                onClick={(e) => {
-                  e.preventDefault()
-                  setShowAllergenDropdown(!showAllergenDropdown)
-                }}
-                onFocus={(e) => e.target.blur()}
-                onChange={() => {}} // Prevent React warning
-                value=""
-              >
-                <option value="">
-                  {selectedAllergens.length === 0 
-                    ? 'Seleccionar alérgenos...'
-                    : selectedAllergens.length === 1
-                    ? selectedAllergens[0]
-                    : `${selectedAllergens.length} alérgenos seleccionados`
-                  }
-                </option>
-              </select>
-              
-              {showAllergenDropdown && (
-                <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                  {allergenOptions.map(allergen => (
-                    <label key={allergen} className="flex items-center px-3 py-2 hover:bg-gray-50 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={selectedAllergens.includes(allergen)}
-                        onChange={() => handleAllergenToggle(allergen)}
-                        className="mr-2 h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
-                      />
-                      <span className="text-sm text-gray-700">{allergen}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
+            <MultiSelectDropdown
+              options={allergenOptions}
+              selected={selectedAllergens}
+              onChange={onAllergensChange}
+              placeholder="Seleccionar alérgenos..."
+              className="w-full"
+            />
 
             {/* Clear Filters */}
             {hasActiveFilters && (
@@ -352,17 +276,17 @@ export default function FilterBar({
           {hasActiveFilters && (
             <div className="mt-4 pt-4 border-t border-gray-200">
               <div className="flex flex-wrap gap-2">
-                {selectedCategory && (
-                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
-                    Categoría: {selectedCategory}
+                {selectedCategories.map(category => (
+                  <span key={category} className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
+                    Categoría: {category}
                     <button
-                      onClick={() => onCategoryChange('')}
+                      onClick={() => onCategoriesChange(selectedCategories.filter(c => c !== category))}
                       className="ml-1 hover:text-blue-600"
                     >
                       <X className="h-3 w-3" />
                     </button>
                   </span>
-                )}
+                ))}
                 {selectedPrepTime && (
                   <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
                     Tiempo: {formatPrepTime(selectedPrepTime)}
@@ -400,7 +324,7 @@ export default function FilterBar({
                   <span key={allergen} className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">
                     Sin {allergen}
                     <button
-                      onClick={() => handleAllergenToggle(allergen)}
+                      onClick={() => onAllergensChange(selectedAllergens.filter(a => a !== allergen))}
                       className="ml-1 hover:text-red-600"
                     >
                       <X className="h-3 w-3" />

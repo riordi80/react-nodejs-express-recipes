@@ -64,7 +64,7 @@ export default function ShoppingFilters({
                     Eventos confirmados
                   </span>
                   <p className="text-xs text-gray-500">
-                    Incluir eventos con estado "confirmado"
+                    Incluir eventos con estado &quot;confirmado&quot;
                   </p>
                 </div>
               </label>
@@ -83,7 +83,7 @@ export default function ShoppingFilters({
                     Eventos planificados
                   </span>
                   <p className="text-xs text-gray-500">
-                    Incluir eventos con estado "planificado"
+                    Incluir eventos con estado &quot;planificado&quot;
                   </p>
                 </div>
               </label>
