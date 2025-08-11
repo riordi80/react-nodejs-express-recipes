@@ -225,20 +225,10 @@ export default function CentralLoginPage() {
         </div>
 
         {/* Main Content */}
-        <div className="bg-white rounded-xl shadow-lg relative">
-          <div className="absolute inset-0 rounded-xl" style={{ 
-            overflow: 'hidden',
-            zIndex: 1,
-            pointerEvents: 'none'
-          }}></div>
-          <div className="relative z-10 overflow-hidden rounded-xl">
-            <div className="flex transition-transform duration-700 ease-in-out w-[300%]" style={{
-              transform: `translateX(${!tenantInfo ? '0%' : showLogin ? '-66.66%' : '-33.33%'})`
-            }}>
-              {/* Step 1: Find Tenant Form */}
-              <div className="w-1/3 flex-shrink-0 p-8 flex items-center">
-                <div className="w-full">
-                  <form className="space-y-6" onSubmit={handleSubmit}>
+        <div className="bg-white rounded-xl shadow-lg p-8 relative">
+          {!tenantInfo ? (
+            // Step 1: Find Tenant Form - Tamaño compacto
+            <form className="space-y-6" onSubmit={handleSubmit}>
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                   Email
@@ -280,13 +270,11 @@ export default function CentralLoginPage() {
                   </>
                 )}
               </button>
-                  </form>
-                </div>
-              </div>
-
-              {/* Step 2: Tenant Found - Auto-redirect with countdown */}
-              <div className="w-1/3 flex-shrink-0 p-8 flex items-center">
-                <div className="w-full text-center space-y-6">
+            </form>
+          ) : !showLogin ? (
+            // Step 2: Tenant Found - Altura fija con animación
+            <div className="h-[300px] flex items-center animate-in slide-in-from-right duration-700">
+              <div className="w-full text-center space-y-6">
               <div className="flex items-center justify-center">
                 <div className="bg-green-100 rounded-full p-3">
                   <Building2 className="h-8 w-8 text-green-600" />
@@ -346,12 +334,12 @@ export default function CentralLoginPage() {
                   </button>
                 </div>
               )}
-                </div>
               </div>
-
-              {/* Step 3: Login Form */}
-              <div className="w-1/3 flex-shrink-0 p-8 flex items-center">
-                <div className="w-full space-y-6">
+            </div>
+          ) : (
+            // Step 3: Login Form - Misma altura que paso 2  
+            <div className="h-[300px] flex items-center animate-in slide-in-from-right duration-700">
+              <div className="w-full space-y-6">
                   <div className="text-center">
                     <Building2 className="h-8 w-8 mx-auto text-orange-600 mb-2" />
                     <h3 className="text-lg font-semibold text-gray-900">
@@ -420,10 +408,9 @@ export default function CentralLoginPage() {
                       Empezar de nuevo
                     </button>
                   </form>
-                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Footer */}
