@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { 
   Building, 
   Plus, 
@@ -37,6 +38,7 @@ interface Supplier {
 }
 
 export default function SuppliersPage() {
+  const router = useRouter()
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [loading, setLoading] = useState(true)
   
@@ -316,7 +318,11 @@ export default function SuppliersPage() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredSuppliers.map((supplier) => (
-                <tr key={supplier.supplier_id} className="hover:bg-gray-50">
+                <tr 
+                  key={supplier.supplier_id} 
+                  onClick={() => router.push(`/suppliers/${supplier.supplier_id}`)}
+                  className="hover:bg-gray-50 cursor-pointer"
+                >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-12 w-12">

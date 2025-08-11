@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { 
   BookOpen, 
   Plus, 
@@ -71,6 +72,7 @@ const difficultyColors = {
 }
 
 export default function RecipesPage() {
+  const router = useRouter()
   const [recipes, setRecipes] = useState<Recipe[]>([])
   const [, setError] = useState<string | null>(null)
   
@@ -418,7 +420,11 @@ export default function RecipesPage() {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredRecipes.map((recipe) => (
-                  <tr key={recipe.recipe_id} className="hover:bg-gray-50 cursor-pointer">
+                  <tr 
+                    key={recipe.recipe_id} 
+                    onClick={() => router.push(`/recipes/${recipe.recipe_id}`)}
+                    className="hover:bg-gray-50 cursor-pointer"
+                  >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-12 w-12">

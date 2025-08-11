@@ -38,7 +38,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
       await waitForConfig()
       
       const response = await apiGet<{ authenticated: boolean; user: User }>('/me')
-      setUser(response.data.user)
+      let userData = response.data.user
+      
+      // Cargar el nombre del restaurante si el usuario está autenticado
+      try {
+        const restaurantResponse = await apiGet('/restaurant-info')
+        if (restaurantResponse.data.success && restaurantResponse.data.data?.name) {
+          userData = { ...userData, restaurant_name: restaurantResponse.data.data.name }
+        }
+      } catch (restaurantError) {
+        // Si no hay información del restaurante, no es un error crítico
+        console.log('No restaurant info available')
+      }
+      
+      setUser(userData)
     } catch (error: unknown) {
       setUser(null)
       // No mostrar error en consola para 401 (normal cuando no hay sesión)
@@ -64,7 +77,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       // Obtener datos del usuario de la respuesta del login
       if (response.data.user) {
-        setUser(response.data.user)
+        let userData = response.data.user
+        
+        // Cargar el nombre del restaurante después del login
+        try {
+          const restaurantResponse = await apiGet('/restaurant-info')
+          if (restaurantResponse.data.success && restaurantResponse.data.data?.name) {
+            userData = { ...userData, restaurant_name: restaurantResponse.data.data.name }
+          }
+        } catch (restaurantError) {
+          // Si no hay información del restaurante, no es un error crítico
+          console.log('No restaurant info available after login')
+        }
+        
+        setUser(userData)
       }
       
       return { success: true }

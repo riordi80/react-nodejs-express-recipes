@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { 
   Package, 
   Plus, 
@@ -128,6 +129,7 @@ const seasonOptions = [
 ]
 
 export default function IngredientsPage() {
+  const router = useRouter()
   const [ingredients, setIngredients] = useState<Ingredient[]>([])
   const [widgets, setWidgets] = useState<DashboardWidget>({
     lowStock: [],
@@ -706,7 +708,11 @@ export default function IngredientsPage() {
                 const expiryStatus = getExpiryStatusDisplay(ingredient)
                 
                 return (
-                  <tr key={ingredient.ingredient_id} className="hover:bg-gray-50">
+                  <tr 
+                    key={ingredient.ingredient_id} 
+                    onClick={() => router.push(`/ingredients/${ingredient.ingredient_id}`)}
+                    className="hover:bg-gray-50 cursor-pointer"
+                  >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-12 w-12">

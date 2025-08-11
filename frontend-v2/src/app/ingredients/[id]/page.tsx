@@ -117,16 +117,15 @@ export default function IngredientDetailPage() {
     comment: ''
   })
 
-  // Options for select fields
+  // Options for select fields - DEBE coincidir exactamente con el ENUM de la base de datos
   const unitOptions = [
     { value: 'kg', label: 'Kilogramos (kg)' },
-    { value: 'g', label: 'Gramos (g)' },
+    { value: 'gr', label: 'Gramos (gr)' },
     { value: 'l', label: 'Litros (l)' },
     { value: 'ml', label: 'Mililitros (ml)' },
-    { value: 'ud', label: 'Unidades (ud)' },
-    { value: 'paquete', label: 'Paquetes' },
-    { value: 'lata', label: 'Latas' },
-    { value: 'botella', label: 'Botellas' }
+    { value: 'unit', label: 'Unidades (unit)' },
+    { value: 'tbsp', label: 'Cucharadas (tbsp)' },
+    { value: 'tsp', label: 'Cucharaditas (tsp)' }
   ]
 
 
@@ -581,10 +580,12 @@ export default function IngredientDetailPage() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   >
                     <option value="kg">kg</option>
-                    <option value="g">g</option>
+                    <option value="gr">gr</option>
                     <option value="l">l</option>
                     <option value="ml">ml</option>
-                    <option value="ud">unidad</option>
+                    <option value="unit">unit</option>
+                    <option value="tbsp">tbsp</option>
+                    <option value="tsp">tsp</option>
                   </select>
                 ) : (
                   <p className="text-gray-900">{ingredient?.unit || 'kg'}</p>

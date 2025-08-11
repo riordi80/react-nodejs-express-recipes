@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Calendar, Plus, Filter, Search, Users, MapPin, Clock, Euro, Edit, Trash2 } from 'lucide-react'
 import { apiGet, apiDelete } from '@/lib/api'
 import ConfirmModal from '@/components/ui/ConfirmModal'
@@ -39,6 +40,7 @@ const statusLabels = {
 }
 
 export default function EventsPage() {
+  const router = useRouter()
   const [events, setEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
   const [, setError] = useState<string | null>(null)
@@ -276,7 +278,11 @@ export default function EventsPage() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredEvents.map((event) => (
-                <tr key={event.event_id} className="hover:bg-gray-50">
+                <tr 
+                  key={event.event_id} 
+                  onClick={() => router.push(`/events/${event.event_id}`)}
+                  className="hover:bg-gray-50 cursor-pointer"
+                >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-12 w-12">
