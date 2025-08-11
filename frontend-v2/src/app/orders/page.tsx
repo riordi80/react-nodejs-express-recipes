@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { 
   Truck, 
   Building,
@@ -12,7 +12,7 @@ import {
 
 // Components sections
 import DashboardSection from './components/DashboardSection'
-import ShoppingListSection from './components/ShoppingListSection' 
+import ShoppingListSection, { ShoppingListSectionRef } from './components/ShoppingListSection' 
 import ActiveOrdersSection from './components/ActiveOrdersSection'
 import SuppliersSection from './components/SuppliersSection'
 import HistorySection from './components/HistorySection'
@@ -60,6 +60,9 @@ export default function OrdersPage() {
 
   // Active Orders hook
   const activeOrdersHook = useActiveOrders()
+
+  // Ref for ShoppingListSection
+  const shoppingListRef = useRef<ShoppingListSectionRef>(null)
 
   // Main state
   const [activeTab, setActiveTab] = useState('dashboard')
@@ -367,6 +370,7 @@ export default function OrdersPage() {
         
         {activeTab === 'shopping-list' && (
           <ShoppingListSection
+            ref={shoppingListRef}
             onIngredientRowClick={handleIngredientRowClick}
             onNavigateToActiveOrders={() => setActiveTab('active-orders')}
             isModeDropdownOpen={isModeDropdownOpen}
@@ -412,6 +416,12 @@ export default function OrdersPage() {
         }}
         ingredient={selectedIngredient}
         onSave={handleSaveIngredient}
+        onDataChanged={() => {
+          // Refrescar los datos de la lista de compras cuando se cierren las modales de proveedores
+          if (shoppingListRef.current) {
+            shoppingListRef.current.refreshData()
+          }
+        }}
       />
 
       <GenerateOrderModal

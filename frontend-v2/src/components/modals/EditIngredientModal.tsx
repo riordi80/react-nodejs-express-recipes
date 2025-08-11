@@ -1,6 +1,7 @@
 'use client'
 
-import { Building, X } from 'lucide-react'
+import { Plus } from 'lucide-react'
+import Modal from '@/components/ui/Modal'
 import SupplierManager from '@/components/ui/SupplierManager'
 
 interface Ingredient {
@@ -21,51 +22,69 @@ interface EditIngredientModalProps {
   onClose: () => void
   ingredient: Ingredient | null
   onSave?: (updatedIngredient: Ingredient) => Promise<boolean> // Opcional ya que no editamos ingrediente
+  onDataChanged?: () => void // Callback para notificar cambios
 }
 
 export default function EditIngredientModal({ 
   isOpen, 
   onClose, 
-  ingredient
+  ingredient,
+  onDataChanged
 }: EditIngredientModalProps) {
 
   if (!isOpen || !ingredient) return null
 
+  const handleClose = () => {
+    // Notificar cambios antes de cerrar
+    if (onDataChanged) {
+      onDataChanged()
+    }
+    onClose()
+  }
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <div className="flex items-center space-x-2">
-            <Building className="h-6 w-6 text-orange-600" />
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">
-                Gestión de Proveedores
-              </h2>
-              <p className="text-sm text-gray-500">
-                {ingredient.name} ({ingredient.unit})
-              </p>
-            </div>
+    <Modal
+      isOpen={isOpen}
+      onClose={handleClose}
+      title="Gestión de Proveedores"
+      size="xl"
+    >
+      <div className="p-6">
+        {/* Nombre del ingrediente */}
+        <div className="mb-6">
+          <h3 className="text-2xl font-bold text-gray-900 mb-1">
+            {ingredient.name}
+          </h3>
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-500">
+              Configura los proveedores para este ingrediente
+            </p>
+            <button
+              onClick={() => {
+                // Buscar el botón de añadir del SupplierManager y hacer click
+                const addButton = document.querySelector('[data-supplier-add-button]') as HTMLButtonElement
+                if (addButton) {
+                  addButton.click()
+                }
+              }}
+              className="inline-flex items-center text-orange-600 hover:text-orange-700 text-sm font-medium transition-colors"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              <span className="hidden md:inline">Añadir proveedor</span>
+              <span className="md:hidden">Añadir</span>
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <X className="h-6 w-6" />
-          </button>
         </div>
 
         {/* Supplier Manager Content */}
-        <div className="p-6">
-          <SupplierManager
-            entityId={ingredient.ingredient_id}
-            entityType="ingredient"
-            disabled={false}
-            title=""
-            className="bg-transparent border-0 shadow-none p-0"
-          />
-        </div>
+        <SupplierManager
+          entityId={ingredient.ingredient_id}
+          entityType="ingredient"
+          disabled={false}
+          title=""
+          className="bg-transparent border-0 shadow-none p-0"
+        />
       </div>
-    </div>
+    </Modal>
   )
 }

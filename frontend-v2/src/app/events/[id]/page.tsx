@@ -23,6 +23,7 @@ import {
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api'
 import ConfirmModal from '@/components/ui/ConfirmModal'
 import Modal from '@/components/ui/Modal'
+import UnifiedTabs from '@/components/ui/DetailTabs'
 // Tipo Recipe que coincide con la API del backend
 interface Recipe {
   recipe_id: number
@@ -115,6 +116,9 @@ export default function EventDetailPage() {
   const [eventRecipes, setEventRecipes] = useState<EventRecipe[]>([])
   const [loading, setLoading] = useState(true)
   const [isEditing, setIsEditing] = useState(true) // Siempre iniciar en modo edición
+  
+  // Tabs state
+  const [activeTab, setActiveTab] = useState('general')
   
   // Delete modal state
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
@@ -458,6 +462,287 @@ export default function EventDetailPage() {
     })
   }
 
+  // Tab content renderers
+  const renderGeneralTab = () => (
+    <div className="space-y-6">
+      {/* Event Details */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <div className="bg-orange-100 p-2 rounded-lg">
+            <Info className="h-5 w-5 text-orange-600" />
+          </div>
+          Detalles del Evento
+        </h3>
+        
+        <div className="space-y-6">
+          {/* Name */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Nombre del Evento <span className="text-red-500">*</span>
+            </label>
+            {isEditing ? (
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                placeholder="Nombre del evento"
+                required
+              />
+            ) : (
+              <p className="text-gray-900">{event?.name}</p>
+            )}
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Descripción
+            </label>
+            {isEditing ? (
+              <textarea
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                rows={3}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                placeholder="Descripción del evento"
+              />
+            ) : (
+              <p className="text-gray-900">{event?.description || 'Sin descripción'}</p>
+            )}
+          </div>
+
+          {/* Date and Time */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Fecha <span className="text-red-500">*</span>
+              </label>
+              {isEditing ? (
+                <input
+                  type="date"
+                  value={formData.event_date}
+                  onChange={(e) => setFormData({ ...formData, event_date: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  required
+                />
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <Calendar className="h-4 w-4 text-gray-400" />
+                  <span className="text-gray-900">{event && formatDate(event.event_date)}</span>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Hora
+              </label>
+              {isEditing ? (
+                <input
+                  type="time"
+                  value={formData.event_time}
+                  onChange={(e) => setFormData({ ...formData, event_time: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                />
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <Clock className="h-4 w-4 text-gray-400" />
+                  <span className="text-gray-900">{event?.event_time ? formatTime(event.event_time) : 'Sin hora especificada'}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Guests and Location */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Número de Comensales <span className="text-red-500">*</span>
+              </label>
+              {isEditing ? (
+                <input
+                  type="number"
+                  min="1"
+                  value={formData.guests_count}
+                  onChange={(e) => setFormData({ ...formData, guests_count: parseInt(e.target.value) || 1 })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  required
+                />
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <Users className="h-4 w-4 text-gray-400" />
+                  <span className="text-gray-900">{event?.guests_count}</span>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Ubicación
+              </label>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={formData.location}
+                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  placeholder="Ubicación del evento"
+                />
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <MapPin className="h-4 w-4 text-gray-400" />
+                  <span className="text-gray-900">{event?.location || 'Sin ubicación especificada'}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Status and Budget */}
+          {isEditing && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Estado
+                </label>
+                <select
+                  value={formData.status}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                >
+                  <option value="planned">Planificado</option>
+                  <option value="confirmed">Confirmado</option>
+                  <option value="in_progress">En Progreso</option>
+                  <option value="completed">Completado</option>
+                  <option value="cancelled">Cancelado</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Presupuesto (€)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.budget}
+                  onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Notes */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Notas
+            </label>
+            {isEditing ? (
+              <textarea
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                rows={3}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                placeholder="Notas adicionales"
+              />
+            ) : (
+              <p className="text-gray-900">{event?.notes || 'Sin notas'}</p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+
+  const renderMenuTab = () => (
+    <div className="space-y-6">
+      {/* Menu */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <div className="bg-orange-100 p-2 rounded-lg">
+              <Utensils className="h-5 w-5 text-orange-600" />
+            </div>
+            Menú del Evento
+          </h3>
+          <button 
+            onClick={openAddRecipeModal}
+            className="inline-flex items-center text-orange-600 hover:text-orange-700 text-sm font-medium transition-colors"
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Añadir
+          </button>
+        </div>
+        
+        <div>
+          {eventRecipes.length > 0 ? (
+            <div className="space-y-4">
+              {eventRecipes.map((recipe) => (
+                <div key={recipe.recipe_id} className="group relative flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors overflow-hidden">
+                  <div className="flex items-center space-x-3">
+                    <div className="bg-orange-100 p-2 rounded-full">
+                      <ChefHat className="h-4 w-4 text-orange-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">{recipe.recipe_name}</p>
+                      <p className="text-sm text-gray-500">
+                        {courseTypeLabels[recipe.course_type]} • {recipe.portions} raciones
+                      </p>
+                      {recipe.notes && (
+                        <p className="text-xs text-gray-400 mt-1 italic">{recipe.notes}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3 flex-shrink-0 min-w-0">
+                    <div className="text-right">
+                      <p className="text-sm font-medium text-gray-900">
+                        €{calculateRecipeCost(recipe).toLocaleString('es-ES', { 
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2 
+                        })}
+                      </p>
+                    </div>
+                    {/* Actions buttons - always visible on mobile, hover on desktop */}
+                    <div className="flex items-center space-x-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex-shrink-0">
+                      <button
+                        onClick={() => openEditRecipeModal(recipe)}
+                        className="p-1.5 md:p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded transition-colors"
+                        title="Editar receta"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => openDeleteRecipeModal(recipe)}
+                        className="p-1.5 md:p-1 text-red-600 hover:text-red-800 hover:bg-red-100 rounded transition-colors"
+                        title="Eliminar receta"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Utensils className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+              <p className="text-gray-500">No hay recetas en el menú</p>
+              <button 
+                onClick={openAddRecipeModal}
+                className="mt-2 text-orange-600 hover:text-orange-700 transition-colors"
+              >
+                Añadir primera receta
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+
   if (loading) {
     return (
       <div className="p-6">
@@ -688,198 +973,22 @@ export default function EventDetailPage() {
         </div>
       )}
 
+      {/* Main Content with Tabs */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main Content */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Event Details */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <div className="bg-orange-100 p-2 rounded-lg">
-                <Info className="h-5 w-5 text-orange-600" />
-              </div>
-              Detalles del Evento
-            </h3>
-            
-            <div className="space-y-6">
-              {/* Name */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Nombre del Evento <span className="text-red-500">*</span>
-                </label>
-                {isEditing ? (
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    placeholder="Nombre del evento"
-                    required
-                  />
-                ) : (
-                  <p className="text-gray-900">{event?.name}</p>
-                )}
-              </div>
-
-              {/* Description */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Descripción
-                </label>
-                {isEditing ? (
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    rows={3}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    placeholder="Descripción del evento"
-                  />
-                ) : (
-                  <p className="text-gray-900">{event?.description || 'Sin descripción'}</p>
-                )}
-              </div>
-
-              {/* Date and Time */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Fecha <span className="text-red-500">*</span>
-                  </label>
-                  {isEditing ? (
-                    <input
-                      type="date"
-                      value={formData.event_date}
-                      onChange={(e) => setFormData({ ...formData, event_date: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                      required
-                    />
-                  ) : (
-                    <div className="flex items-center space-x-2">
-                      <Calendar className="h-4 w-4 text-gray-400" />
-                      <span className="text-gray-900">{event && formatDate(event.event_date)}</span>
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Hora
-                  </label>
-                  {isEditing ? (
-                    <input
-                      type="time"
-                      value={formData.event_time}
-                      onChange={(e) => setFormData({ ...formData, event_time: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    />
-                  ) : (
-                    <div className="flex items-center space-x-2">
-                      <Clock className="h-4 w-4 text-gray-400" />
-                      <span className="text-gray-900">{event?.event_time ? formatTime(event.event_time) : 'Sin hora especificada'}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Guests and Location */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Número de Comensales <span className="text-red-500">*</span>
-                  </label>
-                  {isEditing ? (
-                    <input
-                      type="number"
-                      min="1"
-                      value={formData.guests_count}
-                      onChange={(e) => setFormData({ ...formData, guests_count: parseInt(e.target.value) || 1 })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                      required
-                    />
-                  ) : (
-                    <div className="flex items-center space-x-2">
-                      <Users className="h-4 w-4 text-gray-400" />
-                      <span className="text-gray-900">{event?.guests_count}</span>
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Ubicación
-                  </label>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      value={formData.location}
-                      onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                      placeholder="Ubicación del evento"
-                    />
-                  ) : (
-                    <div className="flex items-center space-x-2">
-                      <MapPin className="h-4 w-4 text-gray-400" />
-                      <span className="text-gray-900">{event?.location || 'Sin ubicación especificada'}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Status and Budget */}
-              {isEditing && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Estado
-                    </label>
-                    <select
-                      value={formData.status}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    >
-                      <option value="planned">Planificado</option>
-                      <option value="confirmed">Confirmado</option>
-                      <option value="in_progress">En Progreso</option>
-                      <option value="completed">Completado</option>
-                      <option value="cancelled">Cancelado</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Presupuesto (€)
-                    </label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={formData.budget}
-                      onChange={(e) => setFormData({ ...formData, budget: e.target.value })}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                      placeholder="0.00"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Notes */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Notas
-                </label>
-                {isEditing ? (
-                  <textarea
-                    value={formData.notes}
-                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                    rows={3}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                    placeholder="Notas adicionales"
-                  />
-                ) : (
-                  <p className="text-gray-900">{event?.notes || 'Sin notas'}</p>
-                )}
-              </div>
-            </div>
-          </div>
+        <div className="lg:col-span-2">
+          <UnifiedTabs
+            variant="detail"
+            mobileStyle="orange"
+            tabs={[
+              { id: 'general', label: 'Información General', icon: Info },
+              { id: 'menu', label: 'Menú del Evento', icon: Utensils }
+            ]}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+          >
+            {activeTab === 'general' && renderGeneralTab()}
+            {activeTab === 'menu' && renderMenuTab()}
+          </UnifiedTabs>
         </div>
 
         {/* Sidebar */}
@@ -964,87 +1073,6 @@ export default function EventDetailPage() {
             )
           })()}
 
-          {/* Menu */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                  <div className="bg-orange-100 p-2 rounded-lg">
-                    <Utensils className="h-5 w-5 text-orange-600" />
-                  </div>
-                  Menú del Evento
-                </h3>
-                <button 
-                  onClick={openAddRecipeModal}
-                  className="inline-flex items-center text-orange-600 hover:text-orange-700 text-sm font-medium transition-colors"
-                >
-                  <Plus className="h-4 w-4 mr-1" />
-                  Añadir
-                </button>
-              </div>
-              
-              <div>
-                {eventRecipes.length > 0 ? (
-                  <div className="space-y-4">
-                    {eventRecipes.map((recipe) => (
-                      <div key={recipe.recipe_id} className="group relative flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors overflow-hidden">
-                        <div className="flex items-center space-x-3">
-                          <div className="bg-orange-100 p-2 rounded-full">
-                            <ChefHat className="h-4 w-4 text-orange-600" />
-                          </div>
-                          <div>
-                            <p className="font-medium text-gray-900">{recipe.recipe_name}</p>
-                            <p className="text-sm text-gray-500">
-                              {courseTypeLabels[recipe.course_type]} • {recipe.portions} raciones
-                            </p>
-                            {recipe.notes && (
-                              <p className="text-xs text-gray-400 mt-1 italic">{recipe.notes}</p>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-3 flex-shrink-0 min-w-0">
-                          <div className="text-right">
-                            <p className="text-sm font-medium text-gray-900">
-                              €{calculateRecipeCost(recipe).toLocaleString('es-ES', { 
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2 
-                              })}
-                            </p>
-                          </div>
-                          {/* Actions buttons - always visible on mobile, hover on desktop */}
-                          <div className="flex items-center space-x-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex-shrink-0">
-                            <button
-                              onClick={() => openEditRecipeModal(recipe)}
-                              className="p-1.5 md:p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded transition-colors"
-                              title="Editar receta"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => openDeleteRecipeModal(recipe)}
-                              className="p-1.5 md:p-1 text-red-600 hover:text-red-800 hover:bg-red-100 rounded transition-colors"
-                              title="Eliminar receta"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <Utensils className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                    <p className="text-gray-500">No hay recetas en el menú</p>
-                    <button 
-                      onClick={openAddRecipeModal}
-                      className="mt-2 text-orange-600 hover:text-orange-700 transition-colors"
-                    >
-                      Añadir primera receta
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
         </div>
       </div>
 
@@ -1236,7 +1264,7 @@ export default function EventDetailPage() {
 
               {/* Summary */}
               {selectedRecipeIds.length > 0 && (
-                <div className="border-t pt-4">
+                <div className="border-t border-gray-200 pt-4">
                   <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
                     <h4 className="font-medium text-orange-900 mb-2">
                       Resumen: {selectedRecipeIds.length} receta{selectedRecipeIds.length !== 1 ? 's' : ''} seleccionada{selectedRecipeIds.length !== 1 ? 's' : ''}
@@ -1265,7 +1293,7 @@ export default function EventDetailPage() {
           )}
 
           {/* Actions */}
-          <div className="flex justify-end space-x-3 mt-6 pt-4 border-t">
+          <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
             <button
               onClick={() => {
                 setIsAddRecipeOpen(false)
@@ -1389,7 +1417,7 @@ export default function EventDetailPage() {
           </div>
 
           {/* Actions */}
-          <div className="flex justify-end space-x-3 mt-6 pt-4 border-t">
+          <div className="flex justify-end space-x-3 mt-6 pt-4 border-t border-gray-200">
             <button
               onClick={() => {
                 setIsEditRecipeOpen(false)
