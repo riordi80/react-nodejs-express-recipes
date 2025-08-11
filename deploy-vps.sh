@@ -90,10 +90,11 @@ setup_local_env() {
 deploy_backend() {
     show_message "Desplegando Backend..."
     
-    # Excluir archivos innecesarios (usando SSH ControlMaster)
+    # Excluir archivos innecesarios pero incluir .env preparado por switch-env.sh (usando SSH ControlMaster)
     rsync -avz --progress \
         -e "ssh $SSH_OPTS" \
         --exclude 'node_modules/' \
+        --include '.env' \
         --exclude '.env*' \
         --exclude '*.log' \
         --exclude '*.sql' \

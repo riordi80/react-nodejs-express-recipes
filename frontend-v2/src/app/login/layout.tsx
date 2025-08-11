@@ -14,11 +14,11 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "RecetasAPI - Iniciar Sesión",
-  description: "Iniciar sesión en RecetasAPI",
+  title: "RecetasAPI - Login Central",
+  description: "Sistema de acceso centralizado multi-tenant",
 };
 
-export default function LoginLayout({
+export default function CentralLoginLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
