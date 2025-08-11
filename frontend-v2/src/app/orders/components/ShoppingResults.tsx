@@ -203,7 +203,7 @@ function SupplierGroupComponent({ supplier, shoppingList, onIngredientRowClick }
       </div>
 
       {/* Ingredients Table */}
-      <div className="overflow-x-auto">
+      <div className="shopping-table-container">
         <table className="shopping-table">
           <colgroup>
             <col /><col /><col /><col /><col /><col /><col /><col />
@@ -233,13 +233,10 @@ function SupplierGroupComponent({ supplier, shoppingList, onIngredientRowClick }
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center space-x-2">
                       <span className="text-sm font-medium text-gray-900">{ingredient.name}</span>
-                      <div className="relative group">
+                      <div className="relative group" title={statusIndicator.title}>
                         <StatusIcon 
                           className={`h-4 w-4 ${statusIndicator.className}`}
                         />
-                        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-1 px-2 py-1 bg-gray-800 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
-                          {statusIndicator.title}
-                        </div>
                       </div>
                     </div>
                     {ingredient.packageSize && ingredient.packageUnit && ingredient.packageSize !== 1 && 

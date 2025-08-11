@@ -43,4 +43,17 @@ body {
     .shopping-table colgroup col:nth-child(7) { width: 100px; } /* Precio Real */
     .shopping-table colgroup col:nth-child(8) { width: 100px; } /* Total Real */
   }
+
+  /* Allow tooltips to show outside table containers */
+  .shopping-table td:first-child {
+    overflow: visible;
+    position: relative;
+  }
+  
+  /* Container for shopping table with proper overflow handling for tooltips */
+  .shopping-table-container {
+    overflow-x: auto;
+    overflow-y: visible;
+    position: relative;
+  }
 }
