@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useTableSort } from '@/hooks/useTableSort'
+import SortableTableHeader from '@/components/ui/SortableTableHeader'
 import { 
   Building, 
   Plus, 
@@ -15,9 +17,11 @@ import {
   Trash2,
   Star,
   Clock,
-  Package
+  Package,
+  Power,
+  PowerOff
 } from 'lucide-react'
-import { apiGet, apiDelete } from '@/lib/api'
+import { apiGet, apiDelete, apiPut } from '@/lib/api'
 import ConfirmModal from '@/components/ui/ConfirmModal'
 import { useToastHelpers } from '@/context/ToastContext'
 
@@ -121,6 +125,56 @@ export default function SuppliersPage() {
     }
   }
 
+  // Toggle supplier status
+  const toggleSupplierStatus = async (supplier: Supplier, event: React.MouseEvent) => {
+    // Prevent row click navigation
+    event.stopPropagation()
+    
+    const newActiveStatus = !supplier.active
+
+    // Update UI optimistically
+    setSuppliers(prevSuppliers =>
+      prevSuppliers.map(s => 
+        s.supplier_id === supplier.supplier_id 
+          ? { ...s, active: newActiveStatus }
+          : s
+      )
+    )
+
+    try {
+      // Use the same data structure as the detail page
+      const supplierUpdateData = {
+        name: supplier.name,
+        phone: supplier.phone || null,
+        email: supplier.email || null,
+        website_url: null, // This field might not be available in the list
+        address: supplier.address || null,
+        contact_person: supplier.contact_person || null,
+        notes: supplier.notes || null,
+        active: newActiveStatus
+      }
+      
+      await apiPut(`/suppliers/${supplier.supplier_id}`, supplierUpdateData)
+      
+      success(
+        `Proveedor "${supplier.name}" ${newActiveStatus ? 'activado' : 'desactivado'} correctamente`,
+        'Estado Actualizado'
+      )
+    } catch (error) {
+      // Revert the optimistic update on error
+      setSuppliers(prevSuppliers =>
+        prevSuppliers.map(s => 
+          s.supplier_id === supplier.supplier_id 
+            ? { ...s, active: !newActiveStatus }
+            : s
+        )
+      )
+      
+      showError('Error al cambiar el estado del proveedor', 'Error')
+      console.error('Error toggling supplier status:', error)
+    }
+  }
+
   // Filter suppliers locally (memoized)
   const filteredSuppliers = useMemo(() => {
     return suppliers.filter(supplier => {
@@ -135,6 +189,9 @@ export default function SuppliersPage() {
       return matchesSearch && matchesStatus
     })
   }, [suppliers, searchTerm, statusFilter])
+
+  // Add sorting to filtered suppliers
+  const { sortedData: sortedSuppliers, sortConfig, handleSort } = useTableSort(filteredSuppliers, 'name')
 
   if (loading) {
     return (
@@ -296,28 +353,28 @@ export default function SuppliersPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <SortableTableHeader sortKey="name" sortConfig={sortConfig} onSort={handleSort}>
                   Proveedor
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </SortableTableHeader>
+                <SortableTableHeader sortKey="" sortConfig={sortConfig} onSort={handleSort} sortable={false}>
                   Contacto
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </SortableTableHeader>
+                <SortableTableHeader sortKey="" sortConfig={sortConfig} onSort={handleSort} sortable={false}>
                   Información
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </SortableTableHeader>
+                <SortableTableHeader sortKey="ingredients_count" sortConfig={sortConfig} onSort={handleSort}>
                   Ingredientes
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </SortableTableHeader>
+                <SortableTableHeader sortKey="active" sortConfig={sortConfig} onSort={handleSort}>
                   Estado
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </SortableTableHeader>
+                <SortableTableHeader sortKey="" sortConfig={sortConfig} onSort={handleSort} sortable={false} className="text-right">
                   Acciones
-                </th>
+                </SortableTableHeader>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredSuppliers.map((supplier) => (
+              {sortedSuppliers.map((supplier) => (
                 <tr 
                   key={supplier.supplier_id} 
                   onClick={() => router.push(`/suppliers/${supplier.supplier_id}`)}
@@ -394,13 +451,21 @@ export default function SuppliersPage() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      supplier.active 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {supplier.active ? 'Activo' : 'Inactivo'}
-                    </span>
+                    <button 
+                      onClick={(e) => toggleSupplierStatus(supplier, e)}
+                      className={`p-2 rounded-full transition-colors ${
+                        supplier.active 
+                          ? 'text-green-600 hover:text-green-800 hover:bg-gray-100' 
+                          : 'text-red-600 hover:text-red-800 hover:bg-gray-100'
+                      }`}
+                      title={supplier.active ? 'Desactivar proveedor' : 'Activar proveedor'}
+                    >
+                      {supplier.active ? (
+                        <PowerOff className="h-4 w-4" />
+                      ) : (
+                        <Power className="h-4 w-4" />
+                      )}
+                    </button>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex items-center justify-end space-x-2">
@@ -412,7 +477,10 @@ export default function SuppliersPage() {
                         <Edit className="h-4 w-4" />
                       </Link>
                       <button 
-                        onClick={() => openDeleteModal(supplier)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          openDeleteModal(supplier)
+                        }}
                         className="text-gray-600 hover:text-gray-900 p-1 rounded transition-colors"
                         title="Eliminar proveedor"
                       >
@@ -427,7 +495,7 @@ export default function SuppliersPage() {
         </div>
 
         {/* Empty State */}
-        {filteredSuppliers.length === 0 && !loading && (
+        {sortedSuppliers.length === 0 && !loading && (
           <div className="text-center py-12">
             <Building className="h-12 w-12 mx-auto text-gray-400 mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -444,16 +512,19 @@ export default function SuppliersPage() {
               className="inline-flex items-center text-orange-600 hover:text-orange-700 text-sm font-medium transition-colors"
             >
               <Plus className="h-4 w-4 mr-1" />
-              Añadir Primer Proveedor
+              {searchTerm || statusFilter !== 'all' 
+                ? 'Añadir Nuevo Proveedor' 
+                : 'Añadir Primer Proveedor'
+              }
             </Link>
           </div>
         )}
       </div>
 
       {/* Results Counter */}
-      {filteredSuppliers.length > 0 && (
+      {sortedSuppliers.length > 0 && (
         <div className="mt-4 text-sm text-gray-600">
-          Mostrando {filteredSuppliers.length} de {suppliers.length} proveedores
+          Mostrando {sortedSuppliers.length} de {suppliers.length} proveedores
         </div>
       )}
 

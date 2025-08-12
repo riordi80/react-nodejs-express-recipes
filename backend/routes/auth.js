@@ -8,7 +8,7 @@ const authenticateToken = require('../middleware/authMiddleware');
 
 // Multi-tenant: usar req.tenantDb en lugar de pool estático
 
-// Pool de conexión a la base de datos maestra para login centralizado
+// Pool de conexión a la base de datos maestra para find-tenant
 const masterPool = mysql.createPool({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
@@ -456,3 +456,4 @@ router.post('/logout', (req, res) => {
 });
 
 module.exports = router;
+module.exports.masterPool = masterPool;

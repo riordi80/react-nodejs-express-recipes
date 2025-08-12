@@ -157,6 +157,114 @@ backupManager.initialize().catch(error => {
 });
 
 // 8) Iniciar servidor
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`✅ Servidor corriendo en ${BACKEND_URL}:${PORT}`);
+});
+
+// 9) Graceful Shutdown Handler
+const gracefulShutdown = async (signal) => {
+  console.log(`\n🔄 ${signal} received, shutting down gracefully...`);
+  
+  // Timeout de seguridad - forzar cierre después de 10 segundos
+  const forceTimeout = setTimeout(() => {
+    console.log('⚠️  Force shutdown after 10s timeout');
+    process.exit(1);
+  }, 10000);
+  
+  try {
+    // 1. Parar de aceptar nuevas conexiones
+    console.log('🔒 Closing HTTP server...');
+    await new Promise((resolve, reject) => {
+      server.close((err) => {
+        if (err) {
+          console.error('❌ Error closing HTTP server:', err);
+          reject(err);
+        } else {
+          console.log('✅ HTTP server closed');
+          resolve();
+        }
+      });
+    });
+    
+    // 2. Cerrar conexiones de base de datos
+    console.log('🗃️  Closing database connections...');
+    
+    // Cerrar masterPool de auth.js si existe
+    try {
+      const authModule = require('./routes/auth');
+      if (authModule.masterPool && typeof authModule.masterPool.end === 'function') {
+        console.log('🔄 Closing master database pool...');
+        await authModule.masterPool.end();
+        console.log('✅ Master database pool closed');
+      } else {
+        console.log('ℹ️  Master pool not available');
+      }
+    } catch (err) {
+      console.log('⚠️  Error closing master pool:', err.message);
+    }
+    
+    // Cerrar otros pools si existen (tenantResolver, etc.)
+    try {
+      const { closeTenantPools } = require('./middleware/tenant');
+      if (typeof closeTenantPools === 'function') {
+        await closeTenantPools();
+        console.log('✅ Tenant database pools closed');
+      }
+    } catch (err) {
+      console.log('ℹ️  Tenant pools cleanup not available');
+    }
+    
+    // 3. Cleanup backupManager si tiene método de cierre
+    try {
+      if (backupManager && typeof backupManager.cleanup === 'function') {
+        await backupManager.cleanup();
+        console.log('✅ Backup manager cleaned up');
+      }
+    } catch (err) {
+      console.log('ℹ️  Backup manager cleanup not available');
+    }
+    
+    console.log('✅ Graceful shutdown completed');
+    clearTimeout(forceTimeout);
+    process.exit(0);
+    
+  } catch (error) {
+    console.error('❌ Error during graceful shutdown:', error);
+    clearTimeout(forceTimeout);
+    process.exit(1);
+  }
+};
+
+// Escuchar señales de cierre
+process.on('SIGTERM', () => {
+  console.log('📡 SIGTERM signal received');
+  gracefulShutdown('SIGTERM');
+}); // PM2 restart/stop
+
+process.on('SIGINT', () => {
+  console.log('📡 SIGINT signal received');
+  gracefulShutdown('SIGINT');
+}); // Ctrl+C manual
+
+process.on('SIGUSR2', () => {
+  console.log('📡 SIGUSR2 signal received');
+  gracefulShutdown('SIGUSR2');
+}); // Nodemon restart
+
+// Debug: mostrar qué mantiene el proceso vivo
+process.on('exit', (code) => {
+  console.log(`🔚 Process exiting with code: ${code}`);
+});
+
+console.log('🎯 Graceful shutdown handlers registered');
+
+// Manejar excepciones no capturadas
+process.on('uncaughtException', (error) => {
+  console.error('💥 Uncaught Exception:', error);
+  gracefulShutdown('uncaughtException');
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('💥 Unhandled Rejection at:', promise, 'reason:', reason);
+  gracefulShutdown('unhandledRejection');
 });
