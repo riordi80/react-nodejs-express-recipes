@@ -117,16 +117,15 @@ export default function IngredientDetailPage() {
     comment: ''
   })
 
-  // Options for select fields
+  // Options for select fields - DEBE coincidir exactamente con el ENUM de la base de datos
   const unitOptions = [
     { value: 'kg', label: 'Kilogramos (kg)' },
-    { value: 'g', label: 'Gramos (g)' },
+    { value: 'gr', label: 'Gramos (gr)' },
     { value: 'l', label: 'Litros (l)' },
     { value: 'ml', label: 'Mililitros (ml)' },
-    { value: 'ud', label: 'Unidades (ud)' },
-    { value: 'paquete', label: 'Paquetes' },
-    { value: 'lata', label: 'Latas' },
-    { value: 'botella', label: 'Botellas' }
+    { value: 'unit', label: 'Unidades (unit)' },
+    { value: 'tbsp', label: 'Cucharadas (tbsp)' },
+    { value: 'tsp', label: 'Cucharaditas (tsp)' }
   ]
 
 
@@ -155,14 +154,6 @@ export default function IngredientDetailPage() {
     }
   }, [])
 
-  // Debug formData changes
-  useEffect(() => {
-    console.log('FormData changed:', {
-      season: formData.season,
-      allergens: formData.allergens,
-      name: formData.name
-    })
-  }, [formData.season, formData.allergens, formData.name])
 
 
   const initializeNewIngredient = () => {
@@ -287,12 +278,6 @@ export default function IngredientDetailPage() {
         }
       }
 
-      console.log('Loading ingredient data:', {
-        originalSeason: ingredientData.season,
-        processedSeason: seasonData,
-        originalAllergens: ingredientData.allergens,
-        processedAllergens: allergensData
-      })
 
       // Set form data
       setFormData({
@@ -332,7 +317,7 @@ export default function IngredientDetailPage() {
       if (preferred) {
         setPreferredSupplier({
           id: preferred.supplier_id,
-          name: preferred.name
+          name: preferred.name || preferred.supplier_name
         })
       } else {
         setPreferredSupplier(null)
@@ -391,8 +376,6 @@ export default function IngredientDetailPage() {
         return
       }
 
-      // Log para depuración
-      console.log('FormData before save:', formData)
 
       // Función helper para convertir strings a números o null
       const parseNumberOrNull = (value: string): number | null => {
@@ -431,8 +414,6 @@ export default function IngredientDetailPage() {
         comment: formData.comment.trim() || null
       }
 
-      // Log para depuración
-      console.log('Ingredient data to send:', ingredientData)
 
       if (isNewIngredient) {
         const response = await apiPost<{ ingredient_id: number }>('/ingredients', ingredientData)
@@ -599,10 +580,12 @@ export default function IngredientDetailPage() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                   >
                     <option value="kg">kg</option>
-                    <option value="g">g</option>
+                    <option value="gr">gr</option>
                     <option value="l">l</option>
                     <option value="ml">ml</option>
-                    <option value="ud">unidad</option>
+                    <option value="unit">unit</option>
+                    <option value="tbsp">tbsp</option>
+                    <option value="tsp">tsp</option>
                   </select>
                 ) : (
                   <p className="text-gray-900">{ingredient?.unit || 'kg'}</p>
@@ -729,7 +712,7 @@ export default function IngredientDetailPage() {
               
               {ingredient.expiration_date && (
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700">Fecha de expiración:</span>
+                  <span className="text-sm font-medium text-gray-700">Fecha de caducidad:</span>
                   <div className="text-right">
                     <div className="text-sm font-medium text-gray-900">
                       {formatDate(ingredient.expiration_date)}
@@ -1502,7 +1485,6 @@ export default function IngredientDetailPage() {
                     <SeasonChips
                       selected={formData.season}
                       onChange={(selected) => {
-                        console.log('Season chips onChange:', selected)
                         setFormData({ ...formData, season: selected })
                       }}
                       size="sm"
@@ -1538,7 +1520,6 @@ export default function IngredientDetailPage() {
                       options={filterOptions.allergens}
                       selected={formData.allergens}
                       onChange={(selected) => {
-                        console.log('Allergen chips onChange:', selected)
                         setFormData({ ...formData, allergens: selected })
                       }}
                       size="sm"

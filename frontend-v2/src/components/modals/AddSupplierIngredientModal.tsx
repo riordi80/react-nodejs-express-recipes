@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, Search, Plus } from 'lucide-react'
+import { X, Search } from 'lucide-react'
 import { apiGet, apiPost } from '@/lib/api'
 
 interface Ingredient {

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { History, Search, Calendar, Download, Filter, TrendingUp, Eye, Package, User } from 'lucide-react'
+import { History, Calendar, Download, Filter, TrendingUp, Eye, Package, User } from 'lucide-react'
 import { apiGet } from '@/lib/api'
 import { useToastHelpers } from '@/context/ToastContext'
 
@@ -201,7 +201,7 @@ export default function HistorySection({ onOrderClick }: HistorySectionProps) {
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
           <div className="bg-purple-100 p-2 rounded-lg">
-            <History className="h-6 w-6 text-purple-600" />
+            <History className="h-6 w-6 text-orange-600" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900">Historial de Pedidos</h2>
         </div>

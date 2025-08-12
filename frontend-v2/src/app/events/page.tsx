@@ -2,10 +2,13 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react'
 import Link from 'next/link'
-import { Calendar, Plus, Filter, Search, Users, MapPin, Clock, Euro, Eye, Edit, Trash2 } from 'lucide-react'
-import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api'
+import { useRouter } from 'next/navigation'
+import { Calendar, Plus, Filter, Search, Users, MapPin, Clock, Euro, Edit, Trash2 } from 'lucide-react'
+import { apiGet, apiDelete } from '@/lib/api'
 import ConfirmModal from '@/components/ui/ConfirmModal'
 import { useToastHelpers } from '@/context/ToastContext'
+import { useTableSort } from '@/hooks/useTableSort'
+import SortableTableHeader from '@/components/ui/SortableTableHeader'
 
 interface Event {
   event_id: number
@@ -39,9 +42,10 @@ const statusLabels = {
 }
 
 export default function EventsPage() {
+  const router = useRouter()
   const [events, setEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [, setError] = useState<string | null>(null)
   
   // Toast helpers
   const { success, error: showError } = useToastHelpers()
@@ -126,6 +130,9 @@ export default function EventsPage() {
       return matchesSearch && matchesStatus
     })
   }, [events, searchTerm, statusFilter])
+
+  // Add sorting to filtered events
+  const { sortedData: sortedEvents, sortConfig, handleSort } = useTableSort(filteredEvents, 'event_date')
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('es-ES', {
@@ -251,32 +258,36 @@ export default function EventsPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <SortableTableHeader sortKey="name" sortConfig={sortConfig} onSort={handleSort}>
                   Evento
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </SortableTableHeader>
+                <SortableTableHeader sortKey="event_date" sortConfig={sortConfig} onSort={handleSort}>
                   Fecha & Hora
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </SortableTableHeader>
+                <SortableTableHeader sortKey="guests_count" sortConfig={sortConfig} onSort={handleSort}>
                   Invitados
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </SortableTableHeader>
+                <SortableTableHeader sortKey="location" sortConfig={sortConfig} onSort={handleSort} sortable={false}>
                   Ubicación
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </SortableTableHeader>
+                <SortableTableHeader sortKey="status" sortConfig={sortConfig} onSort={handleSort}>
                   Estado
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </SortableTableHeader>
+                <SortableTableHeader sortKey="budget" sortConfig={sortConfig} onSort={handleSort}>
                   Presupuesto
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </SortableTableHeader>
+                <SortableTableHeader sortKey="" sortConfig={sortConfig} onSort={handleSort} sortable={false} className="text-right">
                   Acciones
-                </th>
+                </SortableTableHeader>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredEvents.map((event) => (
-                <tr key={event.event_id} className="hover:bg-gray-50">
+              {sortedEvents.map((event) => (
+                <tr 
+                  key={event.event_id} 
+                  onClick={() => router.push(`/events/${event.event_id}`)}
+                  className="hover:bg-gray-50 cursor-pointer"
+                >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-12 w-12">
@@ -345,15 +356,17 @@ export default function EventsPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex items-center justify-end space-x-2">
-                      <Link href={`/events/${event.event_id}`} className="text-blue-600 hover:text-blue-900 p-1 rounded">
-                        <Eye className="h-4 w-4" />
-                      </Link>
-                      <Link href={`/events/${event.event_id}`} className="text-orange-600 hover:text-orange-900 p-1 rounded">
+                      <Link 
+                        href={`/events/${event.event_id}`} 
+                        className="text-gray-600 hover:text-gray-900 p-1 rounded transition-colors"
+                        title="Editar evento"
+                      >
                         <Edit className="h-4 w-4" />
                       </Link>
                       <button 
                         onClick={() => openDeleteModal(event)}
-                        className="text-red-600 hover:text-red-900 p-1 rounded"
+                        className="text-gray-600 hover:text-gray-900 p-1 rounded transition-colors"
+                        title="Eliminar evento"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -383,7 +396,7 @@ export default function EventsPage() {
               className="inline-flex items-center text-orange-600 hover:text-orange-700 text-sm font-medium transition-colors"
             >
               <Plus className="h-4 w-4 mr-1" />
-              Crear Primer Evento
+              {searchTerm || statusFilter !== 'all' ? 'Crear Nuevo Evento' : 'Crear Primer Evento'}
             </Link>
           </div>
         )}

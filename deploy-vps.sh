@@ -20,7 +20,7 @@ if [ -z "$VPS_USER" ] || [ -z "$VPS_IP" ]; then
     exit 1
 fi
 
-VPS_PATH="/var/www/recetasAPI"
+VPS_PATH="${VPS_PATH:-/var/www/recetasAPI}"
 LOCAL_PROJECT_PATH="$(pwd)"
 
 # Configuración SSH ControlMaster para reutilizar conexión
@@ -90,14 +90,16 @@ setup_local_env() {
 deploy_backend() {
     show_message "Desplegando Backend..."
     
-    # Excluir archivos innecesarios (usando SSH ControlMaster)
+    # Excluir archivos innecesarios pero incluir .env preparado por switch-env.sh (usando SSH ControlMaster)
     rsync -avz --progress \
         -e "ssh $SSH_OPTS" \
         --exclude 'node_modules/' \
-        --exclude '.env.local' \
-        --exclude '.env.cloudflare' \
-        --exclude '.env.production' \
+        --include '.env' \
+        --exclude '.env*' \
         --exclude '*.log' \
+        --exclude '*.sql' \
+        --exclude '*.dump' \
+        --exclude 'backups/' \
         ./backend/ $VPS_USER@$VPS_IP:$VPS_PATH/backend/
     
     if [ $? -eq 0 ]; then
@@ -116,9 +118,12 @@ deploy_frontend() {
         -e "ssh $SSH_OPTS" \
         --exclude 'node_modules/' \
         --exclude '.next/' \
-        --exclude '.env.local' \
-        --include '*.template' \
-        --include '.env.*' \
+        --exclude '.env*' \
+        --exclude '*.template' \
+        --exclude '*.log' \
+        --exclude '*.sql' \
+        --exclude '*.dump' \
+        --exclude 'backups/' \
         --include 'config.json.*' \
         ./frontend-v2/ $VPS_USER@$VPS_IP:$VPS_PATH/frontend/
     
@@ -178,8 +183,8 @@ test_deployment() {
     
     # Probar conectividad pública
     show_message "Probando acceso público..."
-    if curl -I https://recipes.ordidev.com 2>/dev/null | head -1; then
-        show_success "✅ Despliegue exitoso! Aplicación accesible en https://recipes.ordidev.com"
+    if curl -I ${DOMAIN_URL:-https://recipes.ordidev.com} 2>/dev/null | head -1; then
+        show_success "✅ Despliegue exitoso! Aplicación accesible en ${DOMAIN_URL:-https://recipes.ordidev.com}"
     else
         show_warning "La aplicación puede tardar unos segundos en estar disponible"
     fi

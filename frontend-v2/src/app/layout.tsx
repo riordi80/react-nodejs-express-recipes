@@ -26,7 +26,6 @@ export default function RootLayout({
   
   // Páginas que tienen su propio layout independiente
   const hasIndependentLayout = pathname === '/login' || 
-                              pathname === '/central-login' || 
                               pathname === '/recovery-password';
 
   if (hasIndependentLayout) {

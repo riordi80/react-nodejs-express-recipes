@@ -24,7 +24,7 @@ async function loadRuntimeConfig(): Promise<RuntimeConfig> {
       runtimeConfig = config;
       return config;
     }
-  } catch (error) {
+  } catch {
     // Silencioso: usar fallback de variables de entorno
   }
   

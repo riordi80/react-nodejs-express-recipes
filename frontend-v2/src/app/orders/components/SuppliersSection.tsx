@@ -102,7 +102,7 @@ export default function SuppliersSection({ onSupplierClick }: SuppliersSectionPr
       {/* Header */}
       <div className="flex items-center space-x-3">
         <div className="bg-green-100 p-2 rounded-lg">
-          <Package className="h-6 w-6 text-green-600" />
+          <Package className="h-6 w-6 text-orange-600" />
         </div>
         <h2 className="text-2xl font-bold text-gray-900">Análisis de Proveedores</h2>
       </div>

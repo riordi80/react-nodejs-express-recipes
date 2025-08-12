@@ -1,28 +1,18 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { 
   Truck, 
-  Euro, 
   Building,
-  AlertTriangle, 
   List, 
   History, 
   BarChart3,
-  ChevronDown,
-  CheckCircle,
-  XCircle,
-  HelpCircle,
-  Clock,
-  LayoutGrid,
-  Table,
-  Filter,
-  Search
+  ChevronDown
 } from 'lucide-react'
 
 // Components sections
 import DashboardSection from './components/DashboardSection'
-import ShoppingListSection from './components/ShoppingListSection' 
+import ShoppingListSection, { ShoppingListSectionRef } from './components/ShoppingListSection' 
 import ActiveOrdersSection from './components/ActiveOrdersSection'
 import SuppliersSection from './components/SuppliersSection'
 import HistorySection from './components/HistorySection'
@@ -34,23 +24,11 @@ import SupplierWarningModal from '@/components/modals/SupplierWarningModal'
 import OrderDetailModal from '@/components/modals/OrderDetailModal'
 // import ReportsModal from '@/components/modals/ReportsModal'
 
-import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api'
+import { apiGet, apiPost, apiPut } from '@/lib/api'
 import { useToastHelpers } from '@/context/ToastContext'
 import { useActiveOrders } from './hooks/useActiveOrders'
 
-// Types
-interface Order {
-  order_id: number
-  supplier_id: number
-  supplier_name: string
-  status: 'pending' | 'confirmed' | 'in_transit' | 'delivered' | 'cancelled'
-  order_date: string
-  delivery_date?: string
-  total_cost: number
-  notes?: string
-  created_at: string
-  updated_at: string
-}
+// Types removed to fix unused variable warnings
 
 interface Ingredient {
   ingredient_id: number
@@ -71,6 +49,9 @@ export default function OrdersPage() {
   // Active Orders hook
   const activeOrdersHook = useActiveOrders()
 
+  // Ref for ShoppingListSection
+  const shoppingListRef = useRef<ShoppingListSectionRef>(null)
+
   // Main state
   const [activeTab, setActiveTab] = useState('dashboard')
   const [loading, setLoading] = useState(true)
@@ -82,7 +63,6 @@ export default function OrdersPage() {
   const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(null)
   const [showOrderDetailModal, setShowOrderDetailModal] = useState(false)
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null)
-  const [showReportsModal, setShowReportsModal] = useState(false)
   const [showGenerateOrderModal, setShowGenerateOrderModal] = useState(false)
   const [showSupplierWarningModal, setShowSupplierWarningModal] = useState(false)
   const [ingredientsWithoutProvider, setIngredientsWithoutProvider] = useState<any[]>([])
@@ -378,6 +358,7 @@ export default function OrdersPage() {
         
         {activeTab === 'shopping-list' && (
           <ShoppingListSection
+            ref={shoppingListRef}
             onIngredientRowClick={handleIngredientRowClick}
             onNavigateToActiveOrders={() => setActiveTab('active-orders')}
             isModeDropdownOpen={isModeDropdownOpen}
@@ -423,6 +404,12 @@ export default function OrdersPage() {
         }}
         ingredient={selectedIngredient}
         onSave={handleSaveIngredient}
+        onDataChanged={() => {
+          // Refrescar los datos de la lista de compras cuando se cierren las modales de proveedores
+          if (shoppingListRef.current) {
+            shoppingListRef.current.refreshData()
+          }
+        }}
       />
 
       <GenerateOrderModal

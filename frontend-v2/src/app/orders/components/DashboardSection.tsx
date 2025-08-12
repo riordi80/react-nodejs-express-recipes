@@ -7,9 +7,7 @@ import {
   Truck, 
   AlertTriangle, 
   Info,
-  TrendingUp,
-  Package,
-  Clock
+  TrendingUp
 } from 'lucide-react'
 import { apiGet } from '@/lib/api'
 import { useToastHelpers } from '@/context/ToastContext'

@@ -52,7 +52,6 @@ export default function Chips({
   options,
   selected,
   onChange,
-  placeholder = 'Seleccionar opciones...',
   className = '',
   disabled = false,
   variant = 'default',

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { Globe, Calendar, DollarSign, Search, FileText, Settings } from 'lucide-react'
+import { Globe, FileText, Settings } from 'lucide-react'
 import { useSettings } from '@/context/SettingsContext'
 import { useToast } from '@/context/ToastContext'
 import Select from '@/components/ui/Select'
@@ -10,7 +10,7 @@ import Button from '@/components/ui/Button'
 const SystemSection = () => {
   const { settings, updateSetting } = useSettings()
   const { showToast } = useToast()
-  const [loading, setLoading] = useState(false)
+  const [loading] = useState(false)
 
   const handleSettingChange = (key: keyof typeof settings, value: string | boolean) => {
     updateSetting(key, value)

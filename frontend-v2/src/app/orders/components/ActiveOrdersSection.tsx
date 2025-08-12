@@ -86,7 +86,7 @@ export default function ActiveOrdersSection({
       {/* Header */}
       <div className="flex items-center space-x-3">
         <div className="bg-blue-100 p-2 rounded-lg">
-          <Truck className="h-6 w-6 text-blue-600" />
+          <Truck className="h-6 w-6 text-orange-600" />
         </div>
         <h2 className="text-2xl font-bold text-gray-900">Pedidos Activos</h2>
       </div>
@@ -120,7 +120,7 @@ export default function ActiveOrdersSection({
               <details className="relative">
                 <summary className="w-full px-3 py-2 border border-gray-300 rounded-lg cursor-pointer focus:ring-2 focus:ring-orange-500 focus:border-transparent">
                   {selectedStatusCount === totalStatusCount ? 'Todos los estados' : 
-                   selectedStatusCount === 1 ? getStatusLabel(Object.entries(filters.status).find(([_, active]) => active)?.[0] || '') :
+                   selectedStatusCount === 1 ? getStatusLabel(Object.entries(filters.status).find(([, active]) => active)?.[0] || '') :
                    `${selectedStatusCount} seleccionados`}
                 </summary>
                 <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 p-2">

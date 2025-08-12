@@ -98,7 +98,7 @@ export default function RecipeDetailPage() {
   const [sections, setSections] = useState<Section[]>([])
   const [targetFoodCostPercentage, setTargetFoodCostPercentage] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
-  const [isEditing, setIsEditing] = useState(true) // Siempre iniciar en modo edición
+  const [isEditing] = useState(true) // Siempre iniciar en modo edición
   
   // Tabs state
   const [activeTab, setActiveTab] = useState('general')
@@ -174,7 +174,7 @@ export default function RecipeDetailPage() {
     try {
       const response = await apiGet<Category[]>('/recipe-categories')
       setAvailableCategories(response.data)
-    } catch (err) {
+    } catch {
       // Fallback categories
       setAvailableCategories([
         { category_id: 1, name: 'Entrante' },
@@ -195,7 +195,7 @@ export default function RecipeDetailPage() {
       } else {
         setTargetFoodCostPercentage(30) // Fallback si no hay configuración
       }
-    } catch (err) {
+    } catch {
       setTargetFoodCostPercentage(30) // Fallback en caso de error
     }
   }
@@ -262,7 +262,7 @@ export default function RecipeDetailPage() {
         carbs: nutritionData.carbs?.toString() || '',
         fat: nutritionData.fat?.toString() || ''
       }))
-    } catch (nutritionErr) {
+    } catch {
       setNutrition(null)
     }
     
@@ -270,7 +270,7 @@ export default function RecipeDetailPage() {
     try {
       const allergensResponse = await apiGet<Allergen[]>(`/recipes/${recipeId}/allergens`)
       setAllergens(allergensResponse.data || [])
-    } catch (allergensErr) {
+    } catch {
       setAllergens([])
     }
     
@@ -286,7 +286,7 @@ export default function RecipeDetailPage() {
           : [recipeWithCategories.categories]
         setCategories(cats)
       }
-    } catch (categoriesErr) {
+    } catch {
       setCategories([])
     }
   }

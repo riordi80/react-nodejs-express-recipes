@@ -79,8 +79,8 @@ export const useActiveOrders = () => {
 
     // Filter by status
     const selectedStatuses = Object.entries(filters.status)
-      .filter(([_, isSelected]) => isSelected)
-      .map(([status, _]) => status)
+      .filter(([, isSelected]) => isSelected)
+      .map(([status]) => status)
     
     if (selectedStatuses.length > 0) {
       filtered = filtered.filter(order => selectedStatuses.includes(order.status))

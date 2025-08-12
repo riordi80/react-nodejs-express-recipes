@@ -296,7 +296,7 @@ function ManualOrderItemComponent({
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
               <div>
-                <span className="font-medium">Paquete:</span> {selectedIngredient.preferredSupplier.package_size} {selectedIngredient.preferredSupplier.package_unit}
+                <span className="font-medium">Contenido:</span> {selectedIngredient.preferredSupplier.package_size} {selectedIngredient.unit || 'unidades'}
               </div>
               <div>
                 <span className="font-medium">Precio:</span> {formatCurrency(selectedIngredient.preferredSupplier.price)}

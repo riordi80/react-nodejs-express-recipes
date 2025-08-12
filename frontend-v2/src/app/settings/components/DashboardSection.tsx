@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { LayoutDashboard, ArrowUp, ArrowDown, Move, Eye, EyeOff, Package, Calendar, ChefHat, Truck, Monitor, Settings } from 'lucide-react'
+import { LayoutDashboard, ArrowUp, ArrowDown, Move, Eye, EyeOff, Package, Calendar, ChefHat, Truck, Monitor } from 'lucide-react'
 import { useToast } from '@/context/ToastContext'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'

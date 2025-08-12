@@ -2,13 +2,15 @@
 
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useTableSort } from '@/hooks/useTableSort'
+import SortableTableHeader from '@/components/ui/SortableTableHeader'
 import { 
   BookOpen, 
   Plus, 
   Clock, 
   Users, 
   Euro,
-  Eye,
   Edit,
   Trash2,
   Grid3X3,
@@ -72,6 +74,7 @@ const difficultyColors = {
 }
 
 export default function RecipesPage() {
+  const router = useRouter()
   const [recipes, setRecipes] = useState<Recipe[]>([])
   const [, setError] = useState<string | null>(null)
   
@@ -85,7 +88,7 @@ export default function RecipesPage() {
   
   // Advanced Filters
   const [searchText, setSearchText] = useState('')
-  const [selectedCategory, setSelectedCategory] = useState('')
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([])
   const [selectedPrepTime, setSelectedPrepTime] = useState<number | null>(null)
   const [selectedDifficulty, setSelectedDifficulty] = useState('')
   const [selectedIngredient, setSelectedIngredient] = useState('')
@@ -177,7 +180,7 @@ export default function RecipesPage() {
       
       // Apply all filters
       if (searchText.trim()) params.append('search', searchText.trim())
-      if (selectedCategory) params.append('category', selectedCategory)
+      if (selectedCategories.length > 0) params.append('categories', selectedCategories.join(','))
       if (selectedDifficulty) params.append('difficulty', selectedDifficulty)
       if (selectedPrepTime) params.append('prepTime', selectedPrepTime.toString())
       if (selectedIngredient) params.append('ingredient', selectedIngredient)
@@ -201,10 +204,13 @@ export default function RecipesPage() {
     }, 300) // Debounce all filters
 
     return () => clearTimeout(timeoutId)
-  }, [searchText, selectedCategory, selectedDifficulty, selectedPrepTime, selectedIngredient, selectedAllergens, isInitialized])
+  }, [searchText, selectedCategories, selectedDifficulty, selectedPrepTime, selectedIngredient, selectedAllergens, isInitialized])
 
   // Use recipes directly from API (server-side filtering)
   const filteredRecipes = recipes
+
+  // Add sorting to filtered recipes
+  const { sortedData: sortedRecipes, sortConfig, handleSort } = useTableSort(filteredRecipes, 'name')
 
   const formatTime = (minutes?: number) => {
     if (!minutes) return 'N/A'
@@ -249,7 +255,7 @@ export default function RecipesPage() {
     }
   }
 
-  const hasActiveFilters = searchText || selectedCategory || selectedDifficulty || 
+  const hasActiveFilters = searchText || selectedCategories.length > 0 || selectedDifficulty || 
                           selectedPrepTime || selectedIngredient || selectedAllergens.length > 0
 
   // Delete handlers
@@ -373,8 +379,8 @@ export default function RecipesPage() {
         searchText={searchText}
         onSearchTextChange={setSearchText}
         categoryOptions={filterOptions.categories}
-        selectedCategory={selectedCategory}
-        onCategoryChange={setSelectedCategory}
+        selectedCategories={selectedCategories}
+        onCategoriesChange={setSelectedCategories}
         prepTimeOptions={prepTimeOptions}
         selectedPrepTime={selectedPrepTime}
         onPrepTimeChange={setSelectedPrepTime}
@@ -397,29 +403,33 @@ export default function RecipesPage() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <SortableTableHeader sortKey="name" sortConfig={sortConfig} onSort={handleSort}>
                     Receta
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  </SortableTableHeader>
+                  <SortableTableHeader sortKey="difficulty" sortConfig={sortConfig} onSort={handleSort}>
                     Dificultad
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  </SortableTableHeader>
+                  <SortableTableHeader sortKey="prep_time" sortConfig={sortConfig} onSort={handleSort}>
                     Tiempo
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  </SortableTableHeader>
+                  <SortableTableHeader sortKey="servings" sortConfig={sortConfig} onSort={handleSort}>
                     Raciones
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  </SortableTableHeader>
+                  <SortableTableHeader sortKey="cost_per_serving" sortConfig={sortConfig} onSort={handleSort}>
                     Coste/ración
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  </SortableTableHeader>
+                  <SortableTableHeader sortKey="" sortConfig={sortConfig} onSort={handleSort} sortable={false} className="text-right">
                     Acciones
-                  </th>
+                  </SortableTableHeader>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredRecipes.map((recipe) => (
-                  <tr key={recipe.recipe_id} className="hover:bg-gray-50 cursor-pointer">
+                {sortedRecipes.map((recipe) => (
+                  <tr 
+                    key={recipe.recipe_id} 
+                    onClick={() => router.push(`/recipes/${recipe.recipe_id}`)}
+                    className="hover:bg-gray-50 cursor-pointer"
+                  >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-12 w-12">
@@ -471,19 +481,15 @@ export default function RecipesPage() {
                       <div className="flex items-center justify-end space-x-2">
                         <Link 
                           href={`/recipes/${recipe.recipe_id}`} 
-                          className="text-blue-600 hover:text-blue-900 p-1 rounded"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Link>
-                        <Link 
-                          href={`/recipes/${recipe.recipe_id}`} 
-                          className="text-orange-600 hover:text-orange-900 p-1 rounded"
+                          className="text-gray-600 hover:text-gray-900 p-1 rounded transition-colors"
+                          title="Editar receta"
                         >
                           <Edit className="h-4 w-4" />
                         </Link>
                         <button 
                           onClick={() => openDeleteModal(recipe)}
-                          className="text-red-600 hover:text-red-900 p-1 rounded"
+                          className="text-gray-600 hover:text-gray-900 p-1 rounded transition-colors"
+                          title="Eliminar receta"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -496,7 +502,7 @@ export default function RecipesPage() {
           </div>
 
           {/* Empty State - Table */}
-          {filteredRecipes.length === 0 && isInitialized && (
+          {sortedRecipes.length === 0 && isInitialized && (
             <div className="text-center py-12">
               <BookOpen className="h-12 w-12 mx-auto text-gray-400 mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -513,7 +519,7 @@ export default function RecipesPage() {
                 className="inline-flex items-center text-orange-600 hover:text-orange-700 text-sm font-medium transition-colors"
               >
                 <Plus className="h-4 w-4 mr-1" />
-                Crear Primera Receta
+                {hasActiveFilters ? 'Crear Nueva Receta' : 'Crear Primera Receta'}
               </Link>
             </div>
           )}
@@ -521,7 +527,7 @@ export default function RecipesPage() {
       ) : (
         /* Grid View */
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredRecipes.map((recipe) => (
+          {sortedRecipes.map((recipe) => (
             <div key={recipe.recipe_id} className="bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
               {/* Image */}
               <div className="aspect-w-16 aspect-h-9 bg-gray-200 rounded-t-lg relative">
@@ -582,13 +588,15 @@ export default function RecipesPage() {
                   <div className="flex space-x-1">
                     <Link 
                       href={`/recipes/${recipe.recipe_id}`} 
-                      className="text-orange-600 hover:text-orange-900 p-2 rounded"
+                      className="text-gray-600 hover:text-gray-900 p-2 rounded transition-colors"
+                      title="Editar receta"
                     >
                       <Edit className="h-4 w-4" />
                     </Link>
                     <button 
                       onClick={() => openDeleteModal(recipe)}
-                      className="text-red-600 hover:text-red-900 p-2 rounded"
+                      className="text-gray-600 hover:text-gray-900 p-2 rounded transition-colors"
+                      title="Eliminar receta"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -599,7 +607,7 @@ export default function RecipesPage() {
           ))}
 
           {/* Empty State - Grid */}
-          {filteredRecipes.length === 0 && isInitialized && (
+          {sortedRecipes.length === 0 && isInitialized && (
             <div className="col-span-full text-center py-12">
               <BookOpen className="h-12 w-12 mx-auto text-gray-400 mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -616,7 +624,7 @@ export default function RecipesPage() {
                 className="inline-flex items-center text-orange-600 hover:text-orange-700 text-sm font-medium transition-colors"
               >
                 <Plus className="h-4 w-4 mr-1" />
-                Crear Primera Receta
+                {hasActiveFilters ? 'Crear Nueva Receta' : 'Crear Primera Receta'}
               </Link>
             </div>
           )}
@@ -624,9 +632,9 @@ export default function RecipesPage() {
       )}
 
       {/* Results Counter */}
-      {filteredRecipes.length > 0 && (
+      {sortedRecipes.length > 0 && (
         <div className="mt-4 text-sm text-gray-600">
-          Mostrando {filteredRecipes.length} de {filteredRecipes.length} recetas
+          Mostrando {sortedRecipes.length} de {sortedRecipes.length} recetas
           {hasActiveFilters && ' (filtradas)'}
         </div>
       )}

@@ -77,7 +77,7 @@ export default function SupplierWarningModal({
                   ⚠️ Algunos ingredientes no tienen proveedor asignado
                 </h3>
                 <p className="text-sm text-yellow-700 mb-2">
-                  Los siguientes ingredientes aparecerán como "Sin Proveedor Asignado" en los pedidos generados. 
+                  Los siguientes ingredientes aparecerán como &quot;Sin Proveedor Asignado&quot; en los pedidos generados. 
                   Se usarán precios base para los cálculos, que pueden no ser precisos.
                 </p>
                 <p className="text-sm text-yellow-700">

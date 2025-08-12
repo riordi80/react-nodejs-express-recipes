@@ -1,6 +1,6 @@
 'use client'
 
-import { Calendar, Users, MapPin, Clock } from 'lucide-react'
+import { Calendar, Users, Clock } from 'lucide-react'
 import { AvailableEvent } from '../hooks/useShoppingList'
 
 interface EventSelectionProps {
@@ -113,7 +113,7 @@ export default function EventSelection({
                 {/* Header */}
                 <div className="mb-3">
                   <h4 className="font-semibold text-gray-900 text-sm mb-1 line-clamp-2">
-                    {event.name}
+                    {event.event_name}
                   </h4>
                   <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(event.status)}`}>
                     {getStatusLabel(event.status)}
