@@ -712,7 +712,7 @@ export default function IngredientDetailPage() {
               
               {ingredient.expiration_date && (
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-gray-700">Fecha de expiración:</span>
+                  <span className="text-sm font-medium text-gray-700">Fecha de caducidad:</span>
                   <div className="text-right">
                     <div className="text-sm font-medium text-gray-900">
                       {formatDate(ingredient.expiration_date)}

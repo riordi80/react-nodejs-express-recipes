@@ -45,6 +45,7 @@ interface Supplier {
   rating?: number
   delivery_time?: number
   ingredients_count?: number
+  active: boolean
 }
 
 interface SupplierIngredient {
@@ -209,6 +210,7 @@ export default function SupplierDetailPage() {
         address: formData.address.trim() || null,
         contact_person: formData.contact_person.trim() || null,
         notes: formData.notes.trim() || null,
+        active: supplier?.active ?? true, // Include the current active status
       }
 
       if (isNewSupplier) {
@@ -324,6 +326,47 @@ export default function SupplierDetailPage() {
       avgDeliveryTime: Math.round(avgDeliveryTime),
       totalValue,
       supplierStatus: 'Activo'
+    }
+  }
+
+  // Toggle supplier active status
+  const toggleSupplierStatus = async () => {
+    if (!supplier) return
+
+    const newActiveStatus = !supplier.active
+
+    // Update UI optimistically
+    setSupplier(prevSupplier => 
+      prevSupplier ? { ...prevSupplier, active: newActiveStatus } : null
+    )
+
+    try {
+      // Use the same data structure as handleSave
+      const supplierUpdateData = {
+        name: supplier.name,
+        phone: supplier.phone || null,
+        email: supplier.email || null,
+        website_url: supplier.website_url || null,
+        address: supplier.address || null,
+        contact_person: supplier.contact_person || null,
+        notes: supplier.notes || null,
+        active: newActiveStatus
+      }
+      
+      await apiPut(`/suppliers/${supplierId}`, supplierUpdateData)
+      
+      success(
+        `Proveedor ${newActiveStatus ? 'activado' : 'desactivado'} correctamente`,
+        'Estado Actualizado'
+      )
+    } catch (error) {
+      // Revert the optimistic update on error
+      setSupplier(prevSupplier => 
+        prevSupplier ? { ...prevSupplier, active: !newActiveStatus } : null
+      )
+      
+      showError('Error al cambiar el estado del proveedor', 'Error')
+      console.error('Error toggling supplier status:', error)
     }
   }
 
@@ -972,18 +1015,26 @@ export default function SupplierDetailPage() {
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Estado</p>
-                  {(() => {
-                    const metrics = calculateSupplierMetrics()
-                    const statusColor = 'text-green-600'
-                    return (
-                      <p className={`text-lg font-bold mt-1 ${statusColor}`}>
-                        {metrics?.supplierStatus || 'Desconocido'}
-                      </p>
-                    )
-                  })()}
-                  {supplier.rating && (
-                    <p className="text-xs text-orange-600 mt-1">★ {supplier.rating.toFixed(1)}</p>
+                  <p className="text-sm font-medium text-gray-600 mb-3">Estado del Proveedor</p>
+                  <div className="flex items-center space-x-3">
+                    <button
+                      onClick={toggleSupplierStatus}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none ${
+                        supplier?.active ? 'bg-orange-600' : 'bg-gray-200'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition duration-200 ease-in-out ${
+                          supplier?.active ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                    <span className={`text-lg font-bold ${supplier?.active ? 'text-green-600' : 'text-gray-500'}`}>
+                      {supplier?.active ? 'Activo' : 'Inactivo'}
+                    </span>
+                  </div>
+                  {supplier?.rating && (
+                    <p className="text-xs text-orange-600 mt-2">★ {supplier.rating.toFixed(1)}</p>
                   )}
                 </div>
                 <div className="bg-orange-100 p-3 rounded-lg">

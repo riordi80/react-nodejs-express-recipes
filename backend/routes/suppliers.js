@@ -32,7 +32,7 @@ router.get('/:id', authenticateToken, authorizeRoles('admin', 'supplier_manager'
 // POST /suppliers
 router.post('/', authenticateToken, authorizeRoles('admin', 'supplier_manager'), async (req, res) => {
   try {
-    const { name, phone, email, website_url, address } = req.body;
+    const { name, phone, email, website_url, address, contact_person, notes, active } = req.body;
     
     // Validación básica
     if (!name || name.trim() === '') {
@@ -40,8 +40,8 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'supplier_manager'),
     }
     
     const [result] = await req.tenantDb.query(
-      'INSERT INTO SUPPLIERS (name, phone, email, website_url, address) VALUES (?, ?, ?, ?, ?)',
-      [name, phone, email, website_url, address]
+      'INSERT INTO SUPPLIERS (name, phone, email, website_url, address, contact_person, notes, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [name, phone, email, website_url, address, contact_person, notes, active || true]
     );
 
     await logAudit(req.tenantDb, req.user.user_id, 'create', 'SUPPLIERS', result.insertId, `Proveedor "${name}" creado`);
@@ -59,11 +59,11 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'supplier_manager'),
 // PUT /suppliers/:id
 router.put('/:id', authenticateToken, authorizeRoles('admin', 'supplier_manager'), async (req, res) => {
   const { id } = req.params;
-  const { name, phone, email, website_url, address } = req.body;
+  const { name, phone, email, website_url, address, contact_person, notes, active } = req.body;
 
   await req.tenantDb.query(
-    'UPDATE SUPPLIERS SET name = ?, phone = ?, email = ?, website_url = ?, address = ? WHERE supplier_id = ?',
-    [name, phone, email, website_url, address, id]
+    'UPDATE SUPPLIERS SET name = ?, phone = ?, email = ?, website_url = ?, address = ?, contact_person = ?, notes = ?, active = ? WHERE supplier_id = ?',
+    [name, phone, email, website_url, address, contact_person, notes, active, id]
   );
 
   await logAudit(req.tenantDb, req.user.user_id, 'update', 'SUPPLIERS', id, `Proveedor actualizado: ${name}`);

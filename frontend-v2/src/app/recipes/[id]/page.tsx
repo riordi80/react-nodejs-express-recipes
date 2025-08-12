@@ -98,7 +98,7 @@ export default function RecipeDetailPage() {
   const [sections, setSections] = useState<Section[]>([])
   const [targetFoodCostPercentage, setTargetFoodCostPercentage] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
-  const [isEditing, setIsEditing] = useState(true) // Siempre iniciar en modo edición
+  const [isEditing] = useState(true) // Siempre iniciar en modo edición
   
   // Tabs state
   const [activeTab, setActiveTab] = useState('general')
@@ -195,7 +195,7 @@ export default function RecipeDetailPage() {
       } else {
         setTargetFoodCostPercentage(30) // Fallback si no hay configuración
       }
-    } catch (err) {
+    } catch {
       setTargetFoodCostPercentage(30) // Fallback en caso de error
     }
   }
@@ -286,7 +286,7 @@ export default function RecipeDetailPage() {
           : [recipeWithCategories.categories]
         setCategories(cats)
       }
-    } catch (categoriesErr) {
+    } catch {
       setCategories([])
     }
   }

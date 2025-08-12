@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useTableSort } from '@/hooks/useTableSort'
+import SortableTableHeader from '@/components/ui/SortableTableHeader'
 import { 
   Package, 
   Plus, 
@@ -209,7 +211,28 @@ export default function IngredientsPage() {
       if (seasonFilter !== 'all') params.append('season', seasonFilter)
 
       const response = await apiGet<Ingredient[]>(`/ingredients?${params.toString()}`)
-      setIngredients(response.data)
+      
+      // Debug: log first ingredient to see data structure
+      if (response.data && response.data.length > 0) {
+        console.log('First ingredient data:', response.data[0])
+      }
+      
+      // Normalize data: convert string numbers to actual numbers
+      const normalizedIngredients = response.data.map((ingredient: any) => ({
+        ...ingredient,
+        base_price: ingredient.base_price ? parseFloat(ingredient.base_price) : null,
+        net_price: ingredient.net_price ? parseFloat(ingredient.net_price) : null,
+        stock: ingredient.stock ? parseFloat(ingredient.stock) : null,
+        stock_minimum: ingredient.stock_minimum ? parseFloat(ingredient.stock_minimum) : null,
+        waste_percent: ingredient.waste_percent ? parseFloat(ingredient.waste_percent) : null,
+        calories_per_100g: ingredient.calories_per_100g ? parseFloat(ingredient.calories_per_100g) : null,
+        protein_per_100g: ingredient.protein_per_100g ? parseFloat(ingredient.protein_per_100g) : null,
+        carbs_per_100g: ingredient.carbs_per_100g ? parseFloat(ingredient.carbs_per_100g) : null,
+        fat_per_100g: ingredient.fat_per_100g ? parseFloat(ingredient.fat_per_100g) : null,
+        is_available: Boolean(ingredient.is_available)
+      }))
+      
+      setIngredients(normalizedIngredients)
     } catch (err: unknown) {
       console.error('Error loading ingredients:', err)
     } finally {
@@ -280,6 +303,12 @@ export default function IngredientsPage() {
       return matchesSearch && matchesAvailability && matchesStock && matchesExpiry && matchesSeason
     })
   }, [ingredients, searchTerm, availabilityFilter, stockFilter, expiryFilter, seasonFilter])
+
+  // Simple sorting for basic columns only (name, stock, base_price)
+  const { sortedData: sortedIngredients, sortConfig, handleSort } = useTableSort(
+    filteredIngredients,
+    'name'
+  )
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return ''
@@ -682,28 +711,28 @@ export default function IngredientsPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <SortableTableHeader sortKey="name" sortConfig={sortConfig} onSort={handleSort}>
                   Ingrediente
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </SortableTableHeader>
+                <SortableTableHeader sortKey="stock" sortConfig={sortConfig} onSort={handleSort}>
                   Stock
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </SortableTableHeader>
+                <SortableTableHeader sortKey="base_price" sortConfig={sortConfig} onSort={handleSort}>
                   Precio/Unidad
-                </th>
+                </SortableTableHeader>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Caducidad
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Estado
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <SortableTableHeader sortKey="" sortConfig={sortConfig} onSort={handleSort} sortable={false} className="text-right">
                   Acciones
-                </th>
+                </SortableTableHeader>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredIngredients.map((ingredient) => {
+              {sortedIngredients.map((ingredient) => {
                 const stockStatus = getStockStatus(ingredient)
                 const expiryStatus = getExpiryStatusDisplay(ingredient)
                 
@@ -744,13 +773,15 @@ export default function IngredientsPage() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center text-sm text-gray-900">
                         <Euro className="h-4 w-4 mr-1 text-gray-400" />
-                        {(ingredient.base_price || ingredient.net_price) ? 
-                          (ingredient.base_price || ingredient.net_price)!.toLocaleString('es-ES', { 
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 4 
-                          }) : 
-                          'Sin precio'
-                        }
+                        {(() => {
+                          const price = ingredient.base_price || ingredient.net_price
+                          return (price && typeof price === 'number') ? 
+                            Number(price).toLocaleString('es-ES', { 
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 4 
+                            }) : 
+                            'Sin precio'
+                        })()}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -807,7 +838,7 @@ export default function IngredientsPage() {
         </div>
 
         {/* Empty State */}
-        {filteredIngredients.length === 0 && !loading && (
+        {sortedIngredients.length === 0 && !loading && (
           <div className="text-center py-12">
             <Package className="h-12 w-12 mx-auto text-gray-400 mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
@@ -824,16 +855,19 @@ export default function IngredientsPage() {
               className="inline-flex items-center text-orange-600 hover:text-orange-700 text-sm font-medium transition-colors"
             >
               <Plus className="h-4 w-4 mr-1" />
-              Añadir Primer Ingrediente
+              {searchTerm || availabilityFilter !== 'all' || stockFilter !== 'all' 
+                ? 'Añadir Nuevo Ingrediente' 
+                : 'Añadir Primer Ingrediente'
+              }
             </Link>
           </div>
         )}
       </div>
 
       {/* Results Counter */}
-      {filteredIngredients.length > 0 && (
+      {sortedIngredients.length > 0 && (
         <div className="mt-4 text-sm text-gray-600">
-          Mostrando {filteredIngredients.length} de {ingredients.length} ingredientes
+          Mostrando {sortedIngredients.length} de {ingredients.length} ingredientes
         </div>
       )}
 

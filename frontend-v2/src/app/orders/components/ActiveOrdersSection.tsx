@@ -86,7 +86,7 @@ export default function ActiveOrdersSection({
       {/* Header */}
       <div className="flex items-center space-x-3">
         <div className="bg-blue-100 p-2 rounded-lg">
-          <Truck className="h-6 w-6 text-blue-600" />
+          <Truck className="h-6 w-6 text-orange-600" />
         </div>
         <h2 className="text-2xl font-bold text-gray-900">Pedidos Activos</h2>
       </div>

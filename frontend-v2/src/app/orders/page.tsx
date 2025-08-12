@@ -28,19 +28,7 @@ import { apiGet, apiPost, apiPut } from '@/lib/api'
 import { useToastHelpers } from '@/context/ToastContext'
 import { useActiveOrders } from './hooks/useActiveOrders'
 
-// Types
-interface Order {
-  order_id: number
-  supplier_id: number
-  supplier_name: string
-  status: 'pending' | 'confirmed' | 'in_transit' | 'delivered' | 'cancelled'
-  order_date: string
-  delivery_date?: string
-  total_cost: number
-  notes?: string
-  created_at: string
-  updated_at: string
-}
+// Types removed to fix unused variable warnings
 
 interface Ingredient {
   ingredient_id: number

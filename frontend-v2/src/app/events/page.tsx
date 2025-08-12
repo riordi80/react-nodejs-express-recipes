@@ -7,6 +7,8 @@ import { Calendar, Plus, Filter, Search, Users, MapPin, Clock, Euro, Edit, Trash
 import { apiGet, apiDelete } from '@/lib/api'
 import ConfirmModal from '@/components/ui/ConfirmModal'
 import { useToastHelpers } from '@/context/ToastContext'
+import { useTableSort } from '@/hooks/useTableSort'
+import SortableTableHeader from '@/components/ui/SortableTableHeader'
 
 interface Event {
   event_id: number
@@ -128,6 +130,9 @@ export default function EventsPage() {
       return matchesSearch && matchesStatus
     })
   }, [events, searchTerm, statusFilter])
+
+  // Add sorting to filtered events
+  const { sortedData: sortedEvents, sortConfig, handleSort } = useTableSort(filteredEvents, 'event_date')
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('es-ES', {
@@ -253,31 +258,31 @@ export default function EventsPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <SortableTableHeader sortKey="name" sortConfig={sortConfig} onSort={handleSort}>
                   Evento
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </SortableTableHeader>
+                <SortableTableHeader sortKey="event_date" sortConfig={sortConfig} onSort={handleSort}>
                   Fecha & Hora
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </SortableTableHeader>
+                <SortableTableHeader sortKey="guests_count" sortConfig={sortConfig} onSort={handleSort}>
                   Invitados
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </SortableTableHeader>
+                <SortableTableHeader sortKey="location" sortConfig={sortConfig} onSort={handleSort} sortable={false}>
                   Ubicación
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </SortableTableHeader>
+                <SortableTableHeader sortKey="status" sortConfig={sortConfig} onSort={handleSort}>
                   Estado
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </SortableTableHeader>
+                <SortableTableHeader sortKey="budget" sortConfig={sortConfig} onSort={handleSort}>
                   Presupuesto
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                </SortableTableHeader>
+                <SortableTableHeader sortKey="" sortConfig={sortConfig} onSort={handleSort} sortable={false} className="text-right">
                   Acciones
-                </th>
+                </SortableTableHeader>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredEvents.map((event) => (
+              {sortedEvents.map((event) => (
                 <tr 
                   key={event.event_id} 
                   onClick={() => router.push(`/events/${event.event_id}`)}
@@ -391,7 +396,7 @@ export default function EventsPage() {
               className="inline-flex items-center text-orange-600 hover:text-orange-700 text-sm font-medium transition-colors"
             >
               <Plus className="h-4 w-4 mr-1" />
-              Crear Primer Evento
+              {searchTerm || statusFilter !== 'all' ? 'Crear Nuevo Evento' : 'Crear Primer Evento'}
             </Link>
           </div>
         )}

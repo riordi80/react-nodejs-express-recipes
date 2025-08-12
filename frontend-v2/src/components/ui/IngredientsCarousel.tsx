@@ -63,8 +63,8 @@ const getVariantConfig = (type: CarouselType) => {
       icon: AlertTriangle,
       iconColor: 'text-blue-600',
       accentColor: 'text-blue-600',
-      emptyMessage: 'Todos tienen proveedor asignado',
-      emptySubmessage: 'correctamente'
+      emptyMessage: 'Todos tienen proveedor',
+      emptySubmessage: 'asignado correctamente'
     }
   }
   

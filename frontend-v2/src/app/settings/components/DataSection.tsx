@@ -74,7 +74,7 @@ const DataSection = () => {
       setLoading(true)
       const response = await api.get('/data/backup/list')
       setBackupsList(response.data.backups || [])
-    } catch (error: any) {
+    } catch {
       showToast({ message: 'Error al cargar lista de backups', type: 'error' })
     } finally {
       setLoading(false)
@@ -200,7 +200,7 @@ const DataSection = () => {
       window.URL.revokeObjectURL(url)
       
       showToast({ message: 'Descarga iniciada', type: 'success' })
-    } catch (error: any) {
+    } catch {
       showToast({ message: 'Error al descargar backup', type: 'error' })
     } finally {
       setLoading(false)
@@ -214,7 +214,7 @@ const DataSection = () => {
       showToast({ message: 'Backup eliminado', type: 'success' })
       fetchBackupsList()
       fetchBackupStatus()
-    } catch (error: any) {
+    } catch {
       showToast({ message: 'Error al eliminar backup', type: 'error' })
     } finally {
       setLoading(false)

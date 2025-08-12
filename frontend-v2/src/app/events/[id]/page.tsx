@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { 
   ArrowLeft, 
@@ -115,7 +115,7 @@ export default function EventDetailPage() {
   const [event, setEvent] = useState<Event | null>(null)
   const [eventRecipes, setEventRecipes] = useState<EventRecipe[]>([])
   const [loading, setLoading] = useState(true)
-  const [isEditing, setIsEditing] = useState(true) // Siempre iniciar en modo edición
+  const [isEditing] = useState(true) // Siempre iniciar en modo edición
   
   // Tabs state
   const [activeTab, setActiveTab] = useState('general')
@@ -166,7 +166,7 @@ export default function EventDetailPage() {
     } else {
       setLoading(false)
     }
-  }, [eventId, isNewEvent])
+  }, [eventId, isNewEvent]) // loadEventData is defined below, exclude from deps
 
   const loadEventData = async () => {
     try {
