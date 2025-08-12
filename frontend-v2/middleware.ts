@@ -86,38 +86,17 @@ function extractTenantSubdomain(hostname: string | null): string | null {
 export function middleware(request: NextRequest) {
   const hostname = request.headers.get('host')
   const pathname = request.nextUrl.pathname
-  const url = request.nextUrl.clone()
   
   console.log(`🔍 Middleware: ${hostname}${pathname}`)
   
-  // 1. Si es el dominio principal y NO está en central-login, redirigir
+  // 1. Si es el dominio principal, permitir acceso normal
   if (isMainDomain(hostname)) {
-    if (!pathname.startsWith('/central-login') && 
-        !pathname.startsWith('/_next') && 
-        !pathname.startsWith('/api') &&
-        !pathname.startsWith('/config.json') &&
-        pathname !== '/favicon.ico') {
-      
-      console.log(`📍 Redirecting to central-login from main domain: ${hostname}${pathname}`)
-      url.pathname = '/central-login'
-      return NextResponse.redirect(url)
-    }
-    
-    // Permitir continuar en dominio principal para rutas específicas
     return NextResponse.next()
   }
   
-  // 2. Si es un subdominio tenant, verificar que no esté accediendo a central-login
+  // 2. Si es un subdominio tenant, agregar headers con información del tenant
   const tenantSubdomain = extractTenantSubdomain(hostname)
   if (tenantSubdomain) {
-    // Los tenants no deberían acceder a central-login
-    if (pathname.startsWith('/central-login')) {
-      console.log(`🚫 Blocking tenant ${tenantSubdomain} from accessing central-login`)
-      url.pathname = '/login' // Redirigir al login normal del tenant
-      return NextResponse.redirect(url)
-    }
-    
-    // Agregar headers con información del tenant para usar en la app
     const response = NextResponse.next()
     response.headers.set('x-tenant-subdomain', tenantSubdomain)
     return response

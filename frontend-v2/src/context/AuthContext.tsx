@@ -46,7 +46,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         if (restaurantResponse.data.success && restaurantResponse.data.data?.name) {
           userData = { ...userData, restaurant_name: restaurantResponse.data.data.name }
         }
-      } catch (restaurantError) {
+      } catch {
         // Si no hay información del restaurante, no es un error crítico
         console.log('No restaurant info available')
       }
@@ -85,7 +85,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           if (restaurantResponse.data.success && restaurantResponse.data.data?.name) {
             userData = { ...userData, restaurant_name: restaurantResponse.data.data.name }
           }
-        } catch (restaurantError) {
+        } catch {
           // Si no hay información del restaurante, no es un error crítico
           console.log('No restaurant info available after login')
         }
@@ -151,11 +151,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     // Solo ejecutar en cliente, no en servidor (Next.js SSR)
     if (typeof window !== 'undefined') {
       const checkAuthCondition = async () => {
-        const pathname = window.location.pathname
         const mainDomain = await isMainDomain()
         
-        // No hacer auth check en dominio principal o en página central-login
-        if (!mainDomain && !pathname.startsWith('/central-login')) {
+        // No hacer auth check en dominio principal
+        if (!mainDomain) {
           checkAuth()
         } else {
           // En dominio principal, establecer loading como false sin auth check
