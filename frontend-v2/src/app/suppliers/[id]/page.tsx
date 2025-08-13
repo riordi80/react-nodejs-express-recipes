@@ -32,6 +32,8 @@ import EditSupplierIngredientModal from '@/components/modals/EditSupplierIngredi
 import UnifiedTabs from '@/components/ui/DetailTabs'
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges'
 import UnsavedChangesModal from '@/components/modals/UnsavedChangesModal'
+import { usePaginatedTable } from '@/hooks/usePaginatedTable'
+import Pagination from '@/components/ui/Pagination'
 
 interface Supplier {
   supplier_id: number
@@ -63,6 +65,29 @@ interface SupplierIngredient {
   last_updated?: string
 }
 
+interface SupplierOrder {
+  order_id: number
+  order_date: string
+  delivery_date?: string
+  status: 'pending' | 'ordered' | 'delivered' | 'cancelled'
+  total_amount?: number
+  notes?: string
+  source_events: number[]
+  created_at: string
+  updated_at: string
+  created_by: string
+  items_count: number
+  total_quantity: number
+  items: {
+    ingredient_id: number
+    ingredient_name: string
+    quantity: number
+    unit_price: number
+    total_price: number
+    unit: string
+  }[]
+}
+
 export default function SupplierDetailPage() {
   const params = useParams()
   const router = useRouter()
@@ -85,9 +110,39 @@ export default function SupplierDetailPage() {
   // Delete modal state
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
 
-  // Supplier ingredients
-  const [supplierIngredients, setSupplierIngredients] = useState<SupplierIngredient[]>([])
-  const [loadingIngredients, setLoadingIngredients] = useState(false)
+  // Paginación para ingredientes del proveedor
+  const ingredientsPagination = usePaginatedTable<SupplierIngredient>(
+    async ({ page, limit, sortKey, sortOrder }) => {
+      if (isNewSupplier) {
+        return { data: [], pagination: { currentPage: 1, totalPages: 0, totalItems: 0, itemsPerPage: limit, hasNextPage: false, hasPrevPage: false } }
+      }
+      const response = await apiGet(`/suppliers/${supplierId}/ingredients`, { page, limit, sortKey, sortOrder })
+      return response.data
+    },
+    { 
+      dependencies: [supplierId], 
+      itemsPerPage: 10,
+      tableId: 'supplier-ingredients',
+      storageKey: `supplier-${supplierId}-ingredients`
+    }
+  )
+
+  // Paginación para historial de pedidos
+  const ordersPagination = usePaginatedTable<SupplierOrder>(
+    async ({ page, limit, sortKey, sortOrder }) => {
+      if (isNewSupplier) {
+        return { data: [], pagination: { currentPage: 1, totalPages: 0, totalItems: 0, itemsPerPage: limit, hasNextPage: false, hasPrevPage: false } }
+      }
+      const response = await apiGet(`/suppliers/${supplierId}/orders`, { page, limit, sortKey, sortOrder })
+      return response.data
+    },
+    { 
+      dependencies: [supplierId], 
+      itemsPerPage: 10,
+      tableId: 'supplier-orders',
+      storageKey: `supplier-${supplierId}-orders`
+    }
+  )
   
   // Ingredient modals
   const [isAddIngredientOpen, setIsAddIngredientOpen] = useState(false)
@@ -129,7 +184,6 @@ export default function SupplierDetailPage() {
   useEffect(() => {
     if (!isNewSupplier) {
       loadSupplierData()
-      loadSupplierIngredients()
     } else {
       initializeNewSupplier()
     }
@@ -155,7 +209,8 @@ export default function SupplierDetailPage() {
       notes: '',
       created_at: '',
       updated_at: '',
-      ingredients_count: 0
+      ingredients_count: 0,
+      active: true
     })
     setLoading(false)
   }
@@ -165,7 +220,7 @@ export default function SupplierDetailPage() {
       setLoading(true)
       const response = await apiGet<Supplier>(`/suppliers/${supplierId}`)
       const supplierData = response.data
-      setSupplier(supplierData)
+      setSupplier({...supplierData, active: supplierData.active ?? true})
       
       // Set form data
       setFormData({
@@ -187,17 +242,9 @@ export default function SupplierDetailPage() {
     }
   }
 
-  const loadSupplierIngredients = async () => {
-    try {
-      setLoadingIngredients(true)
-      const response = await apiGet<SupplierIngredient[]>(`/suppliers/${supplierId}/ingredients`)
-      setSupplierIngredients(response.data)
-    } catch (err) {
-      console.error('Error loading supplier ingredients:', err)
-      setSupplierIngredients([])
-    } finally {
-      setLoadingIngredients(false)
-    }
+  // Función para refrescar ingredientes después de operaciones CRUD
+  const refreshIngredients = () => {
+    ingredientsPagination.refresh()
   }
 
   // Función de guardado sin navegación (para la modal)
@@ -334,7 +381,7 @@ export default function SupplierDetailPage() {
     
     try {
       await apiDelete(`/suppliers/${supplierId}/ingredients/${selectedIngredient.ingredient_id}`)
-      await loadSupplierIngredients()
+      refreshIngredients()
       success('Ingrediente eliminado correctamente')
       setIsDeleteIngredientOpen(false)
     } catch (err) {
@@ -355,7 +402,7 @@ export default function SupplierDetailPage() {
       }
       
       await apiPut(`/suppliers/${supplierId}/ingredients/${ingredient.ingredient_id}`, payload)
-      await loadSupplierIngredients()
+      refreshIngredients()
       success(`Proveedor ${!ingredient.is_preferred_supplier ? 'marcado como' : 'desmarcado como'} preferido`)
     } catch (err) {
       showError('Error al cambiar el estado de proveedor preferido')
@@ -365,14 +412,15 @@ export default function SupplierDetailPage() {
 
   // Calculate metrics
   const calculateSupplierMetrics = () => {
-    if (!supplier || !supplierIngredients) return null
+    if (!supplier) return null
 
-    const totalIngredients = supplierIngredients.length
-    const preferredIngredients = supplierIngredients.filter(ing => ing.is_preferred_supplier).length
-    const avgDeliveryTime = supplierIngredients.length > 0 
-      ? supplierIngredients.reduce((sum, ing) => sum + (ing.delivery_time || 0), 0) / supplierIngredients.length 
+    const ingredientsData = ingredientsPagination.data || []
+    const totalIngredients = ingredientsPagination.pagination?.totalItems || 0
+    const preferredIngredients = ingredientsData.filter((ing: SupplierIngredient) => ing.is_preferred_supplier).length
+    const avgDeliveryTime = ingredientsData.length > 0 
+      ? ingredientsData.reduce((sum: number, ing: SupplierIngredient) => sum + (ing.delivery_time || 0), 0) / ingredientsData.length 
       : 0
-    const totalValue = supplierIngredients.reduce((sum, ing) => sum + ((ing.price || 0) * (ing.minimum_order_quantity || 1)), 0)
+    const totalValue = ingredientsData.reduce((sum: number, ing: SupplierIngredient) => sum + ((ing.price || 0) * (ing.minimum_order_quantity || 1)), 0)
 
     return {
       totalIngredients,
@@ -743,35 +791,36 @@ export default function SupplierDetailPage() {
           </button>
         </div>
       
-      {loadingIngredients ? (
+      {ingredientsPagination.isLoading ? (
         <div className="text-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600 mx-auto"></div>
           <p className="text-gray-500 mt-2">Cargando ingredientes...</p>
         </div>
-      ) : supplierIngredients.length > 0 ? (
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Ingrediente
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Precio
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Entrega
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Estado
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Acciones
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {supplierIngredients.map((ingredient) => (
+      ) : ingredientsPagination.data.length > 0 ? (
+        <>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Ingrediente
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Precio
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Entrega
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Estado
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Acciones
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {ingredientsPagination.data.map((ingredient: SupplierIngredient) => (
                 <tr key={ingredient.ingredient_id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">
@@ -834,7 +883,19 @@ export default function SupplierDetailPage() {
               ))}
             </tbody>
           </table>
-        </div>
+          </div>
+          
+          {/* Paginación */}
+          {ingredientsPagination.pagination && ingredientsPagination.pagination.totalPages > 1 && (
+            <div className="mt-6 flex justify-center">
+              <Pagination
+                currentPage={ingredientsPagination.currentPage}
+                totalPages={ingredientsPagination.pagination.totalPages}
+                onPageChange={ingredientsPagination.handlePageChange}
+              />
+            </div>
+          )}
+        </>
       ) : (
         <div className="text-center py-8">
           <Package className="h-12 w-12 mx-auto text-gray-400 mb-4" />
@@ -850,28 +911,139 @@ export default function SupplierDetailPage() {
     </div>
   )
 
-  const renderOrdersHistoryTab = () => (
-    <div className="space-y-6">
-      <div className="bg-gray-50 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <div className="bg-orange-100 p-2 rounded-lg">
-            <History className="h-5 w-5 text-orange-600" />
-          </div>
-          Historial de Pedidos
-        </h3>
-        
-        <div className="text-center py-12">
-          <History className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
+  const renderOrdersHistoryTab = () => {
+    const formatCurrency = (amount: number) => {
+      return new Intl.NumberFormat('es-ES', {
+        style: 'currency',
+        currency: 'EUR',
+        minimumFractionDigits: 2
+      }).format(amount)
+    }
+
+    const formatDate = (dateString: string) => {
+      return new Date(dateString).toLocaleDateString('es-ES')
+    }
+
+    const getStatusBadge = (status: string) => {
+      const statusConfig = {
+        pending: { label: 'Pendiente', class: 'bg-yellow-100 text-yellow-800' },
+        ordered: { label: 'Pedido', class: 'bg-blue-100 text-blue-800' },
+        delivered: { label: 'Entregado', class: 'bg-green-100 text-green-800' },
+        cancelled: { label: 'Cancelado', class: 'bg-red-100 text-red-800' }
+      }
+      const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending
+      return (
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${config.class}`}>
+          {config.label}
+        </span>
+      )
+    }
+
+    return (
+      <div className="space-y-6">
+        <div className="bg-gray-50 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
+            <div className="bg-orange-100 p-2 rounded-lg">
+              <History className="h-5 w-5 text-orange-600" />
+            </div>
             Historial de Pedidos
           </h3>
-          <p className="text-gray-500">
-            Esta funcionalidad se implementará próximamente
-          </p>
+          
+          {ordersPagination.isLoading ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-600 mx-auto"></div>
+              <p className="text-gray-500 mt-2">Cargando pedidos...</p>
+            </div>
+          ) : ordersPagination.data.length > 0 ? (
+            <>
+              <div className="space-y-4">
+                {ordersPagination.data.map((order: SupplierOrder) => (
+                  <div key={order.order_id} className="bg-white rounded-lg border border-gray-200 p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <h4 className="text-lg font-medium text-gray-900">
+                          Pedido #{order.order_id}
+                        </h4>
+                        <p className="text-sm text-gray-500">
+                          Fecha: {formatDate(order.order_date)} • Creado por: {order.created_by}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        {getStatusBadge(order.status)}
+                        {order.total_amount && (
+                          <p className="text-lg font-semibold text-gray-900 mt-1">
+                            {formatCurrency(order.total_amount)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">Entrega estimada</p>
+                        <p className="text-sm text-gray-900">
+                          {order.delivery_date ? formatDate(order.delivery_date) : 'No especificada'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">Items</p>
+                        <p className="text-sm text-gray-900">{order.items_count} ingredientes</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">Cantidad total</p>
+                        <p className="text-sm text-gray-900">{order.total_quantity} unidades</p>
+                      </div>
+                    </div>
+
+                    {order.items && order.items.length > 0 && (
+                      <div className="border-t border-gray-200 pt-4">
+                        <h5 className="text-sm font-medium text-gray-900 mb-2">Ingredientes:</h5>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                          {order.items.map((item, index) => (
+                            <div key={index} className="text-sm text-gray-600">
+                              {item.ingredient_name}: {item.quantity} {item.unit} × {formatCurrency(item.unit_price)}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {order.notes && (
+                      <div className="border-t border-gray-200 pt-4 mt-4">
+                        <p className="text-sm font-medium text-gray-500">Notas:</p>
+                        <p className="text-sm text-gray-900">{order.notes}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Paginación */}
+              {ordersPagination.pagination && ordersPagination.pagination.totalPages > 1 && (
+                <div className="mt-6 flex justify-center">
+                  <Pagination
+                    currentPage={ordersPagination.currentPage}
+                    totalPages={ordersPagination.pagination.totalPages}
+                    onPageChange={ordersPagination.handlePageChange}
+                  />
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-center py-12">
+              <History className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                Sin pedidos registrados
+              </h3>
+              <p className="text-gray-500">
+                Aún no se han realizado pedidos a este proveedor
+              </p>
+            </div>
+          )}
         </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   if (loading) {
     return (
@@ -1034,7 +1206,7 @@ export default function SupplierDetailPage() {
                 <div>
                   <p className="text-sm font-medium text-gray-600">Ingredientes</p>
                   <p className="text-2xl font-bold text-gray-900 mt-1">
-                    {supplierIngredients.length}
+                    {ingredientsPagination.pagination?.totalItems || 0}
                   </p>
                   <p className="text-xs text-gray-500 mt-1">suministrados</p>
                 </div>
@@ -1163,7 +1335,7 @@ export default function SupplierDetailPage() {
         onClose={() => setIsAddIngredientOpen(false)}
         supplierId={supplierId}
         supplierName={supplier?.name || ''}
-        onSave={loadSupplierIngredients}
+        onSave={refreshIngredients}
       />
 
       {/* Edit Ingredient Modal */}
@@ -1172,7 +1344,7 @@ export default function SupplierDetailPage() {
         onClose={() => setIsEditIngredientOpen(false)}
         supplierId={supplierId}
         ingredient={selectedIngredient}
-        onSave={loadSupplierIngredients}
+        onSave={refreshIngredients}
       />
 
       {/* Unsaved Changes Modal */}

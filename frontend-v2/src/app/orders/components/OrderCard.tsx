@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Calendar, Truck, Package, User, FileText, Check, Trash2, Eye } from 'lucide-react'
+import { Calendar, Truck, Package, User, FileText, Check, Trash2, Eye, X, CheckCircle } from 'lucide-react'
 import ConfirmModal from '@/components/ui/ConfirmModal'
 
 interface Order {
@@ -74,6 +74,8 @@ const getStatusStyle = (status: string) => {
 export default function OrderCard({ order, onViewOrder, onUpdateStatus, onDeleteOrder }: OrderCardProps) {
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [showDeliveredModal, setShowDeliveredModal] = useState(false)
+  const [showCancelModal, setShowCancelModal] = useState(false)
   const statusStyle = getStatusStyle(order.status)
 
   const handleCardClick = () => {
@@ -86,7 +88,7 @@ export default function OrderCard({ order, onViewOrder, onUpdateStatus, onDelete
   }
 
   const handleConfirm = async () => {
-    await onUpdateStatus(order.order_id, 'confirmed')
+    await onUpdateStatus(order.order_id, 'ordered')
     setShowConfirmModal(false)
   }
 
@@ -98,6 +100,26 @@ export default function OrderCard({ order, onViewOrder, onUpdateStatus, onDelete
   const handleConfirmDelete = async () => {
     await onDeleteOrder(order)
     setShowDeleteModal(false)
+  }
+
+  const handleMarkDelivered = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setShowDeliveredModal(true)
+  }
+
+  const handleConfirmDelivered = async () => {
+    await onUpdateStatus(order.order_id, 'delivered')
+    setShowDeliveredModal(false)
+  }
+
+  const handleCancelOrder = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setShowCancelModal(true)
+  }
+
+  const handleConfirmCancel = async () => {
+    await onUpdateStatus(order.order_id, 'cancelled')
+    setShowCancelModal(false)
   }
 
   return (
@@ -178,14 +200,60 @@ export default function OrderCard({ order, onViewOrder, onUpdateStatus, onDelete
               </button>
             </>
           )}
+          
           {order.status === 'ordered' && (
+            <>
+              <button 
+                className="inline-flex items-center px-3 py-1 border border-green-300 text-sm font-medium rounded-md text-green-700 bg-green-50 hover:bg-green-100 transition-colors"
+                onClick={handleMarkDelivered}
+              >
+                <CheckCircle className="h-4 w-4 mr-1" />
+                Marcar recibido
+              </button>
+              <button 
+                className="inline-flex items-center px-3 py-1 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
+                onClick={handleCardClick}
+              >
+                <Eye className="h-4 w-4 mr-1" />
+                Ver detalles
+              </button>
+              <button 
+                className="inline-flex items-center px-3 py-1 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-red-50 hover:bg-red-100 transition-colors"
+                onClick={handleCancelOrder}
+              >
+                <X className="h-4 w-4 mr-1" />
+                Cancelar
+              </button>
+            </>
+          )}
+          
+          {order.status === 'delivered' && (
             <button 
               className="inline-flex items-center px-3 py-1 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
               onClick={handleCardClick}
             >
               <Eye className="h-4 w-4 mr-1" />
-              Revisar cantidades
+              Ver detalles
             </button>
+          )}
+          
+          {order.status === 'cancelled' && (
+            <>
+              <button 
+                className="inline-flex items-center px-3 py-1 border border-blue-300 text-sm font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 transition-colors"
+                onClick={handleCardClick}
+              >
+                <Eye className="h-4 w-4 mr-1" />
+                Ver detalles
+              </button>
+              <button 
+                className="inline-flex items-center px-3 py-1 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-red-50 hover:bg-red-100 transition-colors"
+                onClick={handleDeleteClick}
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                Eliminar
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -210,6 +278,30 @@ export default function OrderCard({ order, onViewOrder, onUpdateStatus, onDelete
         message={`¿Estás seguro de que deseas eliminar el pedido #${order.order_id} al proveedor ${order.supplier_name}?`}
         confirmText="Eliminar"
         cancelText="Cancelar"
+        type="danger"
+      />
+
+      {/* Mark as Delivered Modal */}
+      <ConfirmModal
+        isOpen={showDeliveredModal}
+        onClose={() => setShowDeliveredModal(false)}
+        onConfirm={handleConfirmDelivered}
+        title="Marcar como Recibido"
+        message={`¿Confirmar que el pedido #${order.order_id} del proveedor ${order.supplier_name} ha sido recibido?`}
+        confirmText="Confirmar recepción"
+        cancelText="Cancelar"
+        type="success"
+      />
+
+      {/* Cancel Order Modal */}
+      <ConfirmModal
+        isOpen={showCancelModal}
+        onClose={() => setShowCancelModal(false)}
+        onConfirm={handleConfirmCancel}
+        title="Cancelar Pedido"
+        message={`¿Estás seguro de que deseas cancelar el pedido #${order.order_id} al proveedor ${order.supplier_name}?`}
+        confirmText="Cancelar pedido"
+        cancelText="No cancelar"
         type="danger"
       />
     </>
