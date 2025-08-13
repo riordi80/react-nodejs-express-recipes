@@ -19,9 +19,12 @@ const getStorageKey = (tableId: string) => `tableSort_${tableId}`
 // Get stored sort config from sessionStorage
 const getStoredSortConfig = (tableId: string): SortConfig => {
   try {
-    const stored = sessionStorage.getItem(getStorageKey(tableId))
-    if (stored) {
-      return JSON.parse(stored)
+    // Check if we're on the client side
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      const stored = sessionStorage.getItem(getStorageKey(tableId))
+      if (stored) {
+        return JSON.parse(stored)
+      }
     }
   } catch (error) {
     console.warn('Error reading stored sort config:', error)
@@ -32,7 +35,10 @@ const getStoredSortConfig = (tableId: string): SortConfig => {
 // Save sort config to sessionStorage
 const storeSortConfig = (tableId: string, config: SortConfig) => {
   try {
-    sessionStorage.setItem(getStorageKey(tableId), JSON.stringify(config))
+    // Check if we're on the client side
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      sessionStorage.setItem(getStorageKey(tableId), JSON.stringify(config))
+    }
   } catch (error) {
     console.warn('Error storing sort config:', error)
   }
@@ -53,18 +59,20 @@ export function usePersistentTableSort<T extends Record<string, any>>(
 ) {
   // Initialize with stored config or defaults
   const [sortConfig, setSortConfig] = useState<SortConfig>(() => {
-    const storedConfig = getStoredSortConfig(tableId)
-    
-    // If we have stored config, use it; otherwise use initial values
-    if (storedConfig.key) {
-      return storedConfig
-    }
-    
+    // Start with defaults to avoid SSR issues
     return {
       key: initialSortKey || null,
       direction: initialSortKey ? initialDirection : null
     }
   })
+
+  // Load stored config on client side after hydration
+  useEffect(() => {
+    const storedConfig = getStoredSortConfig(tableId)
+    if (storedConfig.key) {
+      setSortConfig(storedConfig)
+    }
+  }, [tableId])
 
   // Save to sessionStorage whenever sortConfig changes
   useEffect(() => {
@@ -120,7 +128,10 @@ export function usePersistentTableSort<T extends Record<string, any>>(
   // Function to clear stored sort config (useful for reset functionality)
   const clearStoredSort = () => {
     try {
-      sessionStorage.removeItem(getStorageKey(tableId))
+      // Check if we're on the client side
+      if (typeof window !== 'undefined' && window.sessionStorage) {
+        sessionStorage.removeItem(getStorageKey(tableId))
+      }
       setSortConfig({ key: null, direction: null })
     } catch (error) {
       console.warn('Error clearing stored sort config:', error)

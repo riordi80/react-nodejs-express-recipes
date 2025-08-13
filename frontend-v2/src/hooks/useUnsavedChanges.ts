@@ -113,6 +113,28 @@ export const useUnsavedChanges = ({
       }
     }
 
+    // Interceptar clics en enlaces <Link> de Next.js
+    const handleLinkClick = (e: MouseEvent) => {
+      if (hasUnsavedChanges && !isSaving) {
+        const target = e.target as HTMLElement
+        // Buscar el elemento <a> más cercano
+        const linkElement = target.closest('a[href]') as HTMLAnchorElement
+        
+        if (linkElement && linkElement.href) {
+          const url = new URL(linkElement.href)
+          const currentUrl = new URL(window.location.href)
+          
+          // Solo interceptar navegación interna y que sea diferente a la página actual
+          if (url.origin === currentUrl.origin && url.pathname !== currentUrl.pathname) {
+            e.preventDefault()
+            e.stopPropagation()
+            setPendingNavigation(url.pathname + url.search + url.hash)
+            setShowUnsavedWarning(true)
+          }
+        }
+      }
+    }
+
     const originalPush = router.push
     const originalBack = router.back
 
@@ -136,10 +158,13 @@ export const useUnsavedChanges = ({
       return originalBack.call(this)
     }
 
+    // Agregar event listeners
     window.addEventListener('beforeunload', handleBeforeUnload)
+    document.addEventListener('click', handleLinkClick, true)
 
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload)
+      document.removeEventListener('click', handleLinkClick, true)
       router.push = originalPush
       router.back = originalBack
     }
