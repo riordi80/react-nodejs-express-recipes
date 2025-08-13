@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useTableSort } from '@/hooks/useTableSort'
+import { usePaginatedTable } from '@/hooks/usePaginatedTable'
 import SortableTableHeader from '@/components/ui/SortableTableHeader'
+import Pagination from '@/components/ui/Pagination'
 import { 
   BookOpen, 
   Plus, 
@@ -21,6 +22,7 @@ import { apiGet, apiDelete } from '@/lib/api'
 import FilterBar from '@/components/modules/recipes/FilterBar'
 import ConfirmModal from '@/components/ui/ConfirmModal'
 import { useToastHelpers } from '@/context/ToastContext'
+import { useSettings } from '@/context/SettingsContext'
 
 interface Recipe {
   recipe_id: number
@@ -75,11 +77,13 @@ const difficultyColors = {
 
 export default function RecipesPage() {
   const router = useRouter()
-  const [recipes, setRecipes] = useState<Recipe[]>([])
-  const [, setError] = useState<string | null>(null)
   
   // Toast helpers
   const { success, error: showError } = useToastHelpers()
+  
+  // Settings context
+  const { settings } = useSettings()
+  
   const [view, setView] = useState<'list' | 'grid'>('list')
   const [isInitialized, setIsInitialized] = useState(false)
   
@@ -113,6 +117,58 @@ export default function RecipesPage() {
   ]
   const prepTimeOptions = [15, 30, 45, 60, 90, 120]
 
+  // Function to fetch paginated recipes
+  const fetchRecipes = useCallback(async (params: { 
+    page: number; 
+    limit: number; 
+    sortKey?: string; 
+    sortOrder?: 'asc' | 'desc' 
+  }) => {
+    const searchParams = new URLSearchParams()
+    
+    // Add pagination params
+    searchParams.append('page', params.page.toString())
+    searchParams.append('limit', params.limit.toString())
+    
+    // Add sorting params
+    if (params.sortKey && params.sortOrder) {
+      searchParams.append('sortKey', params.sortKey)
+      searchParams.append('sortOrder', params.sortOrder)
+    }
+    
+    // Apply all filters
+    if (searchText.trim()) searchParams.append('search', searchText.trim())
+    if (selectedCategories.length > 0) searchParams.append('categories', selectedCategories.join(','))
+    if (selectedDifficulty) searchParams.append('difficulty', selectedDifficulty)
+    if (selectedPrepTime) searchParams.append('prepTime', selectedPrepTime.toString())
+    if (selectedIngredient) searchParams.append('ingredient', selectedIngredient)
+    if (selectedAllergens.length > 0) searchParams.append('allergens', selectedAllergens.join(','))
+
+    const response = await apiGet<{data: Recipe[], pagination: any}>(`/recipes?${searchParams.toString()}`)
+    
+    return {
+      data: response.data.data,
+      pagination: response.data.pagination
+    }
+  }, [searchText, selectedCategories, selectedDifficulty, selectedPrepTime, selectedIngredient, selectedAllergens])
+
+  // Use paginated table hook
+  const {
+    sortedData: sortedRecipes,
+    isLoading: loading,
+    pagination,
+    sortConfig,
+    handlePageChange,
+    handleSort,
+    refresh
+  } = usePaginatedTable(fetchRecipes, {
+    initialPage: 1,
+    itemsPerPage: settings.pageSize,
+    initialSortKey: 'name',
+    dependencies: [searchText, selectedCategories, selectedDifficulty, selectedPrepTime, selectedIngredient, selectedAllergens],
+    storageKey: 'recipes-page'
+  })
+
   // Initialize app - single effect to prevent multiple renders
   useEffect(() => {
     const initializeApp = async () => {
@@ -123,11 +179,8 @@ export default function RecipesPage() {
           setView(savedView)
         }
 
-        // Load filter options and initial recipes in parallel
-        await Promise.all([
-          loadFilterOptions(),
-          loadRecipes()
-        ])
+        // Load filter options
+        await loadFilterOptions()
       } catch (error) {
         console.error('Error initializing app:', error)
       } finally {
@@ -159,9 +212,9 @@ export default function RecipesPage() {
       ])
       
       setFilterOptions({
-        categories: categoriesRes.data.map((c: Category) => c.name || c),
-        allergens: allergensRes.data.map((a: Allergen) => a.name || a),
-        ingredients: ingredientsRes.data.map((i: Ingredient) => i.name || i)
+        categories: (categoriesRes.data.data || categoriesRes.data || []).map((c: Category) => c.name || c),
+        allergens: (allergensRes.data.data || allergensRes.data || []).map((a: Allergen) => a.name || a),
+        ingredients: (ingredientsRes.data.data || ingredientsRes.data || []).map((i: Ingredient) => i.name || i)
       })
     } catch (error) {
       console.error('Error loading filter options:', error)
@@ -174,43 +227,6 @@ export default function RecipesPage() {
     }
   }
 
-  const loadRecipes = async () => {
-    try {
-      const params = new URLSearchParams()
-      
-      // Apply all filters
-      if (searchText.trim()) params.append('search', searchText.trim())
-      if (selectedCategories.length > 0) params.append('categories', selectedCategories.join(','))
-      if (selectedDifficulty) params.append('difficulty', selectedDifficulty)
-      if (selectedPrepTime) params.append('prepTime', selectedPrepTime.toString())
-      if (selectedIngredient) params.append('ingredient', selectedIngredient)
-      if (selectedAllergens.length > 0) params.append('allergens', selectedAllergens.join(','))
-
-      const response = await apiGet<Recipe[]>(`/recipes?${params.toString()}`)
-      setRecipes(response.data)
-      setError(null)
-    } catch (err: unknown) {
-      setError('Error al cargar recetas')
-      console.error('Error loading recipes:', err)
-    }
-  }
-
-  // Debounced filter effect - only run after initialization
-  useEffect(() => {
-    if (!isInitialized) return
-
-    const timeoutId = setTimeout(() => {
-      loadRecipes()
-    }, 300) // Debounce all filters
-
-    return () => clearTimeout(timeoutId)
-  }, [searchText, selectedCategories, selectedDifficulty, selectedPrepTime, selectedIngredient, selectedAllergens, isInitialized])
-
-  // Use recipes directly from API (server-side filtering)
-  const filteredRecipes = recipes
-
-  // Add sorting to filtered recipes
-  const { sortedData: sortedRecipes, sortConfig, handleSort } = useTableSort(filteredRecipes, 'name')
 
   const formatTime = (minutes?: number) => {
     if (!minutes) return 'N/A'
@@ -270,7 +286,7 @@ export default function RecipesPage() {
     try {
       await apiDelete(`/recipes/${currentRecipe.recipe_id}`)
       // Refresh recipes after deletion
-      await loadRecipes()
+      refresh()
       setIsDeleteOpen(false)
       setCurrentRecipe(null)
       
@@ -403,22 +419,22 @@ export default function RecipesPage() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <SortableTableHeader sortKey="name" sortConfig={sortConfig} onSort={handleSort}>
+                  <SortableTableHeader sortKey="name" sortConfig={sortConfig || { key: '', direction: 'asc' }} onSort={handleSort}>
                     Receta
                   </SortableTableHeader>
-                  <SortableTableHeader sortKey="difficulty" sortConfig={sortConfig} onSort={handleSort}>
+                  <SortableTableHeader sortKey="difficulty" sortConfig={sortConfig || { key: '', direction: 'asc' }} onSort={handleSort}>
                     Dificultad
                   </SortableTableHeader>
-                  <SortableTableHeader sortKey="prep_time" sortConfig={sortConfig} onSort={handleSort}>
+                  <SortableTableHeader sortKey="prep_time" sortConfig={sortConfig || { key: '', direction: 'asc' }} onSort={handleSort}>
                     Tiempo
                   </SortableTableHeader>
-                  <SortableTableHeader sortKey="servings" sortConfig={sortConfig} onSort={handleSort}>
+                  <SortableTableHeader sortKey="servings" sortConfig={sortConfig || { key: '', direction: 'asc' }} onSort={handleSort}>
                     Raciones
                   </SortableTableHeader>
-                  <SortableTableHeader sortKey="cost_per_serving" sortConfig={sortConfig} onSort={handleSort}>
+                  <SortableTableHeader sortKey="cost_per_serving" sortConfig={sortConfig || { key: '', direction: 'asc' }} onSort={handleSort}>
                     Coste/ración
                   </SortableTableHeader>
-                  <SortableTableHeader sortKey="" sortConfig={sortConfig} onSort={handleSort} sortable={false} className="text-right">
+                  <SortableTableHeader sortKey="" sortConfig={sortConfig || { key: '', direction: 'asc' }} onSort={handleSort} sortable={false} className="text-right">
                     Acciones
                   </SortableTableHeader>
                 </tr>
@@ -632,10 +648,19 @@ export default function RecipesPage() {
       )}
 
       {/* Results Counter */}
-      {sortedRecipes.length > 0 && (
-        <div className="mt-4 text-sm text-gray-600">
-          Mostrando {sortedRecipes.length} de {sortedRecipes.length} recetas
-          {hasActiveFilters && ' (filtradas)'}
+      {/* Results Counter and Pagination */}
+      {pagination && (
+        <div className="mt-6 flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
+          <div className="text-sm text-gray-600">
+            Mostrando {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1} - {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} de {pagination.totalItems} recetas
+            {hasActiveFilters && ' (filtradas)'}
+          </div>
+          
+          <Pagination
+            currentPage={pagination.currentPage}
+            totalPages={pagination.totalPages}
+            onPageChange={handlePageChange}
+          />
         </div>
       )}
 

@@ -140,9 +140,8 @@ router.post('/login', async (req, res) => {
     // El login requiere tenant (solo funciona en subdominios)
     if (!req.tenantDb || !req.tenant) {
       console.error('❌ req.tenantDb or req.tenant is undefined');
-      return res.status(400).json({ 
-        message: 'Este endpoint requiere acceso desde un subdominio de tenant',
-        code: 'TENANT_REQUIRED'
+      return res.status(401).json({ 
+        message: 'Email o contraseña incorrectos'
       });
     }
     
@@ -230,9 +229,8 @@ router.get('/me', authenticateToken, async (req, res) => {
   try {
     // Verificar que existe tenantDb (requerido para /me)
     if (!req.tenantDb || !req.tenant) {
-      return res.status(400).json({ 
-        message: 'Este endpoint requiere acceso desde un subdominio de tenant',
-        code: 'TENANT_REQUIRED'
+      return res.status(401).json({ 
+        message: 'Sesión no válida'
       });
     }
     

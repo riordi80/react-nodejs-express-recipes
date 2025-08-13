@@ -413,8 +413,8 @@ export default function RecipeDetailPage() {
           }
         }
         
-        await loadRecipeData()
         success('Receta actualizada correctamente', 'Receta Actualizada')
+        router.back()
       }
       
       setValidationErrors({})

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { History, Calendar, Download, Filter, TrendingUp, Eye, Package, User } from 'lucide-react'
 import { apiGet } from '@/lib/api'
 import { useToastHelpers } from '@/context/ToastContext'
+import { useSettings } from '@/context/SettingsContext'
 
 interface HistoryOrder {
   order_id: number
@@ -104,22 +105,26 @@ const getStatusStyle = (status: string) => {
   }
 }
 
-const defaultFilters: HistoryFilters = {
-  startDate: '',
-  endDate: '',
-  supplierId: 'all',
-  status: 'all',
-  minAmount: '',
-  maxAmount: '',
-  createdBy: 'all',
-  orderBy: 'order_date',
-  sortDirection: 'DESC',
-  page: 1,
-  limit: 25
-}
+// We'll initialize this dynamically with settings
 
 export default function HistorySection({ onOrderClick }: HistorySectionProps) {
   const { error: showError } = useToastHelpers()
+  const { settings } = useSettings()
+  
+  // Initialize filters with settings
+  const defaultFilters: HistoryFilters = {
+    startDate: '',
+    endDate: '',
+    supplierId: 'all',
+    status: 'all',
+    minAmount: '',
+    maxAmount: '',
+    createdBy: 'all',
+    orderBy: 'order_date',
+    sortDirection: 'DESC',
+    page: 1,
+    limit: settings.pageSize
+  }
   
   const [historyData, setHistoryData] = useState<HistoryResponse | null>(null)
   const [filters, setFilters] = useState<HistoryFilters>(defaultFilters)
@@ -185,6 +190,15 @@ export default function HistorySection({ onOrderClick }: HistorySectionProps) {
     setFilters(prev => ({ ...prev, page: newPage }))
   }
 
+  // Update filters when settings change
+  useEffect(() => {
+    setFilters(prev => ({
+      ...prev,
+      limit: settings.pageSize,
+      page: 1 // Reset to first page when pageSize changes
+    }))
+  }, [settings.pageSize])
+
   useEffect(() => {
     loadHistory()
   }, [filters])
@@ -200,7 +214,7 @@ export default function HistorySection({ onOrderClick }: HistorySectionProps) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="bg-purple-100 p-2 rounded-lg">
+          <div className="bg-orange-100 p-2 rounded-lg">
             <History className="h-6 w-6 text-orange-600" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900">Historial de Pedidos</h2>

@@ -8,17 +8,67 @@ const logAudit = require('../utils/audit');
 
 // Multi-tenant: usar req.tenantDb en lugar de pool estático
 
-// GET /suppliers
+// GET /suppliers - Con paginación y búsqueda
 router.get('/', authenticateToken, authorizeRoles('admin', 'supplier_manager'), async (req, res) => {
-  const [rows] = await req.tenantDb.query(`
-    SELECT s.*, 
-           COUNT(si.ingredient_id) as ingredients_count
-    FROM SUPPLIERS s
-    LEFT JOIN SUPPLIER_INGREDIENTS si ON s.supplier_id = si.supplier_id
-    GROUP BY s.supplier_id
-    ORDER BY s.name
-  `);
-  res.json(rows);
+  try {
+    const { search, page = 1, limit = 20 } = req.query;
+    
+    // Paginación
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 20));
+    const offset = (pageNum - 1) * limitNum;
+    
+    let baseQuery = `FROM SUPPLIERS s
+                     LEFT JOIN SUPPLIER_INGREDIENTS si ON s.supplier_id = si.supplier_id`;
+    let whereConditions = [];
+    let params = [];
+    
+    // Filtro de búsqueda por nombre (insensible a acentos)
+    if (search && search.trim() !== '') {
+      const normalizedSearch = search.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      whereConditions.push(`REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+        UPPER(s.name), 
+        'Á','A'), 'É','E'), 'Í','I'), 'Ó','O'), 'Ú','U'), 'Ñ','N'), 'Ü','U'), 'À','A'), 'È','E'), 'Ì','I')
+        LIKE UPPER(?)`);
+      params.push(`%${normalizedSearch}%`);
+    }
+    
+    // Construir WHERE clause
+    const whereClause = whereConditions.length > 0 ? ' WHERE ' + whereConditions.join(' AND ') : '';
+    const groupByClause = ' GROUP BY s.supplier_id';
+    
+    // Contar total de registros
+    const countQuery = `SELECT COUNT(DISTINCT s.supplier_id) as total ${baseQuery}${whereClause}`;
+    const [countResult] = await req.tenantDb.query(countQuery, [...params]);
+    const totalItems = countResult[0].total;
+    const totalPages = Math.ceil(totalItems / limitNum);
+    
+    // Obtener datos paginados
+    const dataQuery = `SELECT s.*, 
+                              COUNT(si.ingredient_id) as ingredients_count
+                       ${baseQuery}${whereClause}${groupByClause}
+                       ORDER BY s.name ASC
+                       LIMIT ? OFFSET ?`;
+    params.push(limitNum, offset);
+    
+    const [rows] = await req.tenantDb.query(dataQuery, params);
+    
+    // Devolver respuesta paginada
+    res.json({
+      data: rows,
+      pagination: {
+        currentPage: pageNum,
+        totalPages,
+        totalItems,
+        itemsPerPage: limitNum,
+        hasNextPage: pageNum < totalPages,
+        hasPrevPage: pageNum > 1
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching suppliers:', error);
+    res.status(500).json({ message: 'Error al obtener proveedores' });
+  }
 });
 
 // GET /suppliers/:id

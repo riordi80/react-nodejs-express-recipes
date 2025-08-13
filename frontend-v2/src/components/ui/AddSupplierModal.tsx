@@ -54,12 +54,18 @@ export default function AddSupplierModal({
   const loadSuppliers = async () => {
     try {
       setLoadingSuppliers(true)
-      const response = await apiGet('/suppliers')
-      console.log('Suppliers loaded:', response.data)
+      const response = await apiGet<{data: Supplier[], pagination: any}>('/suppliers')
+      console.log('🏪 Respuesta completa del API suppliers:', response)
+      console.log('📊 response.data:', response.data)
+      console.log('📋 response.data.data:', response.data.data)
       console.log('Assigned supplier IDs:', assignedSupplierIds)
-      setSuppliers(response.data)
+      
+      // Extract suppliers from response.data.data (paginated response structure)
+      const suppliersData = Array.isArray(response.data.data) ? response.data.data : []
+      console.log('✅ Proveedores procesados:', suppliersData.length)
+      setSuppliers(suppliersData)
     } catch (err) {
-      console.error('Error loading suppliers:', err)
+      console.error('❌ Error loading suppliers:', err)
       setSuppliers([])
     } finally {
       setLoadingSuppliers(false)
@@ -68,8 +74,12 @@ export default function AddSupplierModal({
 
   // Filter suppliers based on search term and exclude already assigned ones
   useEffect(() => {
-    let filtered = suppliers.filter(supplier => 
-      !assignedSupplierIds.includes(supplier.supplier_id) &&
+    // Ensure suppliers is an array before filtering
+    const safeSuppliers = Array.isArray(suppliers) ? suppliers : []
+    const safeAssignedIds = Array.isArray(assignedSupplierIds) ? assignedSupplierIds : []
+    
+    let filtered = safeSuppliers.filter(supplier => 
+      !safeAssignedIds.includes(supplier.supplier_id) &&
       (supplier.is_active !== false) // Include if is_active is true, null, or undefined
     )
 
@@ -83,7 +93,7 @@ export default function AddSupplierModal({
       )
     }
 
-    console.log('Filtered suppliers:', filtered.length, 'out of', suppliers.length)
+    console.log('Filtered suppliers:', filtered.length, 'out of', safeSuppliers.length)
     setFilteredSuppliers(filtered)
   }, [suppliers, searchTerm, assignedSupplierIds])
 

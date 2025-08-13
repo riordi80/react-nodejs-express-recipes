@@ -120,33 +120,6 @@ router.get('/dashboard-widgets', authenticateToken, authorizeRoles('admin', 'che
     `);
     const noPreferredTotal = noPreferredCountResult[0].total;
 
-    // DEBUG TEMPORAL - verificar resultados
-    console.log('🔍 Resultados widgets:', {
-      lowStock: lowStockRows.length,
-      expiringSoon: expiringRows.length, 
-      seasonal: seasonalRows.length,
-      noPreferred: noPreferredRows.length,
-      currentMonth,
-      totals: {
-        lowStock: lowStockTotal,
-        expiringSoon: expiringTotal,
-        seasonal: seasonalTotal,
-        noPreferred: noPreferredTotal
-      }
-    });
-
-    // DEBUG ESPECÍFICO para ingredientes próximos a caducar
-    console.log('🕐 DEBUG Próximos a Caducar:', {
-      fecha_actual: new Date().toISOString().split('T')[0],
-      ingredientes_encontrados: expiringRows.length,
-      total_ingredientes: expiringTotal,
-      primeros_resultados: expiringRows.slice(0, 3).map(ing => ({
-        name: ing.name,
-        expiration_date: ing.expiration_date,
-        days_until_expiry: ing.days_until_expiry,
-        stock: ing.stock
-      }))
-    });
 
     res.json({
       lowStock: lowStockRows,
@@ -167,47 +140,68 @@ router.get('/dashboard-widgets', authenticateToken, authorizeRoles('admin', 'che
   }
 });
 
-// GET /ingredients - Todos los ingredientes con filtros múltiples
+// GET /ingredients - Todos los ingredientes con filtros múltiples y paginación
 router.get('/', authenticateToken, authorizeRoles('admin', 'chef', 'inventory_manager'), async (req, res) => {
   try {
-    const { available, search, expiryStatus, stockStatus, season } = req.query;
+    const { available, search, expiryStatus, stockStatus, season, page = 1, limit = 20 } = req.query;
     
-    let query = 'SELECT * FROM INGREDIENTS';
+    // Paginación
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 20)); // Máximo 100 items por página
+    const offset = (pageNum - 1) * limitNum;
+    
+    // Query base con JOIN para obtener precio de proveedor preferido
+    let baseQuery = `
+      FROM INGREDIENTS i
+      LEFT JOIN SUPPLIER_INGREDIENTS si ON i.ingredient_id = si.ingredient_id AND si.is_preferred_supplier = TRUE
+    `;
     let whereConditions = [];
     let params = [];
     
     // Filtro de disponibilidad
     if (available === 'true') {
-      whereConditions.push('is_available = TRUE');
+      whereConditions.push('i.is_available = TRUE');
     } else if (available === 'false') {
-      whereConditions.push('is_available = FALSE');
+      whereConditions.push('i.is_available = FALSE');
     }
     
-    // Filtro de búsqueda por nombre
+    // Filtro de búsqueda por nombre (insensible a acentos)
     if (search && search.trim() !== '') {
-      whereConditions.push('name LIKE ?');
-      params.push(`%${search.trim()}%`);
+      const normalizedSearch = search.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      whereConditions.push(`REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+        UPPER(i.name), 
+        'Á','A'), 'É','E'), 'Í','I'), 'Ó','O'), 'Ú','U'), 'Ñ','N'), 'Ü','U'), 'À','A'), 'È','E'), 'Ì','I')
+        LIKE UPPER(?)`);
+      params.push(`%${normalizedSearch}%`);
     }
     
     // Filtro de temporada
     if (season && season.trim() !== '') {
-      whereConditions.push('(season LIKE ? OR season = ?)');
+      whereConditions.push('(i.season LIKE ? OR i.season = ?)');
       params.push(`%${season.trim()}%`, season.trim());
     }
     
-    // Aplicar condiciones WHERE si existen
-    if (whereConditions.length > 0) {
-      query += ' WHERE ' + whereConditions.join(' AND ');
-    }
+    // Construir WHERE clause
+    const whereClause = whereConditions.length > 0 ? ' WHERE ' + whereConditions.join(' AND ') : '';
     
-    query += ' ORDER BY name ASC';
+    // Contar total de registros
+    const countQuery = `SELECT COUNT(DISTINCT i.ingredient_id) as total ${baseQuery}${whereClause}`;
+    const [countResult] = await req.tenantDb.query(countQuery, [...params]);
+    const totalItems = countResult[0].total;
+    const totalPages = Math.ceil(totalItems / limitNum);
     
-    // OPTIMIZACIÓN CRÍTICA: Limitar consulta para evitar agotamiento de memoria
-    const maxIngredients = 500; // Límite de seguridad
-    query += ' LIMIT ?';
-    params.push(maxIngredients);
+    // Obtener datos paginados con precio de proveedor preferido
+    const dataQuery = `
+      SELECT 
+        i.*,
+        si.price as preferred_supplier_price
+      ${baseQuery}${whereClause} 
+      ORDER BY i.name ASC 
+      LIMIT ? OFFSET ?
+    `;
+    params.push(limitNum, offset);
     
-    let [rows] = await req.tenantDb.query(query, params);
+    let [rows] = await req.tenantDb.query(dataQuery, params);
     
     // Aplicar filtros de JavaScript para lógica compleja
     if (expiryStatus || stockStatus) {
@@ -265,7 +259,18 @@ router.get('/', authenticateToken, authorizeRoles('admin', 'chef', 'inventory_ma
       });
     }
     
-    res.json(rows);
+    // Devolver respuesta paginada
+    res.json({
+      data: rows,
+      pagination: {
+        currentPage: pageNum,
+        totalPages,
+        totalItems,
+        itemsPerPage: limitNum,
+        hasNextPage: pageNum < totalPages,
+        hasPrevPage: pageNum > 1
+      }
+    });
   } catch (error) {
     console.error('Error fetching ingredients:', error);
     res.status(500).json({ message: 'Error al obtener ingredientes' });

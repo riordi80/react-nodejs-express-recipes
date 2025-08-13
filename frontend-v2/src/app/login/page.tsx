@@ -119,7 +119,13 @@ export default function CentralLoginPage() {
 
       if (!response.ok) {
         if (data.code === 'USER_NOT_FOUND') {
-          setError('No se encontró una cuenta con este email')
+          // Si no se encuentra el usuario, ir directamente al paso de login sin mostrar error
+          setAnimatingOut(true)
+          setTimeout(() => {
+            setCurrentStep('login')
+            setAnimatingOut(false)
+          }, 300)
+          return
         } else if (data.code === 'TENANT_INACTIVE') {
           setError('Esta cuenta está inactiva')
         } else if (data.code === 'TENANT_SUSPENDED') {
@@ -202,16 +208,27 @@ export default function CentralLoginPage() {
       return
     }
 
-    if (!config || !tenantInfo) {
+    if (!config) {
       setError('Error de configuración')
       setLoginLoading(false)
       return
     }
 
     try {
-      // Realizar login directo usando la configuración del tenant
-      const loginUrl = new URL(tenantInfo.login_url)
-      const apiUrl = `${loginUrl.protocol}//${loginUrl.hostname}${loginUrl.port ? ':' + loginUrl.port : ''}/api/login`
+      let apiUrl;
+      let redirectUrl;
+      
+      if (tenantInfo) {
+        // Caso normal: tenant encontrado
+        const loginUrl = new URL(tenantInfo.login_url)
+        apiUrl = `${loginUrl.protocol}//${loginUrl.hostname}${loginUrl.port ? ':' + loginUrl.port : ''}/api/login`
+        redirectUrl = `${loginUrl.protocol}//${loginUrl.hostname}${loginUrl.port ? ':' + loginUrl.port : ''}/dashboard`
+      } else {
+        // Caso nuevo: email no encontrado, intentar login en dominio actual
+        const currentUrl = new URL(window.location.href)
+        apiUrl = `${currentUrl.protocol}//${currentUrl.hostname}${currentUrl.port ? ':' + currentUrl.port : ''}/api/login`
+        redirectUrl = `${currentUrl.protocol}//${currentUrl.hostname}${currentUrl.port ? ':' + currentUrl.port : ''}/dashboard`
+      }
       
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -232,8 +249,8 @@ export default function CentralLoginPage() {
         return
       }
 
-      // Login exitoso, redirigir al dashboard del tenant
-      window.location.href = `${loginUrl.protocol}//${loginUrl.hostname}${loginUrl.port ? ':' + loginUrl.port : ''}/dashboard`
+      // Login exitoso, redirigir al dashboard
+      window.location.href = redirectUrl
 
     } catch (err) {
       console.error('Login error:', err)
@@ -404,7 +421,7 @@ export default function CentralLoginPage() {
                   <div className="text-center">
                     <Building2 className="h-8 w-8 mx-auto text-orange-600 mb-2" />
                     <h3 className="text-lg font-semibold text-gray-900">
-                      {tenantInfo?.business_name}
+                      {tenantInfo?.business_name || 'Iniciar Sesión'}
                     </h3>
                     <p className="text-sm text-gray-600 mb-4">
                       {email}

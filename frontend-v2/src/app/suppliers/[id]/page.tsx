@@ -231,8 +231,8 @@ export default function SupplierDetailPage() {
         router.push(`/suppliers/${newSupplierId}`)
       } else {
         await apiPut(`/suppliers/${supplierId}`, supplierData)
-        await loadSupplierData()
         success('Proveedor actualizado correctamente', 'Proveedor Actualizado')
+        router.back()
       }
       
       setValidationErrors({})

@@ -1,14 +1,20 @@
 'use client'
 
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Calendar, Plus, Filter, Search, Users, MapPin, Clock, Euro, Edit, Trash2 } from 'lucide-react'
+import { Calendar, Plus, Filter, Search, Users, MapPin, Clock, Euro, Edit, Trash2, TrendingUp, Target, Award } from 'lucide-react'
 import { apiGet, apiDelete } from '@/lib/api'
 import ConfirmModal from '@/components/ui/ConfirmModal'
 import { useToastHelpers } from '@/context/ToastContext'
-import { useTableSort } from '@/hooks/useTableSort'
+import { usePaginatedTable } from '@/hooks/usePaginatedTable'
 import SortableTableHeader from '@/components/ui/SortableTableHeader'
+import Pagination from '@/components/ui/Pagination'
+import EventsChart from '@/components/charts/EventsChart'
+import { useSettings } from '@/context/SettingsContext'
+import { usePageSize } from '@/hooks/usePageSize'
+import PaginationSelector from '@/components/ui/PaginationSelector'
+import MultiSelectDropdown from '@/components/ui/MultiSelectDropdown'
 
 interface Event {
   event_id: number
@@ -41,14 +47,35 @@ const statusLabels = {
   cancelled: 'Cancelado'
 }
 
+const statusOptions = [
+  'Planificado',
+  'Confirmado', 
+  'En Progreso',
+  'Completado',
+  'Cancelado'
+]
+
+// Mapping para convertir español a inglés para el API
+const statusMapping: Record<string, string> = {
+  'Planificado': 'planned',
+  'Confirmado': 'confirmed',
+  'En Progreso': 'in_progress',
+  'Completado': 'completed',
+  'Cancelado': 'cancelled'
+}
+
 export default function EventsPage() {
   const router = useRouter()
-  const [events, setEvents] = useState<Event[]>([])
-  const [loading, setLoading] = useState(true)
-  const [, setError] = useState<string | null>(null)
+  const [isInitialized, setIsInitialized] = useState(false)
   
   // Toast helpers
   const { success, error: showError } = useToastHelpers()
+  
+  // Settings context
+  const { settings } = useSettings()
+  
+  // Page-specific pageSize with localStorage persistence
+  const { pageSize, setPageSize } = usePageSize('events')
   
   // Delete modal state
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
@@ -59,38 +86,160 @@ export default function EventsPage() {
   
   // Filters
   const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState<string[]>([])
   const [showFilters, setShowFilters] = useState(false)
+  
+  
+  // All events for charts (independent of pagination and filters)
+  const [allEventsForCharts, setAllEventsForCharts] = useState<Event[]>([])
+  const [loadingAllEventsForCharts, setLoadingAllEventsForCharts] = useState(true)
+  
+  // All events for metrics (with current filters applied)
+  const [allEvents, setAllEvents] = useState<Event[]>([])
+  const [loadingAllEvents, setLoadingAllEvents] = useState(true)
 
-  // Load events
-  useEffect(() => {
-    loadEvents()
-  }, [])
-
-  // Autofocus search input on page load
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (searchInputRef.current) {
-        searchInputRef.current.focus()
-      }
-    }, 100) // Pequeño delay para asegurar que el DOM está listo
-    
-    return () => clearTimeout(timer)
-  }, [])
-
-  const loadEvents = async () => {
+  // Function to fetch ALL events for charts (no filters)
+  const fetchAllEventsForCharts = useCallback(async () => {
     try {
-      setLoading(true)
-      const response = await apiGet<Event[]>('/events')
-      setEvents(response.data)
-      setError(null)
-    } catch (err: unknown) {
-      setError('Error al cargar eventos')
-      console.error('Error loading events:', err)
+      setLoadingAllEventsForCharts(true)
+      const searchParams = new URLSearchParams()
+      
+      // Get all events without pagination or filters
+      searchParams.append('page', '1')
+      searchParams.append('limit', '9999') // Large limit to get all
+      
+      const response = await apiGet<{data: Event[], pagination: any}>(`/events?${searchParams.toString()}`)
+      setAllEventsForCharts(response.data.data)
+    } catch (error) {
+      console.error('Error fetching all events for charts:', error)
+      setAllEventsForCharts([])
     } finally {
-      setLoading(false)
+      setLoadingAllEventsForCharts(false)
     }
-  }
+  }, [])
+
+  // Function to fetch ALL events for metrics (with current filters)
+  const fetchAllEvents = useCallback(async () => {
+    try {
+      setLoadingAllEvents(true)
+      const searchParams = new URLSearchParams()
+      
+      // Get all events without pagination
+      searchParams.append('page', '1')
+      searchParams.append('limit', '9999') // Large limit to get all
+      
+      // Add current filter params to maintain consistency
+      if (searchTerm.trim()) searchParams.append('search', searchTerm.trim())
+      if (statusFilter.length > 0) {
+        // Convert Spanish status values to English for API
+        const englishStatuses = statusFilter.map(status => statusMapping[status]).filter(Boolean)
+        if (englishStatuses.length > 0) {
+          searchParams.append('status', englishStatuses.join(','))
+        }
+      }
+      
+      const response = await apiGet<{data: Event[], pagination: any}>(`/events?${searchParams.toString()}`)
+      setAllEvents(response.data.data)
+    } catch (error) {
+      console.error('Error fetching all events:', error)
+      setAllEvents([])
+    } finally {
+      setLoadingAllEvents(false)
+    }
+  }, [searchTerm, statusFilter])
+
+  // Function to fetch paginated events
+  const fetchEvents = useCallback(async (params: { 
+    page: number; 
+    limit: number; 
+    sortKey?: string; 
+    sortOrder?: 'asc' | 'desc' 
+  }) => {
+    const searchParams = new URLSearchParams()
+    
+    // Add pagination params
+    searchParams.append('page', params.page.toString())
+    searchParams.append('limit', params.limit.toString())
+    
+    // Add sorting params
+    if (params.sortKey && params.sortOrder) {
+      searchParams.append('sortKey', params.sortKey)
+      searchParams.append('sortOrder', params.sortOrder)
+    }
+    
+    // Add filter params
+    if (searchTerm.trim()) searchParams.append('search', searchTerm.trim())
+    if (statusFilter.length > 0) {
+      // Convert Spanish status values to English for API
+      const englishStatuses = statusFilter.map(status => statusMapping[status]).filter(Boolean)
+      if (englishStatuses.length > 0) {
+        searchParams.append('status', englishStatuses.join(','))
+      }
+    }
+    
+    const response = await apiGet<{data: Event[], pagination: any}>(`/events?${searchParams.toString()}`)
+    
+    return {
+      data: response.data.data,
+      pagination: response.data.pagination
+    }
+  }, [searchTerm, statusFilter])
+
+  // Use paginated table hook
+  const {
+    sortedData: sortedEvents,
+    isLoading: loading,
+    pagination,
+    sortConfig,
+    handlePageChange,
+    handleSort,
+    refresh
+  } = usePaginatedTable(fetchEvents, {
+    initialPage: 1,
+    itemsPerPage: pageSize,
+    initialSortKey: 'event_date',
+    dependencies: [searchTerm, statusFilter.join(','), pageSize],
+    storageKey: 'events-page'
+  })
+
+
+  // Initialize app - single effect to prevent multiple renders
+  useEffect(() => {
+    const initializeApp = async () => {
+      try {
+        // Initialize any required data here
+        await new Promise(resolve => setTimeout(resolve, 100)) // Pequeño delay para asegurar que el DOM está listo
+      } catch (error) {
+        console.error('Error initializing app:', error)
+      } finally {
+        setIsInitialized(true)
+      }
+    }
+
+    initializeApp()
+  }, [])
+
+  // Load all events for charts once (no dependencies on filters)
+  useEffect(() => {
+    if (isInitialized) {
+      fetchAllEventsForCharts()
+    }
+  }, [isInitialized, fetchAllEventsForCharts])
+
+  // Load filtered events when filters change
+  useEffect(() => {
+    if (isInitialized) {
+      fetchAllEvents()
+    }
+  }, [isInitialized, fetchAllEvents])
+
+  // Autofocus search input after initialization
+  useEffect(() => {
+    if (isInitialized && searchInputRef.current) {
+      searchInputRef.current.focus()
+    }
+  }, [isInitialized])
+
 
   // Delete handlers
   const openDeleteModal = (event: Event) => {
@@ -103,8 +252,12 @@ export default function EventsPage() {
     
     try {
       await apiDelete(`/events/${currentEvent.event_id}`)
-      // Refresh events after deletion
-      await loadEvents()
+      
+      // Refresh paginated events, filtered events, and chart events
+      refresh()
+      fetchAllEvents()
+      fetchAllEventsForCharts()
+      
       setIsDeleteOpen(false)
       setCurrentEvent(null)
       
@@ -118,21 +271,77 @@ export default function EventsPage() {
     }
   }
 
-  // Filter events (memoized)
-  const filteredEvents = useMemo(() => {
-    return events.filter(event => {
-      const matchesSearch = event.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           event.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           event.location?.toLowerCase().includes(searchTerm.toLowerCase())
-      
-      const matchesStatus = statusFilter === 'all' || event.status === statusFilter
-      
-      return matchesSearch && matchesStatus
-    })
-  }, [events, searchTerm, statusFilter])
 
-  // Add sorting to filtered events
-  const { sortedData: sortedEvents, sortConfig, handleSort } = useTableSort(filteredEvents, 'event_date')
+  // Calculate temporal metrics (using ALL events, not paginated ones)
+  const temporalMetrics = useMemo(() => {
+    const now = new Date()
+    const currentMonth = now.getMonth()
+    const currentYear = now.getFullYear()
+    
+    // Esta semana
+    const startOfWeek = new Date(now)
+    startOfWeek.setDate(now.getDate() - now.getDay())
+    startOfWeek.setHours(0, 0, 0, 0)
+    const endOfWeek = new Date(startOfWeek)
+    endOfWeek.setDate(startOfWeek.getDate() + 7)
+    
+    // Este mes
+    const startOfMonth = new Date(currentYear, currentMonth, 1)
+    const endOfMonth = new Date(currentYear, currentMonth + 1, 0)
+    
+    // Mes anterior
+    const startOfLastMonth = new Date(currentYear, currentMonth - 1, 1)
+    const endOfLastMonth = new Date(currentYear, currentMonth, 0)
+    
+    const eventsThisWeek = allEvents.filter(e => {
+      const eventDate = new Date(e.event_date)
+      return eventDate >= startOfWeek && eventDate < endOfWeek
+    }).length
+    
+    const eventsThisMonth = allEvents.filter(e => {
+      const eventDate = new Date(e.event_date)
+      return eventDate >= startOfMonth && eventDate <= endOfMonth
+    }).length
+    
+    const eventsLastMonth = allEvents.filter(e => {
+      const eventDate = new Date(e.event_date)
+      return eventDate >= startOfLastMonth && eventDate <= endOfLastMonth
+    }).length
+    
+    const monthComparison = eventsLastMonth === 0 
+      ? (eventsThisMonth > 0 ? 100 : 0)  // Si mes anterior era 0 y ahora hay eventos = +100%
+      : ((eventsThisMonth - eventsLastMonth) / eventsLastMonth) * 100
+    
+    // Próximo evento más cercano
+    const upcomingEvents = allEvents
+      .filter(e => new Date(e.event_date) >= now && ['planned', 'confirmed', 'in_progress'].includes(e.status))
+      .sort((a, b) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime())
+    const nextEvent = upcomingEvents[0]
+    
+    // Tasa de confirmación (últimos 6 meses)
+    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 6, 1)
+    const eventsLast6Months = allEvents.filter(e => new Date(e.event_date) >= sixMonthsAgo)
+    const plannedOrConfirmed = eventsLast6Months.filter(e => ['planned', 'confirmed'].includes(e.status))
+    const confirmed = eventsLast6Months.filter(e => e.status === 'confirmed')
+    const confirmationRate = plannedOrConfirmed.length === 0 ? 0 : 
+      (confirmed.length / plannedOrConfirmed.length) * 100
+    
+    // Promedio eventos por semana (últimas 8 semanas)
+    const eightWeeksAgo = new Date(now.getTime() - (8 * 7 * 24 * 60 * 60 * 1000))
+    const eventsLast8Weeks = allEvents.filter(e => new Date(e.event_date) >= eightWeeksAgo)
+    const avgEventsPerWeek = eventsLast8Weeks.length / 8
+    
+    return {
+      eventsThisWeek,
+      eventsThisMonth,
+      eventsLastMonth,
+      monthComparison,
+      nextEvent,
+      confirmationRate,
+      avgEventsPerWeek
+    }
+  }, [allEvents])
+
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('es-ES', {
@@ -147,7 +356,7 @@ export default function EventsPage() {
     return timeString.slice(0, 5) // HH:MM
   }
 
-  if (loading) {
+  if (!isInitialized) {
     return (
       <div className="p-6">
         <div className="animate-pulse space-y-4">
@@ -209,6 +418,107 @@ export default function EventsPage() {
           </div>
         </div>
 
+        {/* Temporal Metrics Dashboard */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {/* Este Mes vs Mes Anterior */}
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Este Mes</p>
+                <p className="text-2xl font-bold text-gray-900">{temporalMetrics.eventsThisMonth}</p>
+                <div className="flex items-center mt-1">
+                  <TrendingUp className={`h-3 w-3 mr-1 ${temporalMetrics.monthComparison >= 0 ? 'text-green-500' : 'text-red-500'}`} />
+                  <span className={`text-xs font-medium ${temporalMetrics.monthComparison >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {temporalMetrics.monthComparison >= 0 ? '+' : ''}{temporalMetrics.monthComparison.toFixed(0)}%
+                  </span>
+                  <span className="text-xs text-gray-500 ml-1">vs mes anterior</span>
+                </div>
+              </div>
+              <div className="bg-orange-100 p-3 rounded-lg">
+                <Calendar className="h-6 w-6 text-orange-600" />
+              </div>
+            </div>
+          </div>
+
+          {/* Esta Semana */}
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Esta Semana</p>
+                <p className="text-2xl font-bold text-blue-600">{temporalMetrics.eventsThisWeek}</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Promedio últimas 8 semanas: {temporalMetrics.avgEventsPerWeek.toFixed(1)}/sem
+                </p>
+              </div>
+              <div className="bg-orange-100 p-3 rounded-lg">
+                <Clock className="h-6 w-6 text-orange-600" />
+              </div>
+            </div>
+          </div>
+
+          {/* Tasa de Confirmación */}
+          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Tasa Confirmación</p>
+                <p className="text-2xl font-bold text-green-600">{temporalMetrics.confirmationRate.toFixed(0)}%</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Últimos 6 meses
+                </p>
+              </div>
+              <div className="bg-orange-100 p-3 rounded-lg">
+                <Target className="h-6 w-6 text-orange-600" />
+              </div>
+            </div>
+          </div>
+
+          {/* Próximo Evento */}
+          <div className={`bg-white rounded-lg border border-gray-200 shadow-sm p-6 ${
+            temporalMetrics.nextEvent ? 'cursor-pointer hover:bg-gray-50 transition-colors' : ''
+          }`}
+          onClick={() => {
+            if (temporalMetrics.nextEvent) {
+              router.push(`/events/${temporalMetrics.nextEvent.event_id}`)
+            }
+          }}
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Próximo Evento</p>
+                {temporalMetrics.nextEvent ? (
+                  <>
+                    <p className="text-lg font-bold text-orange-600 truncate max-w-44" title={temporalMetrics.nextEvent.name}>
+                      {temporalMetrics.nextEvent.name}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {new Date(temporalMetrics.nextEvent.event_date).toLocaleDateString('es-ES', { 
+                        day: 'numeric', 
+                        month: 'short' 
+                      })}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-2xl font-bold text-gray-400">N/A</p>
+                    <p className="text-xs text-gray-500 mt-1">Sin eventos próximos</p>
+                  </>
+                )}
+              </div>
+              <div className="bg-orange-100 p-3 rounded-lg">
+                <Award className="h-6 w-6 text-orange-600" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Events Chart */}
+        <EventsChart 
+          events={allEventsForCharts}
+          defaultPeriod={6}
+          title="Eventos"
+          className="mb-8"
+        />
+
       {/* Filters */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm mb-6">
         <div className="p-4">
@@ -227,18 +537,13 @@ export default function EventsPage() {
             </div>
 
             {/* Status Filter */}
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-            >
-              <option value="all">Todos los estados</option>
-              <option value="planned">Planificado</option>
-              <option value="confirmed">Confirmado</option>
-              <option value="in_progress">En Progreso</option>
-              <option value="completed">Completado</option>
-              <option value="cancelled">Cancelado</option>
-            </select>
+            <MultiSelectDropdown
+              options={statusOptions}
+              selected={statusFilter}
+              onChange={setStatusFilter}
+              placeholder="Estados"
+              className="whitespace-nowrap"
+            />
 
             {/* Filter Toggle */}
             <button
@@ -258,25 +563,25 @@ export default function EventsPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <SortableTableHeader sortKey="name" sortConfig={sortConfig} onSort={handleSort}>
+                <SortableTableHeader sortKey="name" sortConfig={sortConfig || { key: '', direction: 'asc' }} onSort={handleSort}>
                   Evento
                 </SortableTableHeader>
-                <SortableTableHeader sortKey="event_date" sortConfig={sortConfig} onSort={handleSort}>
+                <SortableTableHeader sortKey="event_date" sortConfig={sortConfig || { key: '', direction: 'asc' }} onSort={handleSort}>
                   Fecha & Hora
                 </SortableTableHeader>
-                <SortableTableHeader sortKey="guests_count" sortConfig={sortConfig} onSort={handleSort}>
+                <SortableTableHeader sortKey="guests_count" sortConfig={sortConfig || { key: '', direction: 'asc' }} onSort={handleSort}>
                   Invitados
                 </SortableTableHeader>
-                <SortableTableHeader sortKey="location" sortConfig={sortConfig} onSort={handleSort} sortable={false}>
+                <SortableTableHeader sortKey="location" sortConfig={sortConfig || { key: '', direction: 'asc' }} onSort={handleSort} sortable={false}>
                   Ubicación
                 </SortableTableHeader>
-                <SortableTableHeader sortKey="status" sortConfig={sortConfig} onSort={handleSort}>
+                <SortableTableHeader sortKey="status" sortConfig={sortConfig || { key: '', direction: 'asc' }} onSort={handleSort}>
                   Estado
                 </SortableTableHeader>
-                <SortableTableHeader sortKey="budget" sortConfig={sortConfig} onSort={handleSort}>
+                <SortableTableHeader sortKey="budget" sortConfig={sortConfig || { key: '', direction: 'asc' }} onSort={handleSort}>
                   Presupuesto
                 </SortableTableHeader>
-                <SortableTableHeader sortKey="" sortConfig={sortConfig} onSort={handleSort} sortable={false} className="text-right">
+                <SortableTableHeader sortKey="" sortConfig={sortConfig || { key: '', direction: 'asc' }} onSort={handleSort} sortable={false} className="text-right">
                   Acciones
                 </SortableTableHeader>
               </tr>
@@ -379,14 +684,14 @@ export default function EventsPage() {
         </div>
 
         {/* Empty State */}
-        {filteredEvents.length === 0 && !loading && (
+        {sortedEvents.length === 0 && !loading && (
           <div className="text-center py-12">
             <Calendar className="h-12 w-12 mx-auto text-gray-400 mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
               No hay eventos
             </h3>
             <p className="text-gray-500 mb-4">
-              {searchTerm || statusFilter !== 'all' 
+              {searchTerm || statusFilter.length > 0 
                 ? 'No se encontraron eventos con los filtros aplicados'
                 : 'Comienza creando tu primer evento'
               }
@@ -396,16 +701,32 @@ export default function EventsPage() {
               className="inline-flex items-center text-orange-600 hover:text-orange-700 text-sm font-medium transition-colors"
             >
               <Plus className="h-4 w-4 mr-1" />
-              {searchTerm || statusFilter !== 'all' ? 'Crear Nuevo Evento' : 'Crear Primer Evento'}
+              {searchTerm || statusFilter.length > 0 ? 'Crear Nuevo Evento' : 'Crear Primer Evento'}
             </Link>
           </div>
         )}
       </div>
 
-      {/* Results Counter */}
-      {filteredEvents.length > 0 && (
-        <div className="mt-4 text-sm text-gray-600">
-          Mostrando {filteredEvents.length} de {events.length} eventos
+      {/* Results Counter, Page Size Selector and Pagination */}
+      {pagination && (
+        <div className="mt-6 flex flex-col lg:flex-row justify-between items-center space-y-4 lg:space-y-0">
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            <div className="text-sm text-gray-600">
+              Mostrando {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1} - {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} de {pagination.totalItems} eventos
+            </div>
+            
+            <PaginationSelector
+              currentPageSize={pageSize}
+              onPageSizeChange={setPageSize}
+              totalItems={pagination.totalItems}
+            />
+          </div>
+          
+          <Pagination
+            currentPage={pagination.currentPage}
+            totalPages={pagination.totalPages}
+            onPageChange={handlePageChange}
+          />
         </div>
       )}
 

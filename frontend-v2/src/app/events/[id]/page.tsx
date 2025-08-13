@@ -213,8 +213,8 @@ export default function EventDetailPage() {
         router.push(`/events/${response.data.event_id}`)
       } else {
         await apiPut(`/events/${eventId}`, eventData)
-        await loadEventData()
         success('Evento actualizado correctamente', 'Evento Actualizado')
+        router.back()
       }
     } catch (err: unknown) {
       showError('Error al guardar el evento', 'Error al Guardar')
@@ -307,10 +307,23 @@ export default function EventDetailPage() {
     setLoadingRecipes(true)
     setIsAddRecipeOpen(true)
     try {
-      const response = await apiGet<Recipe[]>('/recipes')
-      setAvailableRecipes(response.data)
+      console.log('🔍 Haciendo llamada a /recipes...')
+      const response = await apiGet<{data: Recipe[], pagination: any}>('/recipes')
+      console.log('📡 Respuesta completa del API:', response)
+      console.log('📊 response.data:', response.data)
+      console.log('📋 response.data.data:', response.data.data)
+      
+      // Extract recipes from response.data.data (paginated response structure)
+      const recipesData = Array.isArray(response.data.data) ? response.data.data : []
+      console.log('✅ Recetas procesadas:', recipesData.length)
+      if (recipesData.length > 0) {
+        console.log('📝 Primera receta:', recipesData[0])
+      }
+      console.log('🍽️ Recetas del evento actual:', eventRecipes.length)
+      setAvailableRecipes(recipesData)
     } catch (error) {
-      console.error('Error loading recipes:', error)
+      console.error('❌ Error cargando recetas:', error)
+      setAvailableRecipes([]) // Reset to empty array on error
       showError('Error al cargar las recetas disponibles', 'Error de Carga')
     } finally {
       setLoadingRecipes(false)
@@ -386,17 +399,29 @@ export default function EventDetailPage() {
   }
 
   // Filter available recipes based on search and exclude recipes already in the event menu
-  const filteredAvailableRecipes = availableRecipes.filter(recipe => {
+  const filteredAvailableRecipes = (Array.isArray(availableRecipes) ? availableRecipes : []).filter(recipe => {
     // Exclude recipes that are already in the event menu
-    const isAlreadyInMenu = eventRecipes.some(eventRecipe => eventRecipe.recipe_id === recipe.recipe_id)
+    const safeEventRecipes = Array.isArray(eventRecipes) ? eventRecipes : []
+    const isAlreadyInMenu = safeEventRecipes.some(eventRecipe => eventRecipe.recipe_id === recipe.recipe_id)
     if (isAlreadyInMenu) return false
     
-    // Filter by search text
-    const matchesSearch = recipe.name.toLowerCase().includes(recipeSearchText.toLowerCase()) ||
-                         recipe.description?.toLowerCase().includes(recipeSearchText.toLowerCase())
+    // Filter by search text - if no search text, show all non-menu recipes
+    if (!recipeSearchText || recipeSearchText.trim() === '') {
+      return true
+    }
+    
+    const searchLower = recipeSearchText.toLowerCase()
+    const matchesSearch = recipe.name.toLowerCase().includes(searchLower) ||
+                         (recipe.description && recipe.description.toLowerCase().includes(searchLower))
     
     return matchesSearch
   })
+  
+  // Debug logging for filtered recipes
+  console.log('Available recipes:', availableRecipes.length)
+  console.log('Event recipes:', eventRecipes.length)
+  console.log('Search text:', recipeSearchText)
+  console.log('Filtered available recipes:', filteredAvailableRecipes.length)
 
   // Edit recipe functions
   const openEditRecipeModal = (recipe: EventRecipe) => {

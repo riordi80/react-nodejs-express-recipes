@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react'
-import { apiGet, apiPut, apiDelete } from '@/lib/api'
+import { useState, useCallback } from 'react'
+import { apiPut, apiDelete, apiGet } from '@/lib/api'
 import { useToastHelpers } from '@/context/ToastContext'
+import { usePaginatedTable } from '@/hooks/usePaginatedTable'
+import { useSettings } from '@/context/SettingsContext'
 
 export interface Order {
   order_id: number
@@ -44,62 +46,74 @@ const defaultFilters: OrderFilters = {
 
 export const useActiveOrders = () => {
   const { success, error: showError } = useToastHelpers()
-  
-  const [orders, setOrders] = useState<Order[]>([])
-  const [filteredOrders, setFilteredOrders] = useState<Order[]>([])
-  const [loading, setLoading] = useState(false)
+  const { settings } = useSettings()
   const [filters, setFilters] = useState<OrderFilters>(defaultFilters)
 
-  // Load orders from API
-  const loadOrders = async () => {
-    try {
-      setLoading(true)
-      const response = await apiGet<Order[]>('/supplier-orders/active')
-      setOrders(response.data)
-    } catch (error) {
-      console.error('Error loading orders:', error)
-      showError('Error al cargar los pedidos', 'Error de Carga')
-    } finally {
-      setLoading(false)
+  // Function to fetch paginated orders
+  const fetchOrders = useCallback(async (params: { 
+    page: number; 
+    limit: number; 
+    sortKey?: string; 
+    sortOrder?: 'asc' | 'desc' 
+  }) => {
+    const searchParams = new URLSearchParams()
+    
+    // Add pagination params
+    searchParams.append('page', params.page.toString())
+    searchParams.append('limit', params.limit.toString())
+    
+    // Add sorting params
+    if (params.sortKey && params.sortOrder) {
+      searchParams.append('sortKey', params.sortKey)
+      searchParams.append('sortOrder', params.sortOrder)
     }
-  }
-
-  // Filter orders based on current filters
-  const applyFilters = () => {
-    let filtered = [...orders]
-
-    // Filter by search term
+    
+    // Add filter params
     if (filters.search.trim()) {
-      const searchTerm = filters.search.toLowerCase()
-      filtered = filtered.filter(order => 
-        order.order_id.toString().includes(searchTerm) ||
-        order.supplier_name.toLowerCase().includes(searchTerm)
-      )
+      searchParams.append('search', filters.search.trim())
     }
-
-    // Filter by status
+    
+    // Convert status object to comma-separated string for backend
     const selectedStatuses = Object.entries(filters.status)
       .filter(([, isSelected]) => isSelected)
       .map(([status]) => status)
     
     if (selectedStatuses.length > 0) {
-      filtered = filtered.filter(order => selectedStatuses.includes(order.status))
+      searchParams.append('status', selectedStatuses.join(','))
     }
-
-    // Filter by date range
+    
     if (filters.dateFrom) {
-      const fromDate = new Date(filters.dateFrom)
-      filtered = filtered.filter(order => new Date(order.order_date) >= fromDate)
+      searchParams.append('dateFrom', filters.dateFrom)
     }
-
+    
     if (filters.dateTo) {
-      const toDate = new Date(filters.dateTo)
-      toDate.setHours(23, 59, 59, 999) // End of day
-      filtered = filtered.filter(order => new Date(order.order_date) <= toDate)
+      searchParams.append('dateTo', filters.dateTo)
     }
+    
+    const response = await apiGet<{data: Order[], pagination: any}>(`/supplier-orders/active?${searchParams.toString()}`)
+    
+    return {
+      data: response.data.data,
+      pagination: response.data.pagination
+    }
+  }, [filters])
 
-    setFilteredOrders(filtered)
-  }
+  // Use paginated table hook
+  const {
+    sortedData: orders,
+    isLoading: loading,
+    pagination,
+    sortConfig,
+    handlePageChange,
+    handleSort,
+    refresh
+  } = usePaginatedTable(fetchOrders, {
+    initialPage: 1,
+    itemsPerPage: settings.pageSize,
+    initialSortKey: 'order_date',
+    dependencies: [filters],
+    storageKey: 'active-orders-page'
+  })
 
   // Update order status
   const updateOrderStatus = async (orderId: number, newStatus: string, notes?: string) => {
@@ -109,14 +123,8 @@ export const useActiveOrders = () => {
         notes: notes || ''
       })
       
-      // Update local state
-      setOrders(prevOrders => 
-        prevOrders.map(order => 
-          order.order_id === orderId 
-            ? { ...order, status: newStatus as Order['status'], notes: notes || order.notes }
-            : order
-        )
-      )
+      // Refresh data after update
+      refresh()
       
       success(`Pedido #${orderId} actualizado correctamente`, 'Pedido Actualizado')
     } catch (error) {
@@ -130,10 +138,8 @@ export const useActiveOrders = () => {
     try {
       await apiDelete(`/supplier-orders/${order.order_id}`)
       
-      // Remove from local state
-      setOrders(prevOrders => 
-        prevOrders.filter(o => o.order_id !== order.order_id)
-      )
+      // Refresh data after deletion
+      refresh()
       
       success(`Pedido #${order.order_id} eliminado correctamente`, 'Pedido Eliminado')
     } catch (error) {
@@ -141,6 +147,9 @@ export const useActiveOrders = () => {
       showError('Error al eliminar el pedido', 'Error de Eliminación')
     }
   }
+
+  // Load orders (alias for refresh for backwards compatibility)
+  const loadOrders = refresh
 
   // View order details (placeholder for future implementation)
   const viewOrderDetails = async (orderId: number) => {
@@ -153,26 +162,22 @@ export const useActiveOrders = () => {
     }
   }
 
-  // Effects
-  useEffect(() => {
-    loadOrders()
-  }, [])
-
-  useEffect(() => {
-    applyFilters()
-  }, [orders, filters])
-
   return {
     // Data
-    orders: filteredOrders,
+    orders,
     loading,
     filters,
+    pagination,
+    sortConfig,
 
     // Actions
     setFilters,
     loadOrders,
     updateOrderStatus,
     deleteOrder,
-    viewOrderDetails
+    viewOrderDetails,
+    handlePageChange,
+    handleSort,
+    refresh
   }
 }

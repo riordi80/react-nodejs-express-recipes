@@ -11,7 +11,7 @@ const logAudit         = require('../utils/audit');
 
 // GET /recipes - Obtener recetas con categorías y filtros
 router.get('/', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
-  const { search, category, prepTime, difficulty, ingredient, allergens } = req.query;
+  const { search, category, prepTime, difficulty, ingredient, allergens, page = 1, limit = 20 } = req.query;
 
   // Base SQL con agrupación de categorías y cálculo dinámico de costos
   const sql = `
@@ -46,8 +46,13 @@ router.get('/', authenticateToken, authorizeRoles('admin','chef'), async (req, r
 
   // Filtros opcionales
   if (search) {
-    wheres.push('r.name LIKE ?');
-    params.push(`%${search}%`);
+    // Normalizar búsqueda para insensibilidad a acentos
+    const normalizedSearch = search.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    wheres.push(`REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+      UPPER(r.name), 
+      'Á','A'), 'É','E'), 'Í','I'), 'Ó','O'), 'Ú','U'), 'Ñ','N'), 'Ü','U'), 'À','A'), 'È','E'), 'Ì','I')
+      LIKE UPPER(?)`);
+    params.push(`%${normalizedSearch}%`);
   }
   if (prepTime) {
     wheres.push('r.prep_time <= ?');
@@ -87,17 +92,42 @@ router.get('/', authenticateToken, authorizeRoles('admin','chef'), async (req, r
   const whereClause = wheres.length ? 'WHERE ' + wheres.join(' AND ') : '';
   const groupBy     = 'GROUP BY r.recipe_id';
   
-  // OPTIMIZACIÓN CRÍTICA: Añadir límite y orden para evitar agotamiento de memoria
-  const orderBy     = 'ORDER BY r.name ASC';
-  const maxRecipes  = 500; // Límite de seguridad para hosting compartido
-  const limitClause = 'LIMIT ?';
-  params.push(maxRecipes);
-  
-  const finalSql    = [sql, ...joins, whereClause, groupBy, orderBy, limitClause].join(' ');
-
   try {
-    const [rows] = await req.tenantDb.query(finalSql, params);
-    res.json(rows);
+    // Paginación
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 20));
+    const offset = (pageNum - 1) * limitNum;
+    
+    // Contar total de registros (sin agrupar categorías para el count)
+    const countSql = `
+      SELECT COUNT(DISTINCT r.recipe_id) as total
+      FROM RECIPES r
+      ${joins.join(' ')}
+      ${whereClause}
+    `;
+    const [countResult] = await req.tenantDb.query(countSql, params);
+    const totalItems = countResult[0].total;
+    const totalPages = Math.ceil(totalItems / limitNum);
+    
+    // Obtener datos paginados
+    const orderBy = 'ORDER BY r.name ASC';
+    const paginationClause = 'LIMIT ? OFFSET ?';
+    const finalSql = [sql, ...joins, whereClause, groupBy, orderBy, paginationClause].join(' ');
+    
+    const [rows] = await req.tenantDb.query(finalSql, [...params, limitNum, offset]);
+    
+    // Devolver respuesta paginada
+    res.json({
+      data: rows,
+      pagination: {
+        currentPage: pageNum,
+        totalPages,
+        totalItems,
+        itemsPerPage: limitNum,
+        hasNextPage: pageNum < totalPages,
+        hasPrevPage: pageNum > 1
+      }
+    });
   } catch (err) {
     console.error('Error fetching filtered recipes:', err);
     res.status(500).json({ message: 'Error interno del servidor' });

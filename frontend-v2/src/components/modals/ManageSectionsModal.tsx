@@ -153,13 +153,13 @@ export default function ManageSectionsModal({
                           <div className="flex items-center space-x-2">
                             <button
                               onClick={() => handleStartEdit(section)}
-                              className="text-orange-600 hover:text-orange-800 transition-colors"
+                              className="text-orange-600 hover:text-grey-900 transition-colors"
                             >
                               <Edit3 className="h-4 w-4" />
                             </button>
                             <button
                               onClick={() => handleDeleteClick(section)}
-                              className="text-red-600 hover:text-red-800 transition-colors"
+                              className="text-red-600 hover:text-grey-900 transition-colors"
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
