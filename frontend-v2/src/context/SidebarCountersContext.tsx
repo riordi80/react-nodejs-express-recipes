@@ -44,7 +44,7 @@ export const SidebarCountersProvider: React.FC<SidebarCountersProviderProps> = (
         (event: any) => event.status === 'planned' || event.status === 'confirmed'
       )
       
-      console.log(`📊 Eventos activos: ${activeEvents.length} (${activeEvents.filter(e => e.status === 'planned').length} planificados + ${activeEvents.filter(e => e.status === 'confirmed').length} confirmados)`)
+      // Development log removed
       
       setActiveEventsCount(activeEvents.length)
       
