@@ -30,6 +30,8 @@ import { useToastHelpers } from '@/context/ToastContext'
 import AddSupplierIngredientModal from '@/components/modals/AddSupplierIngredientModal'
 import EditSupplierIngredientModal from '@/components/modals/EditSupplierIngredientModal'
 import UnifiedTabs from '@/components/ui/DetailTabs'
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges'
+import UnsavedChangesModal from '@/components/modals/UnsavedChangesModal'
 
 interface Supplier {
   supplier_id: number
@@ -102,6 +104,25 @@ export default function SupplierDetailPage() {
     address: '',
     contact_person: '',
     notes: '',
+  })
+
+  // Saving state
+  const [isSaving, setIsSaving] = useState(false)
+
+  // Hook para detectar cambios sin guardar
+  const {
+    hasUnsavedChanges,
+    showUnsavedWarning,
+    pendingNavigation,
+    setIsSaving: setUnsavedChangesSaving,
+    updateInitialValues,
+    handleSaveAndExit,
+    handleDiscardChanges,
+    handleContinueEditing
+  } = useUnsavedChanges({
+    formData,
+    isLoading: loading,
+    isSaving
   })
 
   // Load data
@@ -179,7 +200,36 @@ export default function SupplierDetailPage() {
     }
   }
 
+  // Función de guardado sin navegación (para la modal)
+  const saveWithoutNavigation = async () => {
+    setIsSaving(true)
+    setUnsavedChangesSaving(true)
+    
+    try {
+      await performSave(false)
+      updateInitialValues()
+    } finally {
+      setIsSaving(false)
+      setUnsavedChangesSaving(false)
+    }
+  }
+
+  // Función principal de guardado
   const handleSave = async () => {
+    setIsSaving(true)
+    setUnsavedChangesSaving(true)
+    
+    try {
+      await performSave(true)
+      updateInitialValues()
+    } finally {
+      setIsSaving(false)
+      setUnsavedChangesSaving(false)
+    }
+  }
+
+  // Lógica de guardado extraída
+  const performSave = async (shouldNavigate: boolean = true) => {
     try {
       // Validation
       const errors: Record<string, string> = {}
@@ -228,11 +278,15 @@ export default function SupplierDetailPage() {
         }
         
         success('Proveedor creado correctamente', 'Proveedor Creado')
-        router.push(`/suppliers/${newSupplierId}`)
+        if (shouldNavigate) {
+          router.push(`/suppliers/${newSupplierId}`)
+        }
       } else {
         await apiPut(`/suppliers/${supplierId}`, supplierData)
         success('Proveedor actualizado correctamente', 'Proveedor Actualizado')
-        router.back()
+        if (shouldNavigate) {
+          router.back()
+        }
       }
       
       setValidationErrors({})
@@ -877,8 +931,12 @@ export default function SupplierDetailPage() {
             
             <button
               onClick={handleSave}
-              className="p-2 bg-green-600 text-white hover:bg-green-700 rounded-lg transition-colors"
-              title={isNewSupplier ? 'Crear proveedor' : 'Guardar cambios'}
+              className={`p-2 rounded-lg transition-colors ${
+                hasUnsavedChanges || isNewSupplier 
+                  ? 'bg-green-600 text-white hover:bg-green-700' 
+                  : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+              }`}
+              title={isNewSupplier ? 'Crear proveedor' : hasUnsavedChanges ? 'Guardar cambios' : 'Sin cambios que guardar'}
             >
               <Save className="h-4 w-4" />
             </button>
@@ -937,7 +995,11 @@ export default function SupplierDetailPage() {
             
             <button
               onClick={handleSave}
-              className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
+              className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                hasUnsavedChanges || isNewSupplier 
+                  ? 'bg-green-600 text-white hover:bg-green-700' 
+                  : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+              }`}
             >
               <Save className="h-4 w-4 mr-2" />
               {isNewSupplier ? 'Crear' : 'Guardar'}
@@ -1111,6 +1173,15 @@ export default function SupplierDetailPage() {
         supplierId={supplierId}
         ingredient={selectedIngredient}
         onSave={loadSupplierIngredients}
+      />
+
+      {/* Unsaved Changes Modal */}
+      <UnsavedChangesModal
+        isOpen={showUnsavedWarning}
+        onSaveAndExit={() => handleSaveAndExit(saveWithoutNavigation)}
+        onDiscardChanges={handleDiscardChanges}
+        onContinueEditing={handleContinueEditing}
+        isSaving={isSaving}
       />
     </>
   )

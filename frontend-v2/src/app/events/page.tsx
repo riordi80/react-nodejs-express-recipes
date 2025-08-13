@@ -199,7 +199,8 @@ export default function EventsPage() {
     itemsPerPage: pageSize,
     initialSortKey: 'event_date',
     dependencies: [searchTerm, statusFilter.join(','), pageSize],
-    storageKey: 'events-page'
+    storageKey: 'events-page',
+    tableId: 'events'
   })
 
 
@@ -665,11 +666,15 @@ export default function EventsPage() {
                         href={`/events/${event.event_id}`} 
                         className="text-gray-600 hover:text-gray-900 p-1 rounded transition-colors"
                         title="Editar evento"
+                        onClick={(e) => e.stopPropagation()}
                       >
                         <Edit className="h-4 w-4" />
                       </Link>
                       <button 
-                        onClick={() => openDeleteModal(event)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          openDeleteModal(event)
+                        }}
                         className="text-gray-600 hover:text-gray-900 p-1 rounded transition-colors"
                         title="Eliminar evento"
                       >

@@ -166,7 +166,8 @@ export default function RecipesPage() {
     itemsPerPage: settings.pageSize,
     initialSortKey: 'name',
     dependencies: [searchText, selectedCategories, selectedDifficulty, selectedPrepTime, selectedIngredient, selectedAllergens],
-    storageKey: 'recipes-page'
+    storageKey: 'recipes-page',
+    tableId: 'recipes'
   })
 
   // Initialize app - single effect to prevent multiple renders
@@ -499,11 +500,15 @@ export default function RecipesPage() {
                           href={`/recipes/${recipe.recipe_id}`} 
                           className="text-gray-600 hover:text-gray-900 p-1 rounded transition-colors"
                           title="Editar receta"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           <Edit className="h-4 w-4" />
                         </Link>
                         <button 
-                          onClick={() => openDeleteModal(recipe)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            openDeleteModal(recipe)
+                          }}
                           className="text-gray-600 hover:text-gray-900 p-1 rounded transition-colors"
                           title="Eliminar receta"
                         >
@@ -606,11 +611,15 @@ export default function RecipesPage() {
                       href={`/recipes/${recipe.recipe_id}`} 
                       className="text-gray-600 hover:text-gray-900 p-2 rounded transition-colors"
                       title="Editar receta"
+                      onClick={(e) => e.stopPropagation()}
                     >
                       <Edit className="h-4 w-4" />
                     </Link>
                     <button 
-                      onClick={() => openDeleteModal(recipe)}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        openDeleteModal(recipe)
+                      }}
                       className="text-gray-600 hover:text-gray-900 p-2 rounded transition-colors"
                       title="Eliminar receta"
                     >

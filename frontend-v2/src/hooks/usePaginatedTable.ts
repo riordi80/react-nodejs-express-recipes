@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { useTableSort } from './useTableSort'
+import { usePersistentTableSort } from './usePersistentTableSort'
 
 interface PaginationData {
   currentPage: number
@@ -23,6 +23,7 @@ interface UsePaginatedTableOptions {
   initialSortKey?: string
   dependencies?: any[]
   storageKey?: string // Optional key for persisting pagination state
+  tableId?: string // Optional unique table identifier for persistent sorting
 }
 
 interface UsePaginatedTableResult<T> {
@@ -39,7 +40,7 @@ interface UsePaginatedTableResult<T> {
   currentPage: number
   
   // Sorting
-  sortConfig: { key: string; direction: 'asc' | 'desc' } | null
+  sortConfig: { key: string | null; direction: 'asc' | 'desc' | null }
   
   // Actions
   handlePageChange: (page: number) => void
@@ -51,7 +52,7 @@ interface UsePaginatedTableResult<T> {
   setError: (error: string | null) => void
 }
 
-export function usePaginatedTable<T = any>(
+export function usePaginatedTable<T extends Record<string, any> = any>(
   fetchFunction: (params: { page: number; limit: number; sortKey?: string; sortOrder?: 'asc' | 'desc'; [key: string]: any }) => Promise<PaginatedResponse<T>>,
   options: UsePaginatedTableOptions = {}
 ): UsePaginatedTableResult<T> {
@@ -60,7 +61,8 @@ export function usePaginatedTable<T = any>(
     itemsPerPage = 20,
     initialSortKey = '',
     dependencies = [],
-    storageKey
+    storageKey,
+    tableId = storageKey // Use storageKey as default tableId if not provided
   } = options
 
   // Get persisted page from sessionStorage if storageKey is provided
@@ -130,8 +132,13 @@ export function usePaginatedTable<T = any>(
   // Use ref to track current page without causing re-renders
   const currentPageRef = useRef(getPersistedPage())
 
-  // Sorting using existing hook
-  const { sortedData, sortConfig, handleSort: handleSortInternal } = useTableSort(data, initialSortKey)
+  // Sorting using persistent hook
+  const { sortedData, sortConfig, handleSort: handleSortInternal } = usePersistentTableSort(
+    data, 
+    tableId || 'default', 
+    initialSortKey, 
+    'asc'
+  )
 
   // Save scroll position when user is about to navigate away
   useEffect(() => {
@@ -239,7 +246,7 @@ export function usePaginatedTable<T = any>(
   useEffect(() => {
     const persistedPage = getPersistedPage()
     currentPageRef.current = persistedPage
-    fetchData(persistedPage, null) // Start from persisted page when dependencies change
+    fetchData(persistedPage, undefined) // Start from persisted page when dependencies change
   }, dependencies)
 
   // Restore scroll position on initial load after data is available
@@ -270,7 +277,7 @@ export function usePaginatedTable<T = any>(
   return {
     // Data
     data,
-    sortedData: sortConfig ? data : sortedData, // Use server-side sorting when available
+    sortedData: sortConfig.key ? data : sortedData, // Use server-side sorting when available
     
     // Loading states
     isLoading,

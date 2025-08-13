@@ -253,7 +253,8 @@ export default function IngredientsPage() {
     itemsPerPage: settings.pageSize,
     initialSortKey: 'name',
     dependencies: [searchTerm, availabilityFilter, stockFilter, expiryFilter, seasonFilter],
-    storageKey: 'ingredients-page'
+    storageKey: 'ingredients-page',
+    tableId: 'ingredients'
   })
 
   // Autofocus search input on page load
@@ -795,11 +796,15 @@ export default function IngredientsPage() {
                         <Link 
                           href={`/ingredients/${ingredient.ingredient_id}`} 
                           className="text-gray-600 hover:text-gray-900 p-1 rounded"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           <Edit className="h-4 w-4" />
                         </Link>
                         <button 
-                          onClick={() => openDeactivateModal(ingredient)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            openDeactivateModal(ingredient)
+                          }}
                           className="text-gray-600 hover:text-gray-900 p-1 rounded"
                           title="Desactivar ingrediente"
                         >

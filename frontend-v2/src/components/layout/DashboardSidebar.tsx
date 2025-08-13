@@ -5,6 +5,8 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 import { useSettings } from '@/context/SettingsContext'
 import { useMobileMenu } from '@/context/MobileMenuContext'
+import { useSidebarCounters } from '@/context/SidebarCountersContext'
+import Badge from '@/components/ui/Badge'
 import { 
   LayoutDashboard, 
   ChefHat, 
@@ -69,6 +71,7 @@ export default function DashboardSidebar() {
   const { user, logout } = useAuth()
   const { soundEnabled, setSoundEnabled } = useSettings()
   const { isMobileMenuOpen, setIsMobileMenuOpen, toggleMobileMenu } = useMobileMenu()
+  const { activeEventsCount, isLoading: eventsLoading } = useSidebarCounters()
 
   const isNavItemActive = (href: string) => {
     if (href === '/dashboard') {
@@ -144,7 +147,17 @@ export default function DashboardSidebar() {
                     'text-gray-500': !isActive
                   })} 
                 />
-                {item.name}
+                <span className="flex-1">{item.name}</span>
+                {/* Contador para eventos activos */}
+                {item.name === 'Eventos' && !eventsLoading && activeEventsCount > 0 && (
+                  <Badge 
+                    variant="primary" 
+                    size="sm"
+                    className="ml-2 text-xs font-bold min-w-[18px] h-[18px] px-1 flex items-center justify-center"
+                  >
+                    {activeEventsCount > 99 ? '99+' : activeEventsCount}
+                  </Badge>
+                )}
               </Link>
               
               {/* Subnavigation */}

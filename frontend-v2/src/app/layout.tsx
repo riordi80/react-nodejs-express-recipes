@@ -7,6 +7,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { SettingsProvider } from "@/context/SettingsContext";
 import { ToastProviderWithSettings } from "@/components/providers/ToastProviderWithSettings";
 import { MobileMenuProvider } from "@/context/MobileMenuContext";
+import { SidebarCountersProvider } from "@/context/SidebarCountersContext";
 import Header from "@/components/layout/Header";
 import FooterWrapper from "@/components/layout/FooterWrapper";
 
@@ -39,13 +40,15 @@ export default function RootLayout({
         <AuthProvider>
           <SettingsProvider>
             <MobileMenuProvider>
-              <ToastProviderWithSettings position="bottom-right">
-                <Header />
-                <main className="flex-grow">
-                  {children}
-                </main>
-                <FooterWrapper />
-              </ToastProviderWithSettings>
+              <SidebarCountersProvider>
+                <ToastProviderWithSettings position="bottom-right">
+                  <Header />
+                  <main className="flex-grow">
+                    {children}
+                  </main>
+                  <FooterWrapper />
+                </ToastProviderWithSettings>
+              </SidebarCountersProvider>
             </MobileMenuProvider>
           </SettingsProvider>
         </AuthProvider>

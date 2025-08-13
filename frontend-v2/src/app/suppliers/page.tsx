@@ -121,7 +121,8 @@ export default function SuppliersPage() {
     itemsPerPage: settings.pageSize,
     initialSortKey: 'name',
     dependencies: [searchTerm, statusFilter],
-    storageKey: 'suppliers-page'
+    storageKey: 'suppliers-page',
+    tableId: 'suppliers'
   })
 
   // Initialize app - single effect to prevent multiple renders
@@ -440,6 +441,7 @@ export default function SuppliersPage() {
                         href={`/suppliers/${supplier.supplier_id}`}
                         className="text-gray-600 hover:text-gray-900 p-1 rounded transition-colors"
                         title="Editar proveedor"
+                        onClick={(e) => e.stopPropagation()}
                       >
                         <Edit className="h-4 w-4" />
                       </Link>
