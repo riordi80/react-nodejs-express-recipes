@@ -24,8 +24,7 @@ import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api'
 import ConfirmModal from '@/components/ui/ConfirmModal'
 import Modal from '@/components/ui/Modal'
 import UnifiedTabs from '@/components/ui/DetailTabs'
-import { useUnsavedChanges } from '@/hooks/useUnsavedChanges'
-import UnsavedChangesModal from '@/components/modals/UnsavedChangesModal'
+import { useUnsavedChanges } from '@/hooks/useUnsavedChangesSimple'
 // Tipo Recipe que coincide con la API del backend
 interface Recipe {
   recipe_id: number
@@ -164,21 +163,14 @@ export default function EventDetailPage() {
   // Saving state
   const [isSaving, setIsSaving] = useState(false)
 
-  // Hook para detectar cambios sin guardar
+  // Hook simplificado para detectar cambios sin guardar
   const {
     hasUnsavedChanges,
-    showUnsavedWarning,
-    pendingNavigation,
-    setIsSaving: setUnsavedChangesSaving,
-    updateInitialValues,
-    handleSaveAndExit,
-    handleDiscardChanges,
-    handleContinueEditing
+    updateInitialValues
   } = useUnsavedChanges({
     formData,
     additionalData: [eventRecipes],
-    isLoading: loading,
-    isSaving
+    isLoading: loading
   })
 
   // Load event data
@@ -221,31 +213,15 @@ export default function EventDetailPage() {
     }
   }
 
-  // Función de guardado sin navegación (para la modal)
-  const saveWithoutNavigation = async () => {
-    setIsSaving(true)
-    setUnsavedChangesSaving(true)
-    
-    try {
-      await performSave(false)
-      updateInitialValues()
-    } finally {
-      setIsSaving(false)
-      setUnsavedChangesSaving(false)
-    }
-  }
-
   // Función principal de guardado
   const handleSave = async () => {
     setIsSaving(true)
-    setUnsavedChangesSaving(true)
     
     try {
       await performSave(true)
       updateInitialValues()
     } finally {
       setIsSaving(false)
-      setUnsavedChangesSaving(false)
     }
   }
 
@@ -872,10 +848,11 @@ export default function EventDetailPage() {
             
             <button
               onClick={handleSave}
+              disabled={!hasUnsavedChanges && !isNewEvent}
               className={`p-2 rounded-lg transition-colors ${
                 hasUnsavedChanges || isNewEvent 
                   ? 'bg-green-600 text-white hover:bg-green-700' 
-                  : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                  : 'bg-gray-100 text-gray-900 hover:bg-gray-200 cursor-not-allowed'
               }`}
               title={isNewEvent ? 'Crear evento' : hasUnsavedChanges ? 'Guardar cambios' : 'Sin cambios que guardar'}
             >
@@ -938,10 +915,11 @@ export default function EventDetailPage() {
             
             <button
               onClick={handleSave}
+              disabled={!hasUnsavedChanges && !isNewEvent}
               className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                 hasUnsavedChanges || isNewEvent 
                   ? 'bg-green-600 text-white hover:bg-green-700' 
-                  : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                  : 'bg-gray-100 text-gray-900 hover:bg-gray-200 cursor-not-allowed'
               }`}
             >
               <Save className="h-4 w-4 mr-2" />
@@ -1541,14 +1519,6 @@ export default function EventDetailPage() {
         type="danger"
       />
 
-      {/* Unsaved Changes Modal */}
-      <UnsavedChangesModal
-        isOpen={showUnsavedWarning}
-        onSaveAndExit={() => handleSaveAndExit(saveWithoutNavigation)}
-        onDiscardChanges={handleDiscardChanges}
-        onContinueEditing={handleContinueEditing}
-        isSaving={isSaving}
-      />
       </div>
     </>
   )

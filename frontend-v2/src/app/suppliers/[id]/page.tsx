@@ -30,8 +30,7 @@ import { useToastHelpers } from '@/context/ToastContext'
 import AddSupplierIngredientModal from '@/components/modals/AddSupplierIngredientModal'
 import EditSupplierIngredientModal from '@/components/modals/EditSupplierIngredientModal'
 import UnifiedTabs from '@/components/ui/DetailTabs'
-import { useUnsavedChanges } from '@/hooks/useUnsavedChanges'
-import UnsavedChangesModal from '@/components/modals/UnsavedChangesModal'
+import { useUnsavedChanges } from '@/hooks/useUnsavedChangesSimple'
 import { usePaginatedTable } from '@/hooks/usePaginatedTable'
 import Pagination from '@/components/ui/Pagination'
 
@@ -167,17 +166,10 @@ export default function SupplierDetailPage() {
   // Hook para detectar cambios sin guardar
   const {
     hasUnsavedChanges,
-    showUnsavedWarning,
-    pendingNavigation,
-    setIsSaving: setUnsavedChangesSaving,
-    updateInitialValues,
-    handleSaveAndExit,
-    handleDiscardChanges,
-    handleContinueEditing
+    updateInitialValues
   } = useUnsavedChanges({
     formData,
-    isLoading: loading,
-    isSaving
+    isLoading: loading
   })
 
   // Load data
@@ -250,28 +242,24 @@ export default function SupplierDetailPage() {
   // Función de guardado sin navegación (para la modal)
   const saveWithoutNavigation = async () => {
     setIsSaving(true)
-    setUnsavedChangesSaving(true)
     
     try {
       await performSave(false)
       updateInitialValues()
     } finally {
       setIsSaving(false)
-      setUnsavedChangesSaving(false)
     }
   }
 
   // Función principal de guardado
   const handleSave = async () => {
     setIsSaving(true)
-    setUnsavedChangesSaving(true)
     
     try {
       await performSave(true)
       updateInitialValues()
     } finally {
       setIsSaving(false)
-      setUnsavedChangesSaving(false)
     }
   }
 
@@ -1103,10 +1091,11 @@ export default function SupplierDetailPage() {
             
             <button
               onClick={handleSave}
+              disabled={!hasUnsavedChanges && !isNewSupplier}
               className={`p-2 rounded-lg transition-colors ${
                 hasUnsavedChanges || isNewSupplier 
                   ? 'bg-green-600 text-white hover:bg-green-700' 
-                  : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                  : 'bg-gray-100 text-gray-900 hover:bg-gray-200 cursor-not-allowed'
               }`}
               title={isNewSupplier ? 'Crear proveedor' : hasUnsavedChanges ? 'Guardar cambios' : 'Sin cambios que guardar'}
             >
@@ -1167,10 +1156,11 @@ export default function SupplierDetailPage() {
             
             <button
               onClick={handleSave}
+              disabled={!hasUnsavedChanges && !isNewSupplier}
               className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                 hasUnsavedChanges || isNewSupplier 
                   ? 'bg-green-600 text-white hover:bg-green-700' 
-                  : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                  : 'bg-gray-100 text-gray-900 hover:bg-gray-200 cursor-not-allowed'
               }`}
             >
               <Save className="h-4 w-4 mr-2" />
@@ -1347,14 +1337,6 @@ export default function SupplierDetailPage() {
         onSave={refreshIngredients}
       />
 
-      {/* Unsaved Changes Modal */}
-      <UnsavedChangesModal
-        isOpen={showUnsavedWarning}
-        onSaveAndExit={() => handleSaveAndExit(saveWithoutNavigation)}
-        onDiscardChanges={handleDiscardChanges}
-        onContinueEditing={handleContinueEditing}
-        isSaving={isSaving}
-      />
     </>
   )
 }

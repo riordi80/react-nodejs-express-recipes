@@ -25,8 +25,7 @@ import { SeasonChips, AllergenChips } from '@/components/ui/Chips'
 import { useToastHelpers } from '@/context/ToastContext'
 import SupplierManager from '@/components/ui/SupplierManager'
 import UnifiedTabs from '@/components/ui/DetailTabs'
-import { useUnsavedChanges } from '@/hooks/useUnsavedChanges'
-import UnsavedChangesModal from '@/components/modals/UnsavedChangesModal'
+import { useUnsavedChanges } from '@/hooks/useUnsavedChangesSimple'
 
 interface Ingredient {
   ingredient_id: number
@@ -123,17 +122,10 @@ export default function IngredientDetailPage() {
   // Hook para detectar cambios sin guardar
   const {
     hasUnsavedChanges,
-    showUnsavedWarning,
-    pendingNavigation,
-    setIsSaving: setUnsavedChangesSaving,
-    updateInitialValues,
-    handleSaveAndExit,
-    handleDiscardChanges,
-    handleContinueEditing
+    updateInitialValues
   } = useUnsavedChanges({
     formData,
-    isLoading: loading,
-    isSaving
+    isLoading: loading
   })
 
   // Options for select fields - DEBE coincidir exactamente con el ENUM de la base de datos
@@ -350,7 +342,6 @@ export default function IngredientDetailPage() {
   // Función de guardado sin navegación (para la modal)
   const saveWithoutNavigation = async () => {
     setIsSaving(true)
-    setUnsavedChangesSaving(true)
     
     try {
       // Reutilizar la lógica de guardado existente pero sin navegación
@@ -358,21 +349,18 @@ export default function IngredientDetailPage() {
       updateInitialValues()
     } finally {
       setIsSaving(false)
-      setUnsavedChangesSaving(false)
     }
   }
 
   // Función principal de guardado
   const handleSave = async () => {
     setIsSaving(true)
-    setUnsavedChangesSaving(true)
     
     try {
       await performSave(true)
       updateInitialValues()
     } finally {
       setIsSaving(false)
-      setUnsavedChangesSaving(false)
     }
   }
 
@@ -666,22 +654,42 @@ export default function IngredientDetailPage() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Costo por unidad (€)
-              </label>
-              {isEditing ? (
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.net_price}
-                  onChange={(e) => setFormData({ ...formData, net_price: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  placeholder="0.00"
-                />
-              ) : (
-                <p className="text-gray-900">{formatCurrency(ingredient?.net_price)}</p>
-              )}
+            {/* Precio Base y Coste Neto en la misma fila */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Precio Base (€)
+                </label>
+                {isEditing ? (
+                  <div>
+                    <input
+                      type="number"
+                      step="0.0001"
+                      value={formData.base_price}
+                      onChange={(e) => setFormData({ ...formData, base_price: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      placeholder="0.0000"
+                    />
+                    {validationErrors.base_price && (
+                      <p className="mt-1 text-sm text-red-600">{validationErrors.base_price}</p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-gray-900">{formatCurrency(ingredient?.base_price, 4)}</p>
+                )}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Coste Neto (€) <span className="text-xs text-gray-500">(automático)</span>
+                </label>
+                <p className="text-gray-900 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg">
+                  {formatCurrency(ingredient?.net_price)}
+                </p>
+                <p className="mt-1 text-xs text-gray-500">
+                  Precio base + merma ({ingredient?.waste_percent || 0}%)
+                </p>
+              </div>
             </div>
 
             {/* Availability */}
@@ -1146,10 +1154,11 @@ export default function IngredientDetailPage() {
             
             <button
               onClick={handleSave}
+              disabled={!hasUnsavedChanges && !isNewIngredient}
               className={`p-2 rounded-lg transition-colors ${
                 hasUnsavedChanges || isNewIngredient 
                   ? 'bg-green-600 text-white hover:bg-green-700' 
-                  : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                  : 'bg-gray-100 text-gray-900 hover:bg-gray-200 cursor-not-allowed'
               }`}
               title={isNewIngredient ? 'Crear ingrediente' : hasUnsavedChanges ? 'Guardar cambios' : 'Sin cambios que guardar'}
             >
@@ -1216,10 +1225,11 @@ export default function IngredientDetailPage() {
             
             <button
               onClick={handleSave}
+              disabled={!hasUnsavedChanges && !isNewIngredient}
               className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                 hasUnsavedChanges || isNewIngredient 
                   ? 'bg-green-600 text-white hover:bg-green-700' 
-                  : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                  : 'bg-gray-100 text-gray-900 hover:bg-gray-200 cursor-not-allowed'
               }`}
             >
               <Save className="h-4 w-4 mr-2" />
@@ -1269,7 +1279,7 @@ export default function IngredientDetailPage() {
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Costo/Unidad</p>
+                  <p className="text-sm font-medium text-gray-600">Coste Neto</p>
                   <p className="text-2xl font-bold text-gray-900 mt-1">
                     {formatCurrency(ingredient.net_price)}
                   </p>
@@ -1443,30 +1453,6 @@ export default function IngredientDetailPage() {
                     )}
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Precio base (€)
-                    </label>
-                    {isEditing ? (
-                      <div>
-                        <input
-                          type="number"
-                          step="0.0001"
-                          value={formData.base_price}
-                          onChange={(e) => setFormData({ ...formData, base_price: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                          placeholder="0.0000"
-                        />
-                        {validationErrors.base_price && (
-                          <p className="mt-1 text-sm text-red-600">{validationErrors.base_price}</p>
-                        )}
-                      </div>
-                    ) : (
-                      <p className="text-gray-900">
-                        {formatCurrency(ingredient?.base_price, 4)}
-                      </p>
-                    )}
-                  </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1922,14 +1908,6 @@ export default function IngredientDetailPage() {
         type="danger"
       />
 
-      {/* Unsaved Changes Modal */}
-      <UnsavedChangesModal
-        isOpen={showUnsavedWarning}
-        onSaveAndExit={() => handleSaveAndExit(saveWithoutNavigation)}
-        onDiscardChanges={handleDiscardChanges}
-        onContinueEditing={handleContinueEditing}
-        isSaving={isSaving}
-      />
     </>
   )
 }
