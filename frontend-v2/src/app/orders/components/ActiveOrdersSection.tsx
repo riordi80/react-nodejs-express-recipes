@@ -45,15 +45,15 @@ interface Pagination {
 }
 
 interface SortConfig {
-  key: string
-  direction: 'asc' | 'desc'
+  key: string | null
+  direction: 'asc' | 'desc' | null
 }
 
 interface ActiveOrdersSectionProps {
   orders: Order[]
   loading: boolean
   filters: OrderFilters
-  pagination?: Pagination
+  pagination?: Pagination | null
   sortConfig?: SortConfig
   onFiltersChange: (filters: OrderFilters) => void
   onOrderClick: (orderId: number) => void
@@ -259,22 +259,22 @@ export default function ActiveOrdersSection({
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <SortableTableHeader sortKey="order_id" sortConfig={sortConfig || { key: '', direction: 'asc' }} onSort={onSort || (() => {})}>
+                      <SortableTableHeader sortKey="order_id" sortConfig={sortConfig || { key: null, direction: null }} onSort={onSort || (() => {})}>
                         Pedido
                       </SortableTableHeader>
-                      <SortableTableHeader sortKey="supplier_name" sortConfig={sortConfig || { key: '', direction: 'asc' }} onSort={onSort || (() => {})}>
+                      <SortableTableHeader sortKey="supplier_name" sortConfig={sortConfig || { key: null, direction: null }} onSort={onSort || (() => {})}>
                         Proveedor
                       </SortableTableHeader>
-                      <SortableTableHeader sortKey="order_date" sortConfig={sortConfig || { key: '', direction: 'asc' }} onSort={onSort || (() => {})}>
+                      <SortableTableHeader sortKey="order_date" sortConfig={sortConfig || { key: null, direction: null }} onSort={onSort || (() => {})}>
                         Fecha
                       </SortableTableHeader>
-                      <SortableTableHeader sortKey="status" sortConfig={sortConfig || { key: '', direction: 'asc' }} onSort={onSort || (() => {})}>
+                      <SortableTableHeader sortKey="status" sortConfig={sortConfig || { key: null, direction: null }} onSort={onSort || (() => {})}>
                         Estado
                       </SortableTableHeader>
-                      <SortableTableHeader sortKey="total_amount" sortConfig={sortConfig || { key: '', direction: 'asc' }} onSort={onSort || (() => {})}>
+                      <SortableTableHeader sortKey="total_amount" sortConfig={sortConfig || { key: null, direction: null }} onSort={onSort || (() => {})}>
                         Total
                       </SortableTableHeader>
-                      <SortableTableHeader sortKey="" sortConfig={sortConfig || { key: '', direction: 'asc' }} onSort={onSort || (() => {})} sortable={false} className="text-right">
+                      <SortableTableHeader sortKey="" sortConfig={sortConfig || { key: null, direction: null }} onSort={onSort || (() => {})} sortable={false} className="text-right">
                         Acciones
                       </SortableTableHeader>
                     </tr>
@@ -349,6 +349,31 @@ export default function ActiveOrdersSection({
                     })}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          )}
+          
+          {/* Pagination */}
+          {pagination && pagination.totalPages > 1 && (
+            <div className="mt-6 flex justify-center">
+              {/* Desktop: Paginación completa */}
+              <div className="hidden sm:block">
+                <Pagination
+                  currentPage={pagination.currentPage}
+                  totalPages={pagination.totalPages}
+                  onPageChange={onPageChange || (() => {})}
+                />
+              </div>
+              
+              {/* Mobile: Paginación compacta */}
+              <div className="block sm:hidden">
+                <Pagination
+                  currentPage={pagination.currentPage}
+                  totalPages={pagination.totalPages}
+                  onPageChange={onPageChange || (() => {})}
+                  showFirstLast={false}
+                  siblingCount={0}
+                />
               </div>
             </div>
           )}

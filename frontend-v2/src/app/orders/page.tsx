@@ -372,10 +372,14 @@ export default function OrdersPage() {
             orders={activeOrdersHook.orders}
             loading={activeOrdersHook.loading}
             filters={activeOrdersHook.filters}
+            pagination={activeOrdersHook.pagination}
+            sortConfig={activeOrdersHook.sortConfig}
             onFiltersChange={activeOrdersHook.setFilters}
             onOrderClick={handleOrderClick}
             onUpdateOrderStatus={handleUpdateOrderStatus}
             onDeleteOrder={handleDeleteOrder}
+            onPageChange={activeOrdersHook.handlePageChange}
+            onSort={activeOrdersHook.handleSort}
           />
         )}
         

@@ -257,11 +257,15 @@ export default function IngredientsPage() {
     tableId: 'ingredients'
   })
 
-  // Autofocus search input on page load
+  // Autofocus search input on page load (desktop only)
   useEffect(() => {
     const timer = setTimeout(() => {
       if (searchInputRef.current) {
-        searchInputRef.current.focus()
+        // Only autofocus on desktop devices
+        const isMobile = window.innerWidth < 768 || 'ontouchstart' in window
+        if (!isMobile) {
+          searchInputRef.current.focus()
+        }
       }
     }, 100) // Pequeño delay para asegurar que el DOM está listo
     

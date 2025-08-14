@@ -689,17 +689,8 @@ router.get('/active', authenticateToken, authorizeRoles('admin', 'chef'), async 
     const totalItems = countResult[0].total;
     const totalPages = Math.ceil(totalItems / limitNum);
 
-    // Determinar orden
-    let orderClause = `
-      ORDER BY 
-        CASE so.status 
-          WHEN 'pending' THEN 1 
-          WHEN 'ordered' THEN 2 
-          WHEN 'delivered' THEN 3 
-          ELSE 4 
-        END,
-        so.created_at DESC
-    `;
+    // Determinar orden - por defecto: más recientes primero (por número de pedido DESC)
+    let orderClause = `ORDER BY so.order_id DESC`;
     
     if (sortKey && sortOrder) {
       const validSortKeys = ['order_id', 'supplier_name', 'order_date', 'total_amount', 'status'];

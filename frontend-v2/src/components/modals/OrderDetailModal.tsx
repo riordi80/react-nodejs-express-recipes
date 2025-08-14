@@ -41,7 +41,7 @@ interface OrderDetailModalProps {
   orderId: number | null
   onOrderUpdated?: () => void
   onUpdateStatus?: (orderId: number, status: string, notes?: string) => Promise<void>
-  onDeleteOrder?: (order: OrderDetail) => Promise<void>
+  onDeleteOrder?: (order: any) => Promise<void>
 }
 
 // Format currency helper

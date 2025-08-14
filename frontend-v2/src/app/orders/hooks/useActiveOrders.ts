@@ -110,7 +110,8 @@ export const useActiveOrders = () => {
   } = usePaginatedTable(fetchOrders, {
     initialPage: 1,
     itemsPerPage: settings.pageSize,
-    initialSortKey: 'order_date',
+    initialSortKey: 'order_id',
+    initialSortDirection: 'desc',
     dependencies: [filters],
     storageKey: 'active-orders-page'
   })

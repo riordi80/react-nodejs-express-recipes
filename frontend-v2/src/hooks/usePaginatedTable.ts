@@ -21,6 +21,7 @@ interface UsePaginatedTableOptions {
   initialPage?: number
   itemsPerPage?: number
   initialSortKey?: string
+  initialSortDirection?: 'asc' | 'desc'
   dependencies?: any[]
   storageKey?: string // Optional key for persisting pagination state
   tableId?: string // Optional unique table identifier for persistent sorting
@@ -60,6 +61,7 @@ export function usePaginatedTable<T extends Record<string, any> = any>(
     initialPage = 1,
     itemsPerPage = 20,
     initialSortKey = '',
+    initialSortDirection = 'asc',
     dependencies = [],
     storageKey,
     tableId = storageKey // Use storageKey as default tableId if not provided
@@ -137,7 +139,7 @@ export function usePaginatedTable<T extends Record<string, any> = any>(
     data, 
     tableId || 'default', 
     initialSortKey, 
-    'asc'
+    initialSortDirection
   )
 
   // Save scroll position when user is about to navigate away
