@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation'
 import { usePaginatedTable } from '@/hooks/usePaginatedTable'
 import SortableTableHeader from '@/components/ui/SortableTableHeader'
 import Pagination from '@/components/ui/Pagination'
+import { usePageSize } from '@/hooks/usePageSize'
+import PaginationSelector from '@/components/ui/PaginationSelector'
 import { 
   Package, 
   Plus, 
@@ -140,6 +142,9 @@ export default function IngredientsPage() {
   // Settings context
   const { settings } = useSettings()
   
+  // Page-specific pageSize with localStorage persistence
+  const { pageSize, setPageSize } = usePageSize('ingredients')
+  
   const [widgets, setWidgets] = useState<DashboardWidget>({
     lowStock: [],
     expiringSoon: [],
@@ -250,9 +255,9 @@ export default function IngredientsPage() {
     refresh
   } = usePaginatedTable(fetchIngredients, {
     initialPage: 1,
-    itemsPerPage: settings.pageSize,
+    itemsPerPage: pageSize,
     initialSortKey: 'name',
-    dependencies: [searchTerm, availabilityFilter, stockFilter, expiryFilter, seasonFilter],
+    dependencies: [searchTerm, availabilityFilter, stockFilter, expiryFilter, seasonFilter, pageSize],
     storageKey: 'ingredients-page',
     tableId: 'ingredients'
   })
@@ -687,7 +692,7 @@ export default function IngredientsPage() {
                   Stock
                 </SortableTableHeader>
                 <SortableTableHeader sortKey="base_price" sortConfig={sortConfig || { key: '', direction: 'asc' }} onSort={handleSort}>
-                  Precio/Unidad
+                  Precio Base
                 </SortableTableHeader>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Caducidad
@@ -850,11 +855,19 @@ export default function IngredientsPage() {
         )}
       </div>
 
-      {/* Results Counter and Pagination */}
+      {/* Results Counter, Page Size Selector and Pagination */}
       {pagination && (
-        <div className="mt-6 flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
-          <div className="text-sm text-gray-600">
-            Mostrando {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1} - {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} de {pagination.totalItems} ingredientes
+        <div className="mt-6 flex flex-col lg:flex-row justify-between items-center space-y-4 lg:space-y-0">
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            <div className="text-sm text-gray-600">
+              Mostrando {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1} - {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} de {pagination.totalItems} ingredientes
+            </div>
+            
+            <PaginationSelector
+              currentPageSize={pageSize}
+              onPageSizeChange={setPageSize}
+              totalItems={pagination.totalItems}
+            />
           </div>
           
           <Pagination

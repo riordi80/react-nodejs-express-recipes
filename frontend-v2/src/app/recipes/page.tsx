@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation'
 import { usePaginatedTable } from '@/hooks/usePaginatedTable'
 import SortableTableHeader from '@/components/ui/SortableTableHeader'
 import Pagination from '@/components/ui/Pagination'
+import { usePageSize } from '@/hooks/usePageSize'
+import PaginationSelector from '@/components/ui/PaginationSelector'
 import { 
   BookOpen, 
   Plus, 
@@ -83,6 +85,9 @@ export default function RecipesPage() {
   
   // Settings context
   const { settings } = useSettings()
+  
+  // Page-specific pageSize with localStorage persistence
+  const { pageSize, setPageSize } = usePageSize('recipes')
   
   const [view, setView] = useState<'list' | 'grid'>('list')
   const [isInitialized, setIsInitialized] = useState(false)
@@ -163,9 +168,9 @@ export default function RecipesPage() {
     refresh
   } = usePaginatedTable(fetchRecipes, {
     initialPage: 1,
-    itemsPerPage: settings.pageSize,
+    itemsPerPage: pageSize,
     initialSortKey: 'name',
-    dependencies: [searchText, selectedCategories, selectedDifficulty, selectedPrepTime, selectedIngredient, selectedAllergens],
+    dependencies: [searchText, selectedCategories, selectedDifficulty, selectedPrepTime, selectedIngredient, selectedAllergens, pageSize],
     storageKey: 'recipes-page',
     tableId: 'recipes'
   })
@@ -660,13 +665,20 @@ export default function RecipesPage() {
         </div>
       )}
 
-      {/* Results Counter */}
-      {/* Results Counter and Pagination */}
+      {/* Results Counter, Page Size Selector and Pagination */}
       {pagination && (
-        <div className="mt-6 flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
-          <div className="text-sm text-gray-600">
-            Mostrando {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1} - {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} de {pagination.totalItems} recetas
-            {hasActiveFilters && ' (filtradas)'}
+        <div className="mt-6 flex flex-col lg:flex-row justify-between items-center space-y-4 lg:space-y-0">
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            <div className="text-sm text-gray-600">
+              Mostrando {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1} - {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} de {pagination.totalItems} recetas
+              {hasActiveFilters && ' (filtradas)'}
+            </div>
+            
+            <PaginationSelector
+              currentPageSize={pageSize}
+              onPageSizeChange={setPageSize}
+              totalItems={pagination.totalItems}
+            />
           </div>
           
           <Pagination
