@@ -23,8 +23,8 @@ const Pagination = ({
   siblingCount = 1,
   className
 }: PaginationProps) => {
-  // Generar array de páginas a mostrar
-  const generatePages = () => {
+  // Generar array de páginas a mostrar para desktop
+  const generateDesktopPages = () => {
     const pages: (number | 'ellipsis')[] = []
     
     // Siempre mostrar primera página
@@ -59,74 +59,134 @@ const Pagination = ({
     return pages
   }
 
-  const pages = generatePages()
+  // Generar array de páginas a mostrar para mobile (compact design)
+  const generateMobilePages = () => {
+    const pages: (number | 'ellipsis')[] = []
+    
+    // En mobile solo mostramos la página actual y adyacentes sin first/last
+    const startPage = Math.max(1, currentPage - 0) // siblingCount = 0 para mobile
+    const endPage = Math.min(totalPages, currentPage + 0)
+    
+    // Añadir páginas del rango (solo página actual)
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i)
+    }
+    
+    return pages
+  }
+
+  const desktopPages = generateDesktopPages()
+  const mobilePages = generateMobilePages()
 
   const buttonClasses = 'inline-flex items-center justify-center px-3 py-2 text-sm font-medium border transition-colors'
   const activeClasses = 'bg-orange-600 text-white border-orange-600'
   const inactiveClasses = 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
   const disabledClasses = 'bg-gray-100 text-gray-400 border-gray-300 cursor-not-allowed'
 
-  return (
-    <nav className={clsx('flex items-center justify-center space-x-1', className)}>
-      {/* Previous button */}
-      {showPrevNext && (
+  const renderPageNumbers = (pages: (number | 'ellipsis')[]) => {
+    return pages.map((page, index) => {
+      if (page === 'ellipsis') {
+        return (
+          <span
+            key={`ellipsis-${index}`}
+            className="inline-flex items-center justify-center px-3 py-2 text-sm text-gray-700"
+          >
+            <MoreHorizontal className="h-4 w-4" />
+          </span>
+        )
+      }
+
+      return (
         <button
-          onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage <= 1}
+          key={page}
+          onClick={() => onPageChange(page)}
           className={clsx(
             buttonClasses,
-            'rounded-l-md',
-            currentPage <= 1 ? disabledClasses : inactiveClasses
+            currentPage === page ? activeClasses : inactiveClasses
           )}
         >
-          <ChevronLeft className="h-4 w-4" />
-          <span className="hidden sm:inline ml-1">Anterior</span>
+          {page}
         </button>
-      )}
+      )
+    })
+  }
 
-      {/* Page numbers */}
-      {pages.map((page, index) => {
-        if (page === 'ellipsis') {
-          return (
-            <span
-              key={`ellipsis-${index}`}
-              className="inline-flex items-center justify-center px-3 py-2 text-sm text-gray-700"
-            >
-              <MoreHorizontal className="h-4 w-4" />
-            </span>
-          )
-        }
-
-        return (
+  return (
+    <>
+      {/* Desktop Version */}
+      <nav className={clsx('hidden sm:flex items-center justify-center space-x-1', className)}>
+        {/* Previous button */}
+        {showPrevNext && (
           <button
-            key={page}
-            onClick={() => onPageChange(page)}
+            onClick={() => onPageChange(currentPage - 1)}
+            disabled={currentPage <= 1}
             className={clsx(
               buttonClasses,
-              currentPage === page ? activeClasses : inactiveClasses
+              'rounded-l-md',
+              currentPage <= 1 ? disabledClasses : inactiveClasses
             )}
           >
-            {page}
+            <ChevronLeft className="h-4 w-4" />
+            <span className="ml-1">Anterior</span>
           </button>
-        )
-      })}
+        )}
 
-      {/* Next button */}
-      {showPrevNext && (
-        <button
-          onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage >= totalPages}
-          className={clsx(
-            buttonClasses,
-            'rounded-r-md',
-            currentPage >= totalPages ? disabledClasses : inactiveClasses
-          )}
-        >
-          <span className="hidden sm:inline mr-1">Siguiente</span>
-          <ChevronRight className="h-4 w-4" />
-        </button>
-      )}
-    </nav>
+        {/* Desktop Page numbers */}
+        {renderPageNumbers(desktopPages)}
+
+        {/* Next button */}
+        {showPrevNext && (
+          <button
+            onClick={() => onPageChange(currentPage + 1)}
+            disabled={currentPage >= totalPages}
+            className={clsx(
+              buttonClasses,
+              'rounded-r-md',
+              currentPage >= totalPages ? disabledClasses : inactiveClasses
+            )}
+          >
+            <span className="mr-1">Siguiente</span>
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        )}
+      </nav>
+
+      {/* Mobile Version - Compact */}
+      <nav className={clsx('flex sm:hidden items-center justify-center space-x-1', className)}>
+        {/* Previous button */}
+        {showPrevNext && (
+          <button
+            onClick={() => onPageChange(currentPage - 1)}
+            disabled={currentPage <= 1}
+            className={clsx(
+              buttonClasses,
+              'rounded-l-md',
+              currentPage <= 1 ? disabledClasses : inactiveClasses
+            )}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+        )}
+
+        {/* Mobile Page numbers - Only current page */}
+        {renderPageNumbers(mobilePages)}
+
+        {/* Next button */}
+        {showPrevNext && (
+          <button
+            onClick={() => onPageChange(currentPage + 1)}
+            disabled={currentPage >= totalPages}
+            className={clsx(
+              buttonClasses,
+              'rounded-r-md',
+              currentPage >= totalPages ? disabledClasses : inactiveClasses
+            )}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        )}
+      </nav>
+    </>
   )
 }
 
