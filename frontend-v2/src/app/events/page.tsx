@@ -234,10 +234,14 @@ export default function EventsPage() {
     }
   }, [isInitialized, fetchAllEvents])
 
-  // Autofocus search input after initialization
+  // Autofocus search input after initialization (desktop only)
   useEffect(() => {
     if (isInitialized && searchInputRef.current) {
-      searchInputRef.current.focus()
+      // Only autofocus on desktop devices
+      const isMobile = window.innerWidth < 768 || 'ontouchstart' in window
+      if (!isMobile) {
+        searchInputRef.current.focus()
+      }
     }
   }, [isInitialized])
 
