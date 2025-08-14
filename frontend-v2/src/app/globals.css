@@ -15,6 +15,23 @@ body {
   color: var(--foreground);
 }
 
+/* Fix Chrome's black outline on form inputs */
+input:focus,
+textarea:focus,
+select:focus,
+button:focus {
+  outline: none !important;
+}
+
+/* Ensure our Tailwind focus rings still work properly */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+button:focus-visible {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+
 /* Table column widths for consistent shopping list tables */
 @layer utilities {
   /* Shopping table consistent widths */

@@ -27,7 +27,7 @@ interface SettingsProviderProps {
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
-  pageSize: 25,
+  pageSize: 10,
   dateFormat: 'dd/mm/yyyy',
   currency: 'EUR',
   units: 'metric',

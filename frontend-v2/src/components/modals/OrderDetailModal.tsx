@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, Package, Calendar, User, FileText, Truck, Edit3, Save, AlertCircle } from 'lucide-react'
+import { X, Package, Calendar, User, FileText, Truck, Edit3, Save, AlertCircle, Check, CheckCircle, Trash2 } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
+import ConfirmModal from '@/components/ui/ConfirmModal'
 import { apiGet, apiPut } from '@/lib/api'
 import { useToastHelpers } from '@/context/ToastContext'
 
@@ -39,6 +40,8 @@ interface OrderDetailModalProps {
   onClose: () => void
   orderId: number | null
   onOrderUpdated?: () => void
+  onUpdateStatus?: (orderId: number, status: string, notes?: string) => Promise<void>
+  onDeleteOrder?: (order: OrderDetail) => Promise<void>
 }
 
 // Format currency helper
@@ -80,7 +83,14 @@ const getStatusStyle = (status: string) => {
   }
 }
 
-export default function OrderDetailModal({ isOpen, onClose, orderId, onOrderUpdated }: OrderDetailModalProps) {
+export default function OrderDetailModal({ 
+  isOpen, 
+  onClose, 
+  orderId, 
+  onOrderUpdated, 
+  onUpdateStatus, 
+  onDeleteOrder 
+}: OrderDetailModalProps) {
   const { success, error: showError } = useToastHelpers()
   
   const [orderDetail, setOrderDetail] = useState<OrderDetail | null>(null)
@@ -88,6 +98,12 @@ export default function OrderDetailModal({ isOpen, onClose, orderId, onOrderUpda
   const [isEditing, setIsEditing] = useState(false)
   const [editedItems, setEditedItems] = useState<OrderItem[]>([])
   const [saving, setSaving] = useState(false)
+  
+  // States for action modals
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [showDeliveredModal, setShowDeliveredModal] = useState(false)
+  const [showCancelModal, setShowCancelModal] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
 
   // Load order details
   const loadOrderDetail = async () => {
@@ -169,6 +185,72 @@ export default function OrderDetailModal({ isOpen, onClose, orderId, onOrderUpda
     return editedItems.reduce((total, item) => total + item.total_price, 0)
   }
 
+  // Action handlers
+  const handleConfirmOrder = () => {
+    setShowConfirmModal(true)
+  }
+
+  const handleMarkDelivered = () => {
+    setShowDeliveredModal(true)
+  }
+
+  const handleCancelOrder = () => {
+    setShowCancelModal(true)
+  }
+
+  const handleDeleteOrder = () => {
+    setShowDeleteModal(true)
+  }
+
+  // Modal confirmations
+  const confirmOrder = async () => {
+    if (!orderDetail || !onUpdateStatus) return
+    try {
+      await onUpdateStatus(orderDetail.order_id, 'ordered')
+      await loadOrderDetail() // Reload to get updated status
+      setShowConfirmModal(false)
+      if (onOrderUpdated) onOrderUpdated()
+    } catch (error) {
+      console.error('Error confirming order:', error)
+    }
+  }
+
+  const confirmDelivered = async () => {
+    if (!orderDetail || !onUpdateStatus) return
+    try {
+      await onUpdateStatus(orderDetail.order_id, 'delivered')
+      await loadOrderDetail() // Reload to get updated status
+      setShowDeliveredModal(false)
+      if (onOrderUpdated) onOrderUpdated()
+    } catch (error) {
+      console.error('Error marking as delivered:', error)
+    }
+  }
+
+  const confirmCancel = async () => {
+    if (!orderDetail || !onUpdateStatus) return
+    try {
+      await onUpdateStatus(orderDetail.order_id, 'cancelled')
+      await loadOrderDetail() // Reload to get updated status
+      setShowCancelModal(false)
+      if (onOrderUpdated) onOrderUpdated()
+    } catch (error) {
+      console.error('Error cancelling order:', error)
+    }
+  }
+
+  const confirmDelete = async () => {
+    if (!orderDetail || !onDeleteOrder) return
+    try {
+      await onDeleteOrder(orderDetail)
+      setShowDeleteModal(false)
+      onClose() // Close the modal after deletion
+      if (onOrderUpdated) onOrderUpdated()
+    } catch (error) {
+      console.error('Error deleting order:', error)
+    }
+  }
+
   useEffect(() => {
     if (isOpen && orderId) {
       loadOrderDetail()
@@ -180,33 +262,39 @@ export default function OrderDetailModal({ isOpen, onClose, orderId, onOrderUpda
 
   const statusStyle = orderDetail ? getStatusStyle(orderDetail.status) : { label: '', className: '' }
 
-  return (
-    <Modal isOpen={isOpen} onClose={onClose} size="xl">
-      <div className="p-6">
-        {/* Header */}
-        <div className="flex items-start justify-between mb-6">
-          <div className="flex items-center space-x-3">
-            <div className="bg-blue-100 p-2 rounded-lg">
-              <Package className="h-6 w-6 text-blue-600" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">
-                Detalles del Pedido #{orderId}
-              </h2>
-              {orderDetail && (
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusStyle.className} mt-1`}>
-                  {statusStyle.label}
-                </span>
-              )}
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <X className="h-6 w-6" />
-          </button>
+  // Create custom header content
+  const customTitle = orderDetail ? (
+    <div className="flex items-center space-x-3">
+      <div className="bg-blue-100 p-2 rounded-lg">
+        <Package className="h-6 w-6 text-blue-600" />
+      </div>
+      <div>
+        <div className="text-xl font-bold text-gray-900">
+          Pedido #{orderDetail.order_id} - {orderDetail.supplier_name}
         </div>
+        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusStyle.className} mt-1`}>
+          {statusStyle.label}
+        </span>
+      </div>
+    </div>
+  ) : (
+    `Pedido #${orderId}`
+  )
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} size="xl" showCloseButton={false}>
+      {/* Custom Header */}
+      <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        {customTitle}
+        <button
+          onClick={onClose}
+          className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100"
+        >
+          <X className="h-5 w-5" />
+        </button>
+      </div>
+
+      <div className="p-6">
 
         {loading ? (
           <div className="flex justify-center py-12">
@@ -398,30 +486,85 @@ export default function OrderDetailModal({ isOpen, onClose, orderId, onOrderUpda
             </div>
 
             {/* Actions */}
-            {isEditing && (
-              <div className="flex justify-end space-x-3">
-                <button
-                  onClick={() => {
-                    setEditedItems(orderDetail.items || [])
-                    setIsEditing(false)
-                  }}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={saveOrderItems}
-                  disabled={saving}
-                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {saving && (
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+            <div className="flex justify-end space-x-3">
+              {isEditing ? (
+                <>
+                  <button
+                    onClick={() => {
+                      setEditedItems(orderDetail.items || [])
+                      setIsEditing(false)
+                    }}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={saveOrderItems}
+                    disabled={saving}
+                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {saving && (
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                    )}
+                    <Save className="h-4 w-4 mr-1" />
+                    Guardar Cambios
+                  </button>
+                </>
+              ) : (
+                <>
+                  {/* Status-based action buttons */}
+                  {orderDetail.status === 'pending' && onUpdateStatus && (
+                    <>
+                      <button
+                        onClick={handleConfirmOrder}
+                        className="inline-flex items-center px-4 py-2 border border-green-300 text-green-700 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+                      >
+                        <Check className="h-4 w-4 mr-2" />
+                        Confirmar Pedido
+                      </button>
+                      {onDeleteOrder && (
+                        <button
+                          onClick={handleDeleteOrder}
+                          className="inline-flex items-center px-4 py-2 border border-red-300 text-red-700 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Eliminar
+                        </button>
+                      )}
+                    </>
                   )}
-                  <Save className="h-4 w-4 mr-1" />
-                  Guardar Cambios
-                </button>
-              </div>
-            )}
+                  
+                  {orderDetail.status === 'ordered' && onUpdateStatus && (
+                    <>
+                      <button
+                        onClick={handleMarkDelivered}
+                        className="inline-flex items-center px-4 py-2 border border-green-300 text-green-700 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+                      >
+                        <CheckCircle className="h-4 w-4 mr-2" />
+                        Marcar como Recibido
+                      </button>
+                      <button
+                        onClick={handleCancelOrder}
+                        className="inline-flex items-center px-4 py-2 border border-red-300 text-red-700 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+                      >
+                        <X className="h-4 w-4 mr-2" />
+                        Cancelar Pedido
+                      </button>
+                    </>
+                  )}
+                  
+                  {orderDetail.status === 'cancelled' && onDeleteOrder && (
+                    <button
+                      onClick={handleDeleteOrder}
+                      className="inline-flex items-center px-4 py-2 border border-red-300 text-red-700 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Eliminar
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
           </div>
         ) : (
           <div className="text-center py-12 text-gray-500">
@@ -430,6 +573,50 @@ export default function OrderDetailModal({ isOpen, onClose, orderId, onOrderUpda
           </div>
         )}
       </div>
+      
+      {/* Confirmation Modals */}
+      <ConfirmModal
+        isOpen={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+        onConfirm={confirmOrder}
+        title="Confirmar Pedido"
+        message={orderDetail ? `¿Confirmar el pedido #${orderDetail.order_id} al proveedor ${orderDetail.supplier_name}?` : ''}
+        confirmText="Confirmar"
+        cancelText="Cancelar"
+      />
+
+      <ConfirmModal
+        isOpen={showDeliveredModal}
+        onClose={() => setShowDeliveredModal(false)}
+        onConfirm={confirmDelivered}
+        title="Marcar como Recibido"
+        message={orderDetail ? `¿Confirmar que el pedido #${orderDetail.order_id} del proveedor ${orderDetail.supplier_name} ha sido recibido?` : ''}
+        confirmText="Confirmar recepción"
+        cancelText="Cancelar"
+        type="success"
+      />
+
+      <ConfirmModal
+        isOpen={showCancelModal}
+        onClose={() => setShowCancelModal(false)}
+        onConfirm={confirmCancel}
+        title="Cancelar Pedido"
+        message={orderDetail ? `¿Estás seguro de que deseas cancelar el pedido #${orderDetail.order_id} al proveedor ${orderDetail.supplier_name}?` : ''}
+        confirmText="Cancelar pedido"
+        cancelText="No cancelar"
+        type="danger"
+      />
+
+      <ConfirmModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={confirmDelete}
+        title="Eliminar Pedido"
+        message={orderDetail ? `¿Estás seguro de que deseas eliminar el pedido #${orderDetail.order_id} al proveedor ${orderDetail.supplier_name}?` : ''}
+        confirmText="Eliminar"
+        cancelText="Cancelar"
+        type="danger"
+      />
     </Modal>
   )
 }

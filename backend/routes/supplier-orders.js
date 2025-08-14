@@ -609,18 +609,27 @@ router.post('/generate', authenticateToken, authorizeRoles('admin', 'chef'), asy
   }
 });
 
-// GET /supplier-orders/active - Obtener pedidos activos con filtros
+// GET /supplier-orders/active - Obtener pedidos activos con filtros y paginación
 router.get('/active', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
   try {
-    // Extraer parámetros de filtro de la query
+    // Extraer parámetros de filtro y paginación de la query
     const {
       status = 'pending,ordered,delivered', // Estados por defecto
       dateFrom = null,
       dateTo = null,
       search = null,
       amountMin = null,
-      amountMax = null
+      amountMax = null,
+      page = 1,
+      limit = 20,
+      sortKey = null,
+      sortOrder = 'desc'
     } = req.query;
+
+    // Paginación
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 20));
+    const offset = (pageNum - 1) * limitNum;
 
     // Construir condiciones WHERE dinámicamente
     let whereConditions = ['1=1']; // Condición base
@@ -648,7 +657,6 @@ router.get('/active', authenticateToken, authorizeRoles('admin', 'chef'), async 
       queryParams.push(dateTo + ' 23:59:59'); // Incluir todo el día
     }
 
-
     // Filtro por búsqueda (número de pedido o nombre de proveedor)
     if (search) {
       whereConditions.push('(so.order_id LIKE ? OR s.name LIKE ?)');
@@ -670,7 +678,44 @@ router.get('/active', authenticateToken, authorizeRoles('admin', 'chef'), async 
 
     const whereClause = whereConditions.join(' AND ');
 
-    const [orders] = await req.tenantDb.query(`
+    // Contar total de registros
+    const countSql = `
+      SELECT COUNT(DISTINCT so.order_id) as total
+      FROM SUPPLIER_ORDERS so
+      LEFT JOIN SUPPLIERS s ON so.supplier_id = s.supplier_id
+      WHERE ${whereClause}
+    `;
+    const [countResult] = await req.tenantDb.query(countSql, queryParams);
+    const totalItems = countResult[0].total;
+    const totalPages = Math.ceil(totalItems / limitNum);
+
+    // Determinar orden
+    let orderClause = `
+      ORDER BY 
+        CASE so.status 
+          WHEN 'pending' THEN 1 
+          WHEN 'ordered' THEN 2 
+          WHEN 'delivered' THEN 3 
+          ELSE 4 
+        END,
+        so.created_at DESC
+    `;
+    
+    if (sortKey && sortOrder) {
+      const validSortKeys = ['order_id', 'supplier_name', 'order_date', 'total_amount', 'status'];
+      const validSortOrders = ['asc', 'desc'];
+      
+      if (validSortKeys.includes(sortKey) && validSortOrders.includes(sortOrder.toLowerCase())) {
+        if (sortKey === 'supplier_name') {
+          orderClause = `ORDER BY s.name ${sortOrder.toUpperCase()}`;
+        } else {
+          orderClause = `ORDER BY so.${sortKey} ${sortOrder.toUpperCase()}`;
+        }
+      }
+    }
+
+    // Obtener datos paginados
+    const dataSql = `
       SELECT 
         so.order_id,
         so.supplier_id,
@@ -693,17 +738,25 @@ router.get('/active', authenticateToken, authorizeRoles('admin', 'chef'), async 
       GROUP BY so.order_id, so.supplier_id, s.name, so.order_date, so.delivery_date, 
                so.status, so.total_amount, so.notes, so.created_at, so.updated_at,
                u.first_name, u.last_name
-      ORDER BY 
-        CASE so.status 
-          WHEN 'pending' THEN 1 
-          WHEN 'ordered' THEN 2 
-          WHEN 'delivered' THEN 3 
-          ELSE 4 
-        END,
-        so.created_at DESC
-    `, queryParams);
+      ${orderClause}
+      LIMIT ? OFFSET ?
+    `;
+    
+    const dataParams = [...queryParams, limitNum, offset];
+    const [orders] = await req.tenantDb.query(dataSql, dataParams);
 
-    res.json(orders);
+    // Devolver respuesta paginada
+    res.json({
+      data: orders,
+      pagination: {
+        currentPage: pageNum,
+        totalPages,
+        totalItems,
+        itemsPerPage: limitNum,
+        hasNextPage: pageNum < totalPages,
+        hasPrevPage: pageNum > 1
+      }
+    });
   } catch (error) {
     console.error('Error al obtener pedidos activos:', error);
     res.status(500).json({ message: 'Error interno del servidor' });

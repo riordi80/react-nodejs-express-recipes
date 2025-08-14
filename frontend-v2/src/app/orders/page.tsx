@@ -454,6 +454,8 @@ export default function OrdersPage() {
           // Reload active orders when an order is updated
           activeOrdersHook.loadOrders()
         }}
+        onUpdateStatus={activeOrdersHook.updateOrderStatus}
+        onDeleteOrder={activeOrdersHook.deleteOrder}
       />
     </div>
   )

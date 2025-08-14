@@ -8,27 +8,16 @@ const logAudit         = require('../utils/audit');
 
 // Multi-tenant: usar req.tenantDb en lugar de pool estático
 
-// GET /events - Obtener eventos con filtros
+// GET /events - Obtener eventos con filtros y paginación
 router.get('/', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
-  const { search, status, date_from, date_to, location } = req.query;
+  const { search, status, date_from, date_to, location, page = 1, limit = 20, sortKey, sortOrder } = req.query;
 
-  let sql = `
-    SELECT 
-      e.event_id,
-      e.name,
-      e.description,
-      e.event_date,
-      e.event_time,
-      e.guests_count,
-      e.location,
-      e.status,
-      e.budget,
-      e.notes,
-      e.created_by_user_id,
-      e.created_at,
-      e.updated_at,
-      CONCAT(u.first_name, ' ', u.last_name) as created_by_name,
-      COUNT(em.recipe_id) as recipes_count
+  // Paginación
+  const pageNum = Math.max(1, parseInt(page) || 1);
+  const limitNum = Math.min(100, Math.max(1, parseInt(limit) || 20));
+  const offset = (pageNum - 1) * limitNum;
+
+  let baseSql = `
     FROM EVENTS e
     LEFT JOIN USERS u ON e.created_by_user_id = u.user_id
     LEFT JOIN EVENT_MENUS em ON e.event_id = em.event_id
@@ -39,13 +28,38 @@ router.get('/', authenticateToken, authorizeRoles('admin','chef'), async (req, r
 
   // Filtros opcionales
   if (search) {
-    wheres.push('(e.name LIKE ? OR e.description LIKE ? OR e.location LIKE ?)');
-    params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+    // Normalizar búsqueda para insensibilidad a acentos
+    const normalizedSearch = search.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    wheres.push(`(
+      REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+        UPPER(e.name), 
+        'Á','A'), 'É','E'), 'Í','I'), 'Ó','O'), 'Ú','U'), 'Ñ','N'), 'Ü','U'), 'À','A'), 'È','E'), 'Ì','I')
+        LIKE UPPER(?) OR
+      REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+        UPPER(e.description), 
+        'Á','A'), 'É','E'), 'Í','I'), 'Ó','O'), 'Ú','U'), 'Ñ','N'), 'Ü','U'), 'À','A'), 'È','E'), 'Ì','I')
+        LIKE UPPER(?) OR
+      REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+        UPPER(e.location), 
+        'Á','A'), 'É','E'), 'Í','I'), 'Ó','O'), 'Ú','U'), 'Ñ','N'), 'Ü','U'), 'À','A'), 'È','E'), 'Ì','I')
+        LIKE UPPER(?)
+    )`);
+    params.push(`%${normalizedSearch}%`, `%${normalizedSearch}%`, `%${normalizedSearch}%`);
   }
 
   if (status) {
-    wheres.push('e.status = ?');
-    params.push(status);
+    // Handle multiple statuses separated by commas
+    if (status.includes(',')) {
+      const statusArray = status.split(',').map(s => s.trim()).filter(s => s);
+      if (statusArray.length > 0) {
+        const placeholders = statusArray.map(() => '?').join(',');
+        wheres.push(`e.status IN (${placeholders})`);
+        params.push(...statusArray);
+      }
+    } else {
+      wheres.push('e.status = ?');
+      params.push(status);
+    }
   }
 
   if (date_from) {
@@ -59,19 +73,74 @@ router.get('/', authenticateToken, authorizeRoles('admin','chef'), async (req, r
   }
 
   if (location) {
-    wheres.push('e.location LIKE ?');
-    params.push(`%${location}%`);
+    // Normalizar búsqueda de ubicación para insensibilidad a acentos
+    const normalizedLocation = location.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    wheres.push(`REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(
+      UPPER(e.location), 
+      'Á','A'), 'É','E'), 'Í','I'), 'Ó','O'), 'Ú','U'), 'Ñ','N'), 'Ü','U'), 'À','A'), 'È','E'), 'Ì','I')
+      LIKE UPPER(?)`);
+    params.push(`%${normalizedLocation}%`);
   }
 
-  if (wheres.length > 0) {
-    sql += ' WHERE ' + wheres.join(' AND ');
-  }
-
-  sql += ' GROUP BY e.event_id ORDER BY e.event_date DESC, e.created_at DESC';
+  const whereClause = wheres.length > 0 ? ' WHERE ' + wheres.join(' AND ') : '';
+  const groupByClause = ' GROUP BY e.event_id';
 
   try {
-    const [rows] = await req.tenantDb.execute(sql, params);
-    res.json(rows);
+    // Contar total de registros
+    const countSql = `SELECT COUNT(DISTINCT e.event_id) as total ${baseSql}${whereClause}`;
+    const [countResult] = await req.tenantDb.query(countSql, params);
+    const totalItems = countResult[0].total;
+    const totalPages = Math.ceil(totalItems / limitNum);
+
+    // Determinar orden
+    let orderClause = 'ORDER BY e.event_date DESC, e.created_at DESC';
+    if (sortKey && sortOrder) {
+      const validSortKeys = ['name', 'event_date', 'guests_count', 'status', 'budget'];
+      const validSortOrders = ['asc', 'desc'];
+      
+      if (validSortKeys.includes(sortKey) && validSortOrders.includes(sortOrder.toLowerCase())) {
+        orderClause = `ORDER BY e.${sortKey} ${sortOrder.toUpperCase()}`;
+      }
+    }
+
+    // Obtener datos paginados
+    const dataSql = `
+      SELECT 
+        e.event_id,
+        e.name,
+        e.description,
+        e.event_date,
+        e.event_time,
+        e.guests_count,
+        e.location,
+        e.status,
+        e.budget,
+        e.notes,
+        e.created_by_user_id,
+        e.created_at,
+        e.updated_at,
+        CONCAT(u.first_name, ' ', u.last_name) as created_by_name,
+        COUNT(em.recipe_id) as recipes_count
+      ${baseSql}${whereClause}${groupByClause}
+      ${orderClause}
+      LIMIT ? OFFSET ?
+    `;
+    
+    const dataParams = [...params, limitNum, offset];
+    const [rows] = await req.tenantDb.query(dataSql, dataParams);
+
+    // Devolver respuesta paginada
+    res.json({
+      data: rows,
+      pagination: {
+        currentPage: pageNum,
+        totalPages,
+        totalItems,
+        itemsPerPage: limitNum,
+        hasNextPage: pageNum < totalPages,
+        hasPrevPage: pageNum > 1
+      }
+    });
   } catch (error) {
     console.error('Error al obtener eventos:', error);
     res.status(500).json({ message: 'Error interno del servidor' });
@@ -82,7 +151,7 @@ router.get('/', authenticateToken, authorizeRoles('admin','chef'), async (req, r
 router.get('/dashboard-widgets', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
   try {
     // Widget 1: Eventos Próximos (7 días)
-    const [upcomingEvents] = await req.tenantDb.execute(`
+    const [upcomingEvents] = await req.tenantDb.query(`
       SELECT 
         event_id,
         name,
@@ -98,7 +167,7 @@ router.get('/dashboard-widgets', authenticateToken, authorizeRoles('admin','chef
     `);
 
     // Widget 2: Sin Menú Asignado
-    const [eventsWithoutMenu] = await req.tenantDb.execute(`
+    const [eventsWithoutMenu] = await req.tenantDb.query(`
       SELECT 
         e.event_id,
         e.name,
@@ -115,7 +184,7 @@ router.get('/dashboard-widgets', authenticateToken, authorizeRoles('admin','chef
     `);
 
     // Widget 3: Presupuesto Excedido
-    const [budgetExceededEvents] = await req.tenantDb.execute(`
+    const [budgetExceededEvents] = await req.tenantDb.query(`
       SELECT 
         e.event_id,
         e.name,
@@ -137,7 +206,7 @@ router.get('/dashboard-widgets', authenticateToken, authorizeRoles('admin','chef
     `);
 
     // Widget 4: Eventos Grandes (>50 invitados)
-    const [largeEvents] = await req.tenantDb.execute(`
+    const [largeEvents] = await req.tenantDb.query(`
       SELECT 
         event_id,
         name,
@@ -171,7 +240,7 @@ router.get('/:id', authenticateToken, authorizeRoles('admin','chef'), async (req
 
   try {
     // Obtener información del evento
-    const [eventRows] = await req.tenantDb.execute(`
+    const [eventRows] = await req.tenantDb.query(`
       SELECT 
         e.*,
         CONCAT(u.first_name, ' ', u.last_name) as created_by_name
@@ -185,7 +254,7 @@ router.get('/:id', authenticateToken, authorizeRoles('admin','chef'), async (req
     }
 
     // Obtener menú del evento con información nutricional y alérgenos
-    const [menuRows] = await req.tenantDb.execute(`
+    const [menuRows] = await req.tenantDb.query(`
       SELECT 
         em.*,
         r.name as recipe_name,
@@ -259,7 +328,7 @@ router.post('/', authenticateToken, authorizeRoles('admin','chef'), async (req, 
   }
 
   try {
-    const [result] = await req.tenantDb.execute(`
+    const [result] = await req.tenantDb.query(`
       INSERT INTO EVENTS (
         name, description, event_date, event_time, guests_count, 
         location, status, budget, notes, created_by_user_id
@@ -311,13 +380,13 @@ router.put('/:id', authenticateToken, authorizeRoles('admin','chef'), async (req
 
   try {
     // Verificar que el evento existe
-    const [existingEvent] = await req.tenantDb.execute('SELECT name FROM EVENTS WHERE event_id = ?', [id]);
+    const [existingEvent] = await req.tenantDb.query('SELECT name FROM EVENTS WHERE event_id = ?', [id]);
     if (existingEvent.length === 0) {
       return res.status(404).json({ message: 'Evento no encontrado' });
     }
 
     // Actualizar evento
-    await req.tenantDb.execute(`
+    await req.tenantDb.query(`
       UPDATE EVENTS SET 
         name = ?, description = ?, event_date = ?, event_time = ?, 
         guests_count = ?, location = ?, status = ?, budget = ?, notes = ?
@@ -340,7 +409,7 @@ router.delete('/:id', authenticateToken, authorizeRoles('admin','chef'), async (
 
   try {
     // Verificar que el evento existe
-    const [existingEvent] = await req.tenantDb.execute('SELECT name FROM EVENTS WHERE event_id = ?', [id]);
+    const [existingEvent] = await req.tenantDb.query('SELECT name FROM EVENTS WHERE event_id = ?', [id]);
     if (existingEvent.length === 0) {
       return res.status(404).json({ message: 'Evento no encontrado' });
     }
@@ -348,7 +417,7 @@ router.delete('/:id', authenticateToken, authorizeRoles('admin','chef'), async (
     const eventName = existingEvent[0].name;
 
     // Eliminar evento (EVENT_MENUS se eliminará automáticamente por CASCADE)
-    await req.tenantDb.execute('DELETE FROM EVENTS WHERE event_id = ?', [id]);
+    await req.tenantDb.query('DELETE FROM EVENTS WHERE event_id = ?', [id]);
 
     // Registrar auditoría
     await logAudit(req.tenantDb, req.user.user_id, 'delete', 'EVENTS', id, `Evento eliminado: ${eventName}`);
@@ -387,19 +456,19 @@ router.post('/:id/recipes', authenticateToken, authorizeRoles('admin','chef'), a
 
   try {
     // Verificar que el evento existe
-    const [eventExists] = await req.tenantDb.execute('SELECT event_id FROM EVENTS WHERE event_id = ?', [id]);
+    const [eventExists] = await req.tenantDb.query('SELECT event_id FROM EVENTS WHERE event_id = ?', [id]);
     if (eventExists.length === 0) {
       return res.status(404).json({ message: 'Evento no encontrado' });
     }
 
     // Verificar que la receta existe
-    const [recipeExists] = await req.tenantDb.execute('SELECT name FROM RECIPES WHERE recipe_id = ?', [recipe_id]);
+    const [recipeExists] = await req.tenantDb.query('SELECT name FROM RECIPES WHERE recipe_id = ?', [recipe_id]);
     if (recipeExists.length === 0) {
       return res.status(404).json({ message: 'Receta no encontrada' });
     }
 
     // Verificar que la receta no esté ya en el menú del evento
-    const [existingMenu] = await req.tenantDb.execute(
+    const [existingMenu] = await req.tenantDb.query(
       'SELECT event_id FROM EVENT_MENUS WHERE event_id = ? AND recipe_id = ?', 
       [id, recipe_id]
     );
@@ -408,7 +477,7 @@ router.post('/:id/recipes', authenticateToken, authorizeRoles('admin','chef'), a
     }
 
     // Añadir receta al menú
-    await req.tenantDb.execute(`
+    await req.tenantDb.query(`
       INSERT INTO EVENT_MENUS (event_id, recipe_id, portions, course_type, notes)
       VALUES (?, ?, ?, ?, ?)
     `, [id, recipe_id, portions, course_type, notes]);
@@ -448,7 +517,7 @@ router.put('/:id/recipes/:recipe_id', authenticateToken, authorizeRoles('admin',
 
   try {
     // Verificar que la combinación evento-receta existe
-    const [existingMenu] = await req.tenantDb.execute(
+    const [existingMenu] = await req.tenantDb.query(
       'SELECT event_id FROM EVENT_MENUS WHERE event_id = ? AND recipe_id = ?', 
       [id, recipe_id]
     );
@@ -457,7 +526,7 @@ router.put('/:id/recipes/:recipe_id', authenticateToken, authorizeRoles('admin',
     }
 
     // Actualizar receta en el menú
-    await req.tenantDb.execute(`
+    await req.tenantDb.query(`
       UPDATE EVENT_MENUS 
       SET portions = ?, course_type = ?, notes = ?
       WHERE event_id = ? AND recipe_id = ?
@@ -480,7 +549,7 @@ router.delete('/:id/recipes/:recipe_id', authenticateToken, authorizeRoles('admi
 
   try {
     // Verificar que la combinación evento-receta existe
-    const [existingMenu] = await req.tenantDb.execute(
+    const [existingMenu] = await req.tenantDb.query(
       'SELECT event_id FROM EVENT_MENUS WHERE event_id = ? AND recipe_id = ?', 
       [id, recipe_id]
     );
@@ -489,7 +558,7 @@ router.delete('/:id/recipes/:recipe_id', authenticateToken, authorizeRoles('admi
     }
 
     // Eliminar receta del menú
-    await req.tenantDb.execute('DELETE FROM EVENT_MENUS WHERE event_id = ? AND recipe_id = ?', [id, recipe_id]);
+    await req.tenantDb.query('DELETE FROM EVENT_MENUS WHERE event_id = ? AND recipe_id = ?', [id, recipe_id]);
 
     // Registrar auditoría
     await logAudit(req.tenantDb, req.user.user_id, 'delete', 'EVENT_MENUS', null, 
@@ -508,7 +577,7 @@ router.get('/:id/shopping-list', authenticateToken, authorizeRoles('admin','chef
 
   try {
     // Verificar que el evento existe
-    const [eventExists] = await req.tenantDb.execute(
+    const [eventExists] = await req.tenantDb.query(
       'SELECT name, guests_count FROM EVENTS WHERE event_id = ?', [id]
     );
     if (eventExists.length === 0) {
@@ -518,7 +587,7 @@ router.get('/:id/shopping-list', authenticateToken, authorizeRoles('admin','chef
     const event = eventExists[0];
 
     // Obtener ingredientes necesarios para todas las recetas del evento
-    const [ingredients] = await req.tenantDb.execute(`
+    const [ingredients] = await req.tenantDb.query(`
       SELECT 
         i.ingredient_id,
         i.name as ingredient_name,

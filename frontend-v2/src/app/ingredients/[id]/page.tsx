@@ -25,6 +25,8 @@ import { SeasonChips, AllergenChips } from '@/components/ui/Chips'
 import { useToastHelpers } from '@/context/ToastContext'
 import SupplierManager from '@/components/ui/SupplierManager'
 import UnifiedTabs from '@/components/ui/DetailTabs'
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges'
+import UnsavedChangesModal from '@/components/modals/UnsavedChangesModal'
 
 interface Ingredient {
   ingredient_id: number
@@ -82,6 +84,7 @@ export default function IngredientDetailPage() {
   const [isEditing] = useState(true) // Siempre iniciar en modo edición
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
   const [preferredSupplier, setPreferredSupplier] = useState<{id: number, name: string} | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
   
   // Tabs state
   const [activeTab, setActiveTab] = useState('general')
@@ -115,6 +118,22 @@ export default function IngredientDetailPage() {
     carbs_per_100g: '',
     fat_per_100g: '',
     comment: ''
+  })
+
+  // Hook para detectar cambios sin guardar
+  const {
+    hasUnsavedChanges,
+    showUnsavedWarning,
+    pendingNavigation,
+    setIsSaving: setUnsavedChangesSaving,
+    updateInitialValues,
+    handleSaveAndExit,
+    handleDiscardChanges,
+    handleContinueEditing
+  } = useUnsavedChanges({
+    formData,
+    isLoading: loading,
+    isSaving
   })
 
   // Options for select fields - DEBE coincidir exactamente con el ENUM de la base de datos
@@ -328,7 +347,37 @@ export default function IngredientDetailPage() {
     }
   }
 
+  // Función de guardado sin navegación (para la modal)
+  const saveWithoutNavigation = async () => {
+    setIsSaving(true)
+    setUnsavedChangesSaving(true)
+    
+    try {
+      // Reutilizar la lógica de guardado existente pero sin navegación
+      await performSave(false)
+      updateInitialValues()
+    } finally {
+      setIsSaving(false)
+      setUnsavedChangesSaving(false)
+    }
+  }
+
+  // Función principal de guardado
   const handleSave = async () => {
+    setIsSaving(true)
+    setUnsavedChangesSaving(true)
+    
+    try {
+      await performSave(true)
+      updateInitialValues()
+    } finally {
+      setIsSaving(false)
+      setUnsavedChangesSaving(false)
+    }
+  }
+
+  // Lógica de guardado extraída
+  const performSave = async (shouldNavigate: boolean = true) => {
     try {
       // Validation
       const errors: Record<string, string> = {}
@@ -418,11 +467,15 @@ export default function IngredientDetailPage() {
       if (isNewIngredient) {
         const response = await apiPost<{ ingredient_id: number }>('/ingredients', ingredientData)
         success('Ingrediente creado correctamente', 'Ingrediente Creado')
-        router.push(`/ingredients/${response.data.ingredient_id}`)
+        if (shouldNavigate) {
+          router.push(`/ingredients/${response.data.ingredient_id}`)
+        }
       } else {
         await apiPut(`/ingredients/${ingredientId}`, ingredientData)
         success('Ingrediente actualizado correctamente', 'Ingrediente Actualizado')
-        router.back()
+        if (shouldNavigate) {
+          router.back()
+        }
       }
       
       setValidationErrors({})
@@ -1093,8 +1146,12 @@ export default function IngredientDetailPage() {
             
             <button
               onClick={handleSave}
-              className="p-2 bg-green-600 text-white hover:bg-green-700 rounded-lg transition-colors"
-              title={isNewIngredient ? 'Crear ingrediente' : 'Guardar cambios'}
+              className={`p-2 rounded-lg transition-colors ${
+                hasUnsavedChanges || isNewIngredient 
+                  ? 'bg-green-600 text-white hover:bg-green-700' 
+                  : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+              }`}
+              title={isNewIngredient ? 'Crear ingrediente' : hasUnsavedChanges ? 'Guardar cambios' : 'Sin cambios que guardar'}
             >
               <Save className="h-4 w-4" />
             </button>
@@ -1159,7 +1216,11 @@ export default function IngredientDetailPage() {
             
             <button
               onClick={handleSave}
-              className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
+              className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                hasUnsavedChanges || isNewIngredient 
+                  ? 'bg-green-600 text-white hover:bg-green-700' 
+                  : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+              }`}
             >
               <Save className="h-4 w-4 mr-2" />
               {isNewIngredient ? 'Crear' : 'Guardar'}
@@ -1859,6 +1920,15 @@ export default function IngredientDetailPage() {
         confirmText="Eliminar"
         cancelText="Cancelar"
         type="danger"
+      />
+
+      {/* Unsaved Changes Modal */}
+      <UnsavedChangesModal
+        isOpen={showUnsavedWarning}
+        onSaveAndExit={() => handleSaveAndExit(saveWithoutNavigation)}
+        onDiscardChanges={handleDiscardChanges}
+        onContinueEditing={handleContinueEditing}
+        isSaving={isSaving}
       />
     </>
   )

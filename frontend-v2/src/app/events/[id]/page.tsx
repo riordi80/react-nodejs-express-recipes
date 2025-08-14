@@ -24,6 +24,8 @@ import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api'
 import ConfirmModal from '@/components/ui/ConfirmModal'
 import Modal from '@/components/ui/Modal'
 import UnifiedTabs from '@/components/ui/DetailTabs'
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges'
+import UnsavedChangesModal from '@/components/modals/UnsavedChangesModal'
 // Tipo Recipe que coincide con la API del backend
 interface Recipe {
   recipe_id: number
@@ -159,6 +161,26 @@ export default function EventDetailPage() {
     notes: ''
   })
 
+  // Saving state
+  const [isSaving, setIsSaving] = useState(false)
+
+  // Hook para detectar cambios sin guardar
+  const {
+    hasUnsavedChanges,
+    showUnsavedWarning,
+    pendingNavigation,
+    setIsSaving: setUnsavedChangesSaving,
+    updateInitialValues,
+    handleSaveAndExit,
+    handleDiscardChanges,
+    handleContinueEditing
+  } = useUnsavedChanges({
+    formData,
+    additionalData: [eventRecipes],
+    isLoading: loading,
+    isSaving
+  })
+
   // Load event data
   useEffect(() => {
     if (!isNewEvent) {
@@ -199,7 +221,36 @@ export default function EventDetailPage() {
     }
   }
 
+  // Función de guardado sin navegación (para la modal)
+  const saveWithoutNavigation = async () => {
+    setIsSaving(true)
+    setUnsavedChangesSaving(true)
+    
+    try {
+      await performSave(false)
+      updateInitialValues()
+    } finally {
+      setIsSaving(false)
+      setUnsavedChangesSaving(false)
+    }
+  }
+
+  // Función principal de guardado
   const handleSave = async () => {
+    setIsSaving(true)
+    setUnsavedChangesSaving(true)
+    
+    try {
+      await performSave(true)
+      updateInitialValues()
+    } finally {
+      setIsSaving(false)
+      setUnsavedChangesSaving(false)
+    }
+  }
+
+  // Lógica de guardado extraída
+  const performSave = async (shouldNavigate: boolean = true) => {
     try {
       const eventData = {
         ...formData,
@@ -210,15 +261,20 @@ export default function EventDetailPage() {
       if (isNewEvent) {
         const response = await apiPost<{ event_id: number }>('/events', eventData)
         success('Evento creado correctamente', 'Evento Creado')
-        router.push(`/events/${response.data.event_id}`)
+        if (shouldNavigate) {
+          router.push(`/events/${response.data.event_id}`)
+        }
       } else {
         await apiPut(`/events/${eventId}`, eventData)
-        await loadEventData()
         success('Evento actualizado correctamente', 'Evento Actualizado')
+        if (shouldNavigate) {
+          router.back()
+        }
       }
     } catch (err: unknown) {
       showError('Error al guardar el evento', 'Error al Guardar')
       console.error('Error saving event:', err)
+      throw err
     }
   }
 
@@ -307,10 +363,23 @@ export default function EventDetailPage() {
     setLoadingRecipes(true)
     setIsAddRecipeOpen(true)
     try {
-      const response = await apiGet<Recipe[]>('/recipes')
-      setAvailableRecipes(response.data)
+      console.log('🔍 Haciendo llamada a /recipes...')
+      const response = await apiGet<{data: Recipe[], pagination: any}>('/recipes')
+      console.log('📡 Respuesta completa del API:', response)
+      console.log('📊 response.data:', response.data)
+      console.log('📋 response.data.data:', response.data.data)
+      
+      // Extract recipes from response.data.data (paginated response structure)
+      const recipesData = Array.isArray(response.data.data) ? response.data.data : []
+      console.log('✅ Recetas procesadas:', recipesData.length)
+      if (recipesData.length > 0) {
+        console.log('📝 Primera receta:', recipesData[0])
+      }
+      console.log('🍽️ Recetas del evento actual:', eventRecipes.length)
+      setAvailableRecipes(recipesData)
     } catch (error) {
-      console.error('Error loading recipes:', error)
+      console.error('❌ Error cargando recetas:', error)
+      setAvailableRecipes([]) // Reset to empty array on error
       showError('Error al cargar las recetas disponibles', 'Error de Carga')
     } finally {
       setLoadingRecipes(false)
@@ -386,17 +455,29 @@ export default function EventDetailPage() {
   }
 
   // Filter available recipes based on search and exclude recipes already in the event menu
-  const filteredAvailableRecipes = availableRecipes.filter(recipe => {
+  const filteredAvailableRecipes = (Array.isArray(availableRecipes) ? availableRecipes : []).filter(recipe => {
     // Exclude recipes that are already in the event menu
-    const isAlreadyInMenu = eventRecipes.some(eventRecipe => eventRecipe.recipe_id === recipe.recipe_id)
+    const safeEventRecipes = Array.isArray(eventRecipes) ? eventRecipes : []
+    const isAlreadyInMenu = safeEventRecipes.some(eventRecipe => eventRecipe.recipe_id === recipe.recipe_id)
     if (isAlreadyInMenu) return false
     
-    // Filter by search text
-    const matchesSearch = recipe.name.toLowerCase().includes(recipeSearchText.toLowerCase()) ||
-                         recipe.description?.toLowerCase().includes(recipeSearchText.toLowerCase())
+    // Filter by search text - if no search text, show all non-menu recipes
+    if (!recipeSearchText || recipeSearchText.trim() === '') {
+      return true
+    }
+    
+    const searchLower = recipeSearchText.toLowerCase()
+    const matchesSearch = recipe.name.toLowerCase().includes(searchLower) ||
+                         (recipe.description && recipe.description.toLowerCase().includes(searchLower))
     
     return matchesSearch
   })
+  
+  // Debug logging for filtered recipes
+  console.log('Available recipes:', availableRecipes.length)
+  console.log('Event recipes:', eventRecipes.length)
+  console.log('Search text:', recipeSearchText)
+  console.log('Filtered available recipes:', filteredAvailableRecipes.length)
 
   // Edit recipe functions
   const openEditRecipeModal = (recipe: EventRecipe) => {
@@ -791,8 +872,12 @@ export default function EventDetailPage() {
             
             <button
               onClick={handleSave}
-              className="p-2 bg-green-600 text-white hover:bg-green-700 rounded-lg transition-colors"
-              title={isNewEvent ? 'Crear evento' : 'Guardar cambios'}
+              className={`p-2 rounded-lg transition-colors ${
+                hasUnsavedChanges || isNewEvent 
+                  ? 'bg-green-600 text-white hover:bg-green-700' 
+                  : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+              }`}
+              title={isNewEvent ? 'Crear evento' : hasUnsavedChanges ? 'Guardar cambios' : 'Sin cambios que guardar'}
             >
               <Save className="h-4 w-4" />
             </button>
@@ -853,7 +938,11 @@ export default function EventDetailPage() {
             
             <button
               onClick={handleSave}
-              className="inline-flex items-center px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors"
+              className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                hasUnsavedChanges || isNewEvent 
+                  ? 'bg-green-600 text-white hover:bg-green-700' 
+                  : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+              }`}
             >
               <Save className="h-4 w-4 mr-2" />
               {isNewEvent ? 'Crear' : 'Guardar'}
@@ -1450,6 +1539,15 @@ export default function EventDetailPage() {
         confirmText="Eliminar"
         cancelText="Cancelar"
         type="danger"
+      />
+
+      {/* Unsaved Changes Modal */}
+      <UnsavedChangesModal
+        isOpen={showUnsavedWarning}
+        onSaveAndExit={() => handleSaveAndExit(saveWithoutNavigation)}
+        onDiscardChanges={handleDiscardChanges}
+        onContinueEditing={handleContinueEditing}
+        isSaving={isSaving}
       />
       </div>
     </>

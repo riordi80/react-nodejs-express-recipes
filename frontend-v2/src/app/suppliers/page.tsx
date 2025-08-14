@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useTableSort } from '@/hooks/useTableSort'
+import { usePaginatedTable } from '@/hooks/usePaginatedTable'
 import SortableTableHeader from '@/components/ui/SortableTableHeader'
+import Pagination from '@/components/ui/Pagination'
 import { 
   Building, 
   Plus, 
@@ -17,13 +18,14 @@ import {
   Trash2,
   Star,
   Clock,
-  Package,
   Power,
-  PowerOff
+  PowerOff,
+  Package
 } from 'lucide-react'
 import { apiGet, apiDelete, apiPut } from '@/lib/api'
 import ConfirmModal from '@/components/ui/ConfirmModal'
 import { useToastHelpers } from '@/context/ToastContext'
+import { useSettings } from '@/context/SettingsContext'
 
 interface Supplier {
   supplier_id: number
@@ -43,11 +45,13 @@ interface Supplier {
 
 export default function SuppliersPage() {
   const router = useRouter()
-  const [suppliers, setSuppliers] = useState<Supplier[]>([])
-  const [loading, setLoading] = useState(true)
+  const [isInitialized, setIsInitialized] = useState(false)
   
   // Toast helpers
   const { success, error: showError } = useToastHelpers()
+  
+  // Settings context
+  const { settings } = useSettings()
   
   // Delete modal state
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
@@ -61,43 +65,89 @@ export default function SuppliersPage() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [showFilters, setShowFilters] = useState(false)
 
-  // Stats
-  const [stats] = useState({
-    total: 0,
-    active: 0,
-    inactive: 0,
-    withIngredients: 0
+  // Function to fetch paginated suppliers
+  const fetchSuppliers = useCallback(async (params: { 
+    page: number; 
+    limit: number; 
+    sortKey?: string; 
+    sortOrder?: 'asc' | 'desc' 
+  }) => {
+    const searchParams = new URLSearchParams()
+    
+    // Add pagination params
+    searchParams.append('page', params.page.toString())
+    searchParams.append('limit', params.limit.toString())
+    
+    // Add sorting params
+    if (params.sortKey && params.sortOrder) {
+      searchParams.append('sortKey', params.sortKey)
+      searchParams.append('sortOrder', params.sortOrder)
+    }
+    
+    // Add filter params
+    if (searchTerm.trim()) searchParams.append('search', searchTerm.trim())
+    // Note: statusFilter will be handled client-side for now since backend doesn't support it yet
+    
+    const response = await apiGet<{data: Supplier[], pagination: any}>(`/suppliers?${searchParams.toString()}`)
+    
+    // Filter by status client-side for now
+    let filteredData = response.data.data
+    if (statusFilter !== 'all') {
+      filteredData = filteredData.filter(supplier => 
+        statusFilter === 'active' ? supplier.active : !supplier.active
+      )
+    }
+    
+    return {
+      data: filteredData,
+      pagination: {
+        ...response.data.pagination,
+        totalItems: filteredData.length // Adjust count for client-side filtering
+      }
+    }
+  }, [searchTerm, statusFilter])
+
+  // Use paginated table hook
+  const {
+    sortedData: sortedSuppliers,
+    isLoading: loading,
+    pagination,
+    sortConfig,
+    handlePageChange,
+    handleSort,
+    refresh
+  } = usePaginatedTable(fetchSuppliers, {
+    initialPage: 1,
+    itemsPerPage: settings.pageSize,
+    initialSortKey: 'name',
+    dependencies: [searchTerm, statusFilter],
+    storageKey: 'suppliers-page',
+    tableId: 'suppliers'
   })
 
-  // Load suppliers
+  // Initialize app - single effect to prevent multiple renders
   useEffect(() => {
-    loadSuppliers()
-    // loadStats() // TODO: Implementar ruta /suppliers/stats en backend
-  }, [])
-
-  // Autofocus search input on page load
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (searchInputRef.current) {
-        searchInputRef.current.focus()
+    const initializeApp = async () => {
+      try {
+        // Initialize any required data here
+        await new Promise(resolve => setTimeout(resolve, 100)) // Pequeño delay para asegurar que el DOM está listo
+      } catch (error) {
+        console.error('Error initializing app:', error)
+      } finally {
+        setIsInitialized(true)
       }
-    }, 100) // Pequeño delay para asegurar que el DOM está listo
-    
-    return () => clearTimeout(timer)
+    }
+
+    initializeApp()
   }, [])
 
-  const loadSuppliers = async () => {
-    try {
-      setLoading(true)
-      const response = await apiGet<Supplier[]>('/suppliers')
-      setSuppliers(response.data)
-    } catch (err: unknown) {
-      console.error('Error loading suppliers:', err)
-      showError('Error al cargar proveedores', 'Error de Carga')
-    } finally {
-      setLoading(false)
+  // Autofocus search input after initialization
+  useEffect(() => {
+    if (isInitialized && searchInputRef.current) {
+      searchInputRef.current.focus()
     }
-  }
+  }, [isInitialized])
+
 
   // Delete modal handlers
   const openDeleteModal = (supplier: Supplier) => {
@@ -111,7 +161,7 @@ export default function SuppliersPage() {
     try {
       await apiDelete(`/suppliers/${currentSupplier.supplier_id}`)
       // Refresh suppliers after deletion
-      await loadSuppliers()
+      refresh()
       setIsDeleteOpen(false)
       setCurrentSupplier(null)
       
@@ -132,15 +182,6 @@ export default function SuppliersPage() {
     
     const newActiveStatus = !supplier.active
 
-    // Update UI optimistically
-    setSuppliers(prevSuppliers =>
-      prevSuppliers.map(s => 
-        s.supplier_id === supplier.supplier_id 
-          ? { ...s, active: newActiveStatus }
-          : s
-      )
-    )
-
     try {
       // Use the same data structure as the detail page
       const supplierUpdateData = {
@@ -156,44 +197,21 @@ export default function SuppliersPage() {
       
       await apiPut(`/suppliers/${supplier.supplier_id}`, supplierUpdateData)
       
+      // Refresh the table to get updated data
+      refresh()
+      
       success(
         `Proveedor "${supplier.name}" ${newActiveStatus ? 'activado' : 'desactivado'} correctamente`,
         'Estado Actualizado'
       )
     } catch (error) {
-      // Revert the optimistic update on error
-      setSuppliers(prevSuppliers =>
-        prevSuppliers.map(s => 
-          s.supplier_id === supplier.supplier_id 
-            ? { ...s, active: !newActiveStatus }
-            : s
-        )
-      )
-      
       showError('Error al cambiar el estado del proveedor', 'Error')
       console.error('Error toggling supplier status:', error)
     }
   }
 
-  // Filter suppliers locally (memoized)
-  const filteredSuppliers = useMemo(() => {
-    return suppliers.filter(supplier => {
-      const matchesSearch = (supplier.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           (supplier.contact_person || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           (supplier.email || '').toLowerCase().includes(searchTerm.toLowerCase())
-      
-      let matchesStatus = true
-      if (statusFilter === 'active') matchesStatus = supplier.active
-      if (statusFilter === 'inactive') matchesStatus = !supplier.active
-      
-      return matchesSearch && matchesStatus
-    })
-  }, [suppliers, searchTerm, statusFilter])
 
-  // Add sorting to filtered suppliers
-  const { sortedData: sortedSuppliers, sortConfig, handleSort } = useTableSort(filteredSuppliers, 'name')
-
-  if (loading) {
+  if (!isInitialized) {
     return (
       <div className="p-6">
         <div className="animate-pulse space-y-4">
@@ -256,56 +274,6 @@ export default function SuppliersPage() {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Proveedores</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-            </div>
-            <div className="bg-orange-100 p-3 rounded-lg">
-              <Building className="h-6 w-6 text-orange-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Activos</p>
-              <p className="text-2xl font-bold text-green-600">{stats.active}</p>
-            </div>
-            <div className="bg-orange-100 p-3 rounded-lg">
-              <Building className="h-6 w-6 text-orange-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Inactivos</p>
-              <p className="text-2xl font-bold text-red-600">{stats.inactive}</p>
-            </div>
-            <div className="bg-orange-100 p-3 rounded-lg">
-              <Building className="h-6 w-6 text-orange-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Con Ingredientes</p>
-              <p className="text-2xl font-bold text-blue-600">{stats.withIngredients}</p>
-            </div>
-            <div className="bg-orange-100 p-3 rounded-lg">
-              <Package className="h-6 w-6 text-orange-600" />
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Filters */}
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm mb-6">
@@ -353,22 +321,22 @@ export default function SuppliersPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <SortableTableHeader sortKey="name" sortConfig={sortConfig} onSort={handleSort}>
+                <SortableTableHeader sortKey="name" sortConfig={sortConfig || { key: '', direction: 'asc' }} onSort={handleSort}>
                   Proveedor
                 </SortableTableHeader>
-                <SortableTableHeader sortKey="" sortConfig={sortConfig} onSort={handleSort} sortable={false}>
+                <SortableTableHeader sortKey="" sortConfig={sortConfig || { key: '', direction: 'asc' }} onSort={handleSort} sortable={false}>
                   Contacto
                 </SortableTableHeader>
-                <SortableTableHeader sortKey="" sortConfig={sortConfig} onSort={handleSort} sortable={false}>
+                <SortableTableHeader sortKey="" sortConfig={sortConfig || { key: '', direction: 'asc' }} onSort={handleSort} sortable={false}>
                   Información
                 </SortableTableHeader>
-                <SortableTableHeader sortKey="ingredients_count" sortConfig={sortConfig} onSort={handleSort}>
+                <SortableTableHeader sortKey="ingredients_count" sortConfig={sortConfig || { key: '', direction: 'asc' }} onSort={handleSort}>
                   Ingredientes
                 </SortableTableHeader>
-                <SortableTableHeader sortKey="active" sortConfig={sortConfig} onSort={handleSort}>
+                <SortableTableHeader sortKey="active" sortConfig={sortConfig || { key: '', direction: 'asc' }} onSort={handleSort}>
                   Estado
                 </SortableTableHeader>
-                <SortableTableHeader sortKey="" sortConfig={sortConfig} onSort={handleSort} sortable={false} className="text-right">
+                <SortableTableHeader sortKey="" sortConfig={sortConfig || { key: '', direction: 'asc' }} onSort={handleSort} sortable={false} className="text-right">
                   Acciones
                 </SortableTableHeader>
               </tr>
@@ -473,6 +441,7 @@ export default function SuppliersPage() {
                         href={`/suppliers/${supplier.supplier_id}`}
                         className="text-gray-600 hover:text-gray-900 p-1 rounded transition-colors"
                         title="Editar proveedor"
+                        onClick={(e) => e.stopPropagation()}
                       >
                         <Edit className="h-4 w-4" />
                       </Link>
@@ -521,10 +490,18 @@ export default function SuppliersPage() {
         )}
       </div>
 
-      {/* Results Counter */}
-      {sortedSuppliers.length > 0 && (
-        <div className="mt-4 text-sm text-gray-600">
-          Mostrando {sortedSuppliers.length} de {suppliers.length} proveedores
+      {/* Results Counter and Pagination */}
+      {pagination && (
+        <div className="mt-6 flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
+          <div className="text-sm text-gray-600">
+            Mostrando {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1} - {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} de {pagination.totalItems} proveedores
+          </div>
+          
+          <Pagination
+            currentPage={pagination.currentPage}
+            totalPages={pagination.totalPages}
+            onPageChange={handlePageChange}
+          />
         </div>
       )}
 

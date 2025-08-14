@@ -22,7 +22,7 @@ const SystemSection = () => {
       units: 'metric' as const,
       dateFormat: 'dd/mm/yyyy' as const,
       currency: 'EUR' as const,
-      pageSize: 25,
+      pageSize: 10,
       autoSearch: true
     }
     

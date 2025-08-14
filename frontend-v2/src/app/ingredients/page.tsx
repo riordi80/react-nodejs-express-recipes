@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useTableSort } from '@/hooks/useTableSort'
+import { usePaginatedTable } from '@/hooks/usePaginatedTable'
 import SortableTableHeader from '@/components/ui/SortableTableHeader'
+import Pagination from '@/components/ui/Pagination'
 import { 
   Package, 
   Plus, 
@@ -27,6 +28,7 @@ import LowStockIngredientsModal from '@/components/modals/LowStockIngredientsMod
 import ExpiringIngredientsModal from '@/components/modals/ExpiringIngredientsModal'
 import NoSupplierIngredientsModal from '@/components/modals/NoSupplierIngredientsModal'
 import { useToastHelpers } from '@/context/ToastContext'
+import { useSettings } from '@/context/SettingsContext'
 
 interface Ingredient {
   ingredient_id: number
@@ -36,6 +38,7 @@ interface Ingredient {
   cost_per_unit?: number
   base_price?: number
   net_price?: number
+  preferred_supplier_price?: number
   stock?: number
   stock_minimum?: number
   is_available: boolean
@@ -132,7 +135,11 @@ const seasonOptions = [
 
 export default function IngredientsPage() {
   const router = useRouter()
-  const [ingredients, setIngredients] = useState<Ingredient[]>([])
+  const [isInitialized, setIsInitialized] = useState(false)
+  
+  // Settings context
+  const { settings } = useSettings()
+  
   const [widgets, setWidgets] = useState<DashboardWidget>({
     lowStock: [],
     expiringSoon: [],
@@ -145,7 +152,6 @@ export default function IngredientsPage() {
       noSuppliers: 0
     }
   })
-  const [loading, setLoading] = useState(true)
   const [widgetsLoading, setWidgetsLoading] = useState(true)
   
   // Toast helpers
@@ -183,11 +189,73 @@ export default function IngredientsPage() {
   const [seasonFilter, setSeasonFilter] = useState('all')
   const [showFilters, setShowFilters] = useState(false)
 
-  // Load data
-  useEffect(() => {
-    loadIngredients()
-    loadWidgets()
-  }, [])
+  // Function to fetch paginated ingredients
+  const fetchIngredients = useCallback(async (params: { 
+    page: number; 
+    limit: number; 
+    sortKey?: string; 
+    sortOrder?: 'asc' | 'desc' 
+  }) => {
+    const searchParams = new URLSearchParams()
+    
+    // Add pagination params
+    searchParams.append('page', params.page.toString())
+    searchParams.append('limit', params.limit.toString())
+    
+    // Add sorting params
+    if (params.sortKey && params.sortOrder) {
+      searchParams.append('sortKey', params.sortKey)
+      searchParams.append('sortOrder', params.sortOrder)
+    }
+    
+    // Add filter params
+    if (searchTerm.trim()) searchParams.append('search', searchTerm.trim())
+    if (availabilityFilter !== 'all') searchParams.append('available', availabilityFilter === 'available' ? 'true' : 'false')
+    if (stockFilter !== 'all') searchParams.append('stockStatus', stockFilter)
+    if (expiryFilter !== 'all') searchParams.append('expiryStatus', expiryFilter)
+    if (seasonFilter !== 'all') searchParams.append('season', seasonFilter)
+
+    const response = await apiGet<{data: Ingredient[], pagination: any}>(`/ingredients?${searchParams.toString()}`)
+    
+    // Normalize data: convert string numbers to actual numbers
+    const normalizedIngredients = response.data.data.map((ingredient: any) => ({
+      ...ingredient,
+      base_price: ingredient.base_price ? parseFloat(ingredient.base_price) : null,
+      net_price: ingredient.net_price ? parseFloat(ingredient.net_price) : null,
+      preferred_supplier_price: ingredient.preferred_supplier_price ? parseFloat(ingredient.preferred_supplier_price) : null,
+      stock: ingredient.stock ? parseFloat(ingredient.stock) : null,
+      stock_minimum: ingredient.stock_minimum ? parseFloat(ingredient.stock_minimum) : null,
+      waste_percent: ingredient.waste_percent ? parseFloat(ingredient.waste_percent) : null,
+      calories_per_100g: ingredient.calories_per_100g ? parseFloat(ingredient.calories_per_100g) : null,
+      protein_per_100g: ingredient.protein_per_100g ? parseFloat(ingredient.protein_per_100g) : null,
+      carbs_per_100g: ingredient.carbs_per_100g ? parseFloat(ingredient.carbs_per_100g) : null,
+      fat_per_100g: ingredient.fat_per_100g ? parseFloat(ingredient.fat_per_100g) : null,
+      is_available: Boolean(ingredient.is_available)
+    }))
+    
+    return {
+      data: normalizedIngredients,
+      pagination: response.data.pagination
+    }
+  }, [searchTerm, availabilityFilter, stockFilter, expiryFilter, seasonFilter])
+
+  // Use paginated table hook
+  const {
+    sortedData: sortedIngredients,
+    isLoading: loading,
+    pagination,
+    sortConfig,
+    handlePageChange,
+    handleSort,
+    refresh
+  } = usePaginatedTable(fetchIngredients, {
+    initialPage: 1,
+    itemsPerPage: settings.pageSize,
+    initialSortKey: 'name',
+    dependencies: [searchTerm, availabilityFilter, stockFilter, expiryFilter, seasonFilter],
+    storageKey: 'ingredients-page',
+    tableId: 'ingredients'
+  })
 
   // Autofocus search input on page load
   useEffect(() => {
@@ -199,46 +267,6 @@ export default function IngredientsPage() {
     
     return () => clearTimeout(timer)
   }, [])
-
-  const loadIngredients = async () => {
-    try {
-      setLoading(true)
-      const params = new URLSearchParams()
-      // Removido searchTerm - la búsqueda ahora es solo local
-      if (availabilityFilter !== 'all') params.append('available', availabilityFilter)
-      if (stockFilter !== 'all') params.append('stockStatus', stockFilter)
-      if (expiryFilter !== 'all') params.append('expiryStatus', expiryFilter)
-      if (seasonFilter !== 'all') params.append('season', seasonFilter)
-
-      const response = await apiGet<Ingredient[]>(`/ingredients?${params.toString()}`)
-      
-      // Debug: log first ingredient to see data structure
-      if (response.data && response.data.length > 0) {
-        console.log('First ingredient data:', response.data[0])
-      }
-      
-      // Normalize data: convert string numbers to actual numbers
-      const normalizedIngredients = response.data.map((ingredient: any) => ({
-        ...ingredient,
-        base_price: ingredient.base_price ? parseFloat(ingredient.base_price) : null,
-        net_price: ingredient.net_price ? parseFloat(ingredient.net_price) : null,
-        stock: ingredient.stock ? parseFloat(ingredient.stock) : null,
-        stock_minimum: ingredient.stock_minimum ? parseFloat(ingredient.stock_minimum) : null,
-        waste_percent: ingredient.waste_percent ? parseFloat(ingredient.waste_percent) : null,
-        calories_per_100g: ingredient.calories_per_100g ? parseFloat(ingredient.calories_per_100g) : null,
-        protein_per_100g: ingredient.protein_per_100g ? parseFloat(ingredient.protein_per_100g) : null,
-        carbs_per_100g: ingredient.carbs_per_100g ? parseFloat(ingredient.carbs_per_100g) : null,
-        fat_per_100g: ingredient.fat_per_100g ? parseFloat(ingredient.fat_per_100g) : null,
-        is_available: Boolean(ingredient.is_available)
-      }))
-      
-      setIngredients(normalizedIngredients)
-    } catch (err: unknown) {
-      console.error('Error loading ingredients:', err)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const loadWidgets = async () => {
     try {
@@ -252,63 +280,21 @@ export default function IngredientsPage() {
     }
   }
 
-  // Reload data when NON-SEARCH filters change
+  // Initialize app - single effect to prevent multiple renders
   useEffect(() => {
-    loadIngredients()
-  }, [availabilityFilter, stockFilter, expiryFilter, seasonFilter]) // Removido searchTerm para evitar re-renderizados
-
-  // Filter ingredients locally for real-time filtering (memoized)
-  const filteredIngredients = useMemo(() => {
-    return ingredients.filter(ingredient => {
-      const matchesSearch = (ingredient.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           (ingredient.category || '').toLowerCase().includes(searchTerm.toLowerCase())
-      
-      let matchesAvailability = true
-      if (availabilityFilter === 'available') matchesAvailability = ingredient.is_available
-      if (availabilityFilter === 'unavailable') matchesAvailability = !ingredient.is_available
-      
-      const stock = ingredient.stock ?? 0
-      const stockMin = ingredient.stock_minimum ?? 0
-      
-      let matchesStock = true
-      if (stockFilter === 'low') matchesStock = stock < stockMin && stockMin > 0
-      if (stockFilter === 'withStock') matchesStock = stock > 0
-      if (stockFilter === 'noStock') matchesStock = stock === 0
-      
-      // Expiry filter
-      let matchesExpiry = true
-      if (expiryFilter !== 'all') {
-        const expiryStatus = getExpiryStatus(ingredient.expiration_date)
-        if (expiryFilter === 'critical') matchesExpiry = expiryStatus === 'critical'
-        else if (expiryFilter === 'warning') matchesExpiry = expiryStatus === 'warning'
-        else if (expiryFilter === 'expired') matchesExpiry = expiryStatus === 'expired'
-        else if (expiryFilter === 'normal') matchesExpiry = expiryStatus === 'normal'
+    const initializeApp = async () => {
+      try {
+        // Load widgets data
+        await loadWidgets()
+      } catch (error) {
+        console.error('Error initializing app:', error)
+      } finally {
+        setIsInitialized(true)
       }
-      
-      // Season filter
-      let matchesSeason = true
-      if (seasonFilter !== 'all') {
-        const ingredientSeasons = getSeasonStatus(ingredient.season)
-        if (ingredientSeasons) {
-          if (seasonFilter === 'todo_año') {
-            matchesSeason = ingredientSeasons.includes('todo_año')
-          } else {
-            matchesSeason = ingredientSeasons.includes(seasonFilter)
-          }
-        } else {
-          matchesSeason = false
-        }
-      }
-      
-      return matchesSearch && matchesAvailability && matchesStock && matchesExpiry && matchesSeason
-    })
-  }, [ingredients, searchTerm, availabilityFilter, stockFilter, expiryFilter, seasonFilter])
+    }
 
-  // Simple sorting for basic columns only (name, stock, base_price)
-  const { sortedData: sortedIngredients, sortConfig, handleSort } = useTableSort(
-    filteredIngredients,
-    'name'
-  )
+    initializeApp()
+  }, [])
 
   const formatDate = (dateString?: string) => {
     if (!dateString) return ''
@@ -324,28 +310,6 @@ export default function IngredientsPage() {
     return diffDays
   }
 
-  const getExpiryStatus = (dateString?: string) => {
-    if (!dateString) return null
-    const days = getDaysUntilExpiry(dateString)
-    if (days === null) return null
-    
-    if (days < 0) return 'expired'
-    if (days <= 3) return 'critical'
-    if (days <= 7) return 'warning'
-    return 'normal'
-  }
-
-  const getSeasonStatus = (season?: string) => {
-    if (!season) return null
-    if (season === 'todo_año') return 'todo_año'
-    
-    // Si es una cadena separada por comas (múltiples temporadas)
-    if (typeof season === 'string' && season.includes(',')) {
-      return season.split(',').map(s => s.trim())
-    }
-    
-    return [season]
-  }
 
   const getStockStatus = (ingredient: Ingredient) => {
     const stock = ingredient.stock ?? 0
@@ -381,7 +345,7 @@ export default function IngredientsPage() {
         is_available: false
       })
       // Refresh ingredients after deactivation
-      await loadIngredients()
+      refresh()
       setIsDeactivateOpen(false)
       setCurrentIngredient(null)
       
@@ -395,7 +359,7 @@ export default function IngredientsPage() {
     }
   }
 
-  if (loading) {
+  if (!isInitialized) {
     return (
       <div className="p-6">
         <div className="animate-pulse space-y-4">
@@ -460,29 +424,8 @@ export default function IngredientsPage() {
 
       {/* Widgets */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {/* 1º Estacionales */}
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-              <div className="bg-orange-100 p-2 rounded-lg">
-                <Sprout className="h-5 w-5 text-orange-600" />
-              </div>
-              Estacionales
-            </h3>
-          </div>
-          <IngredientsCarousel 
-            ingredients={widgets.seasonal} 
-            type="seasonal"
-            isLoading={widgetsLoading}
-            itemsPerSlide={3}
-            animationType="ticker"
-            onViewAll={() => setIsSeasonalModalOpen(true)}
-            totalCount={widgets.totals.seasonal}
-            showStatic={shouldShowStatic(widgets.seasonal, 3)}
-          />
-        </div>
 
-        {/* 2º Próximos a Caducar */}
+        {/* 1º Próximos a Caducar */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
           <div className="px-6 py-4 border-b border-gray-200">
             <h3 className="font-semibold text-gray-900 flex items-center gap-2">
@@ -501,6 +444,28 @@ export default function IngredientsPage() {
             onViewAll={() => setIsExpiringModalOpen(true)}
             totalCount={widgets.totals.expiringSoon}
             showStatic={shouldShowStatic(widgets.expiringSoon, 3)}
+          />
+        </div>
+
+        {/* 2º Estacionales */}
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+              <div className="bg-orange-100 p-2 rounded-lg">
+                <Sprout className="h-5 w-5 text-orange-600" />
+              </div>
+              Estacionales
+            </h3>
+          </div>
+          <IngredientsCarousel 
+            ingredients={widgets.seasonal} 
+            type="seasonal"
+            isLoading={widgetsLoading}
+            itemsPerSlide={3}
+            animationType="ticker"
+            onViewAll={() => setIsSeasonalModalOpen(true)}
+            totalCount={widgets.totals.seasonal}
+            showStatic={shouldShowStatic(widgets.seasonal, 3)}
           />
         </div>
 
@@ -533,7 +498,7 @@ export default function IngredientsPage() {
               <div className="bg-orange-100 p-2 rounded-lg">
                 <AlertTriangle className="h-5 w-5 text-orange-600" />
               </div>
-              Sin Proveedor Asignado
+              Sin Proveedor
             </h3>
           </div>
           <IngredientsCarousel 
@@ -711,13 +676,13 @@ export default function IngredientsPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <SortableTableHeader sortKey="name" sortConfig={sortConfig} onSort={handleSort}>
+                <SortableTableHeader sortKey="name" sortConfig={sortConfig || { key: '', direction: 'asc' }} onSort={handleSort}>
                   Ingrediente
                 </SortableTableHeader>
-                <SortableTableHeader sortKey="stock" sortConfig={sortConfig} onSort={handleSort}>
+                <SortableTableHeader sortKey="stock" sortConfig={sortConfig || { key: '', direction: 'asc' }} onSort={handleSort}>
                   Stock
                 </SortableTableHeader>
-                <SortableTableHeader sortKey="base_price" sortConfig={sortConfig} onSort={handleSort}>
+                <SortableTableHeader sortKey="base_price" sortConfig={sortConfig || { key: '', direction: 'asc' }} onSort={handleSort}>
                   Precio/Unidad
                 </SortableTableHeader>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -726,7 +691,7 @@ export default function IngredientsPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Estado
                 </th>
-                <SortableTableHeader sortKey="" sortConfig={sortConfig} onSort={handleSort} sortable={false} className="text-right">
+                <SortableTableHeader sortKey="" sortConfig={sortConfig || { key: '', direction: 'asc' }} onSort={handleSort} sortable={false} className="text-right">
                   Acciones
                 </SortableTableHeader>
               </tr>
@@ -774,13 +739,26 @@ export default function IngredientsPage() {
                       <div className="flex items-center text-sm text-gray-900">
                         <Euro className="h-4 w-4 mr-1 text-gray-400" />
                         {(() => {
-                          const price = ingredient.base_price || ingredient.net_price
-                          return (price && typeof price === 'number') ? 
-                            Number(price).toLocaleString('es-ES', { 
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 4 
-                            }) : 
-                            'Sin precio'
+                          // Prioridad: precio proveedor preferido > precio base > precio neto
+                          const price = ingredient.preferred_supplier_price || ingredient.base_price || ingredient.net_price
+                          const isUsingBasePrice = !ingredient.preferred_supplier_price && ingredient.base_price
+                          
+                          if (price && typeof price === 'number') {
+                            return (
+                              <div>
+                                <div>
+                                  {Number(price).toLocaleString('es-ES', { 
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 4 
+                                  })}
+                                </div>
+                                {isUsingBasePrice && (
+                                  <div className="text-xs text-gray-500">Sin proveedor</div>
+                                )}
+                              </div>
+                            )
+                          }
+                          return 'Sin precio'
                         })()}
                       </div>
                     </td>
@@ -818,11 +796,15 @@ export default function IngredientsPage() {
                         <Link 
                           href={`/ingredients/${ingredient.ingredient_id}`} 
                           className="text-gray-600 hover:text-gray-900 p-1 rounded"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           <Edit className="h-4 w-4" />
                         </Link>
                         <button 
-                          onClick={() => openDeactivateModal(ingredient)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            openDeactivateModal(ingredient)
+                          }}
                           className="text-gray-600 hover:text-gray-900 p-1 rounded"
                           title="Desactivar ingrediente"
                         >
@@ -864,10 +846,18 @@ export default function IngredientsPage() {
         )}
       </div>
 
-      {/* Results Counter */}
-      {sortedIngredients.length > 0 && (
-        <div className="mt-4 text-sm text-gray-600">
-          Mostrando {sortedIngredients.length} de {ingredients.length} ingredientes
+      {/* Results Counter and Pagination */}
+      {pagination && (
+        <div className="mt-6 flex flex-col sm:flex-row justify-between items-center space-y-4 sm:space-y-0">
+          <div className="text-sm text-gray-600">
+            Mostrando {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1} - {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} de {pagination.totalItems} ingredientes
+          </div>
+          
+          <Pagination
+            currentPage={pagination.currentPage}
+            totalPages={pagination.totalPages}
+            onPageChange={handlePageChange}
+          />
         </div>
       )}
 
