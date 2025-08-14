@@ -28,6 +28,12 @@ class BackupManager {
 
   async initializeSchedulerForTenant(tenantDb, tenantId) {
     try {
+      // Solo inicializar si no existe ya un scheduler para este tenant
+      if (this.cronJobs.has(tenantId)) {
+        console.log(`⏭️ Scheduler ya existe para tenant ${tenantId}, saltando inicialización`);
+        return;
+      }
+      
       // Obtener configuración actual del tenant
       const settings = await this.getBackupSettings(tenantDb);
       
@@ -124,7 +130,9 @@ class BackupManager {
 
   async createAutomaticBackupForTenant(tenantDb, tenantId, userId = null) {
     try {
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      // Usar UTC tanto para filename como para API - dejar que frontend convierta
+      const now = new Date();
+      const timestamp = now.toISOString().replace(/[:.]/g, '-');
       const filename = `${tenantId}_backup_${timestamp}.json`;
       const filepath = path.join(this.backupDir, filename);
       
@@ -274,10 +282,32 @@ class BackupManager {
       const filesWithStats = await Promise.all(
         backupFiles.map(async (file) => {
           const stats = await fs.stat(file.path);
+          
+          // Extraer fecha del filename en lugar de usar stats.mtime
+          // Formato: tenantId_backup_2025-08-14T23-00-06-641Z.json
+          const dateMatch = file.name.match(/_backup_(.+)\.json$/);
+          let createdAt = stats.mtime; // Fallback a mtime si no se puede extraer
+          
+          if (dateMatch) {
+            try {
+              // Convertir filename UTC de vuelta a fecha ISO estándar
+              const isoString = dateMatch[1].replace(/-(\d{2})-(\d{2})-(\d{3})Z$/, ':$1:$2.$3Z');
+              createdAt = new Date(isoString);
+              
+              // Verificar que la fecha es válida
+              if (isNaN(createdAt.getTime())) {
+                throw new Error('Fecha inválida');
+              }
+            } catch (error) {
+              console.warn(`No se pudo parsear fecha del filename ${file.name}:`, error.message);
+              createdAt = stats.mtime; // Usar mtime como fallback
+            }
+          }
+          
           return {
             filename: file.name,
             size: stats.size,
-            created_at: stats.mtime,
+            created_at: createdAt,
             path: file.path
           };
         })

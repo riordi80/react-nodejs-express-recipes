@@ -1208,43 +1208,25 @@ async function findOrCreateIngredient(connection, ingredientName, unit) {
 // GET /data/backup - Crear backup completo
 router.get('/backup', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   try {
-    const timestamp = new Date().toISOString().split('T')[0];
+    const tenantId = req.tenant?.tenant_id || req.tenant?.subdomain || 'default';
     
-    // Obtener datos de todas las tablas principales
-    const [recipes] = await req.tenantDb.execute('SELECT * FROM RECIPES');
-    const [ingredients] = await req.tenantDb.execute('SELECT * FROM INGREDIENTS');
-    const [suppliers] = await req.tenantDb.execute('SELECT * FROM SUPPLIERS');
-    const [users] = await req.tenantDb.execute('SELECT user_id, first_name, last_name, email, role, is_active, language, timezone FROM USERS');
-    const [recipeIngredients] = await req.tenantDb.execute('SELECT * FROM RECIPE_INGREDIENTS');
-    const [supplierIngredients] = await req.tenantDb.execute('SELECT * FROM SUPPLIER_INGREDIENTS');
-    const [settings] = await req.tenantDb.execute('SELECT * FROM SYSTEM_SETTINGS');
-    
-    const backupData = {
-      metadata: {
-        version: '1.0',
-        created_at: new Date().toISOString(),
-        tables: ['recipes', 'ingredients', 'suppliers', 'users', 'recipe_ingredients', 'supplier_ingredients', 'system_settings']
-      },
-      data: {
-        recipes,
-        ingredients,
-        suppliers,
-        users,
-        recipe_ingredients: recipeIngredients,
-        supplier_ingredients: supplierIngredients,
-        system_settings: settings
-      }
-    };
-    
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Content-Disposition', `attachment; filename=recetario_backup_${timestamp}.json`);
-    res.json(backupData);
-    
-    // Registrar en audit logs
-    await req.tenantDb.execute(
-      'INSERT INTO AUDIT_LOGS (user_id, action, table_name, description, timestamp) VALUES (?, ?, ?, ?, NOW())',
-      [req.user.user_id, 'backup', 'SYSTEM', 'Backup completo creado']
+    // Usar BackupManager para crear backup manual
+    const result = await backupManager.createAutomaticBackupForTenant(
+      req.tenantDb, 
+      tenantId, 
+      req.user.user_id
     );
+    
+    if (result.success) {
+      res.json({ 
+        message: 'Backup creado correctamente',
+        filename: result.filename,
+        size: result.size,
+        tenant_id: result.tenantId
+      });
+    } else {
+      res.status(500).json({ message: 'Error al crear backup' });
+    }
     
   } catch (error) {
     console.error('Error creando backup:', error);
@@ -1280,14 +1262,19 @@ router.get('/backup/status', authenticateToken, authorizeRoles('admin'), async (
     const frequency = backupSettings.backup_frequency || 'weekly';
     
     // Inicializar scheduler si está habilitado y no está ya corriendo
+    const tenantId = req.tenant?.tenant_id || req.tenant?.subdomain || 'default';
     if (autoEnabled) {
-      const tenantId = req.tenant?.tenant_id || req.tenant?.subdomain || 'default';
-      await backupManager.updateSchedulerForTenant(req.tenantDb, tenantId, autoEnabled, frequency);
+      await backupManager.initializeSchedulerForTenant(req.tenantDb, tenantId);
     }
     
     // Obtener estadísticas de backups para el tenant
-    const tenantId = req.tenant?.tenant_id || req.tenant?.subdomain || 'default';
     const stats = await backupManager.getBackupStatsForTenant(tenantId);
+    
+    // Calcular próximo backup si está habilitado
+    let nextBackup = null;
+    if (autoEnabled) {
+      nextBackup = calculateNextBackupDate(frequency, tenantId);
+    }
     
     res.json({
       auto_enabled: autoEnabled,
@@ -1295,6 +1282,7 @@ router.get('/backup/status', authenticateToken, authorizeRoles('admin'), async (
       last_backup: lastBackup[0]?.timestamp || null,
       last_backup_formatted: lastBackup[0]?.timestamp ? 
         new Date(lastBackup[0].timestamp).toLocaleString('es-ES') : 'Nunca',
+      next_backup: nextBackup,
       stats: stats
     });
     
@@ -2064,6 +2052,70 @@ async function insertRecordByTable(connection, tableName, record, currentUserId)
     default:
       throw new Error(`Tabla no soportada para restauración: ${tableName}`);
   }
+}
+
+// Función helper para calcular la fecha del próximo backup
+function calculateNextBackupDate(frequency, tenantId) {
+  const now = new Date();
+  const baseHour = 2; // Misma hora base que en BackupManager
+  const maxWindow = 6; // Misma ventana que en BackupManager
+  
+  // Generar offset basado en hash del tenantId (mismo algoritmo que BackupManager)
+  const hash = tenantId.toString().split('').reduce((a, b) => a + b.charCodeAt(0), 0);
+  const hourOffset = hash % maxWindow;
+  const finalHour = baseHour + hourOffset;
+  
+  // Minutos aleatorios basados en tenant
+  const minuteOffset = (hash * 7) % 60;
+  
+  let nextBackup = new Date();
+  nextBackup.setHours(finalHour, minuteOffset, 0, 0);
+  
+  switch (frequency) {
+    case 'daily':
+      // Si ya pasó la hora de hoy, programar para mañana
+      if (now.getHours() > finalHour || (now.getHours() === finalHour && now.getMinutes() >= minuteOffset)) {
+        nextBackup.setDate(nextBackup.getDate() + 1);
+      }
+      break;
+      
+    case 'weekly':
+      // Programar para el próximo domingo
+      const daysUntilSunday = (7 - now.getDay()) % 7;
+      if (daysUntilSunday === 0) {
+        // Es domingo, verificar si ya pasó la hora
+        if (now.getHours() > finalHour || (now.getHours() === finalHour && now.getMinutes() >= minuteOffset)) {
+          nextBackup.setDate(nextBackup.getDate() + 7); // Próximo domingo
+        }
+      } else {
+        nextBackup.setDate(nextBackup.getDate() + daysUntilSunday);
+      }
+      break;
+      
+    case 'monthly':
+      // Programar para el día 1 del próximo mes
+      nextBackup.setMonth(nextBackup.getMonth() + 1);
+      nextBackup.setDate(1);
+      
+      // Si estamos en día 1 y no ha pasado la hora, usar este mes
+      if (now.getDate() === 1 && (now.getHours() < finalHour || (now.getHours() === finalHour && now.getMinutes() < minuteOffset))) {
+        nextBackup.setMonth(nextBackup.getMonth() - 1);
+      }
+      break;
+      
+    default:
+      // Por defecto semanal
+      const daysUntilDefaultSunday = (7 - now.getDay()) % 7;
+      if (daysUntilDefaultSunday === 0) {
+        if (now.getHours() > finalHour || (now.getHours() === finalHour && now.getMinutes() >= minuteOffset)) {
+          nextBackup.setDate(nextBackup.getDate() + 7);
+        }
+      } else {
+        nextBackup.setDate(nextBackup.getDate() + daysUntilDefaultSunday);
+      }
+  }
+  
+  return nextBackup.toISOString();
 }
 
 module.exports = router;

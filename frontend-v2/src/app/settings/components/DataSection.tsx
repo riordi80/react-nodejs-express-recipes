@@ -583,10 +583,11 @@ const DataSection = () => {
         isOpen={showBackupsList}
         onClose={() => setShowBackupsList(false)}
         title="Lista de Backups"
-        size="md"
+        size="lg"
       >
-        <div className="space-y-4">
-          <p className="text-gray-600">
+        {/* Content */}
+        <div className="p-6">
+          <p className="text-gray-600 mb-6">
             Gestiona los backups almacenados en el sistema.
           </p>
           
@@ -596,36 +597,46 @@ const DataSection = () => {
                 {loading ? 'Cargando backups...' : 'No hay backups disponibles'}
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-4">
                 {backupsList.map(backup => (
-                  <div key={backup.filename} className="flex items-center justify-between bg-gray-50 rounded-lg p-3">
-                    <div>
-                      <p className="font-medium text-gray-900">{backup.filename}</p>
-                      <div className="flex items-center gap-4 text-sm text-gray-600">
-                        <span>{formatFileSize(backup.size)}</span>
-                        <span>{formatDate(backup.created_at)}</span>
+                  <div key={backup.filename} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-900 truncate" title={backup.filename}>
+                          {backup.filename}
+                        </p>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-gray-600 mt-1">
+                          <span className="flex items-center gap-1">
+                            <Database className="h-4 w-4" />
+                            {formatFileSize(backup.size)}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-4 w-4" />
+                            {formatDate(backup.created_at)}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                    
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => downloadBackup(backup.filename)}
-                        loading={loading}
-                        icon={Download}
-                      >
-                        Descargar
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="danger"
-                        onClick={() => deleteBackup(backup.filename)}
-                        loading={loading}
-                        icon={Trash2}
-                      >
-                        Eliminar
-                      </Button>
+                      
+                      <div className="flex gap-2 shrink-0">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => downloadBackup(backup.filename)}
+                          loading={loading}
+                          icon={Download}
+                        >
+                          Descargar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          onClick={() => deleteBackup(backup.filename)}
+                          loading={loading}
+                          icon={Trash2}
+                        >
+                          Eliminar
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -634,7 +645,8 @@ const DataSection = () => {
           </div>
         </div>
         
-        <div className="flex justify-end mt-6">
+        {/* Footer */}
+        <div className="flex items-center justify-end space-x-3 px-6 py-4 border-t border-gray-200 bg-gray-50">
           <Button variant="outline" onClick={() => setShowBackupsList(false)}>
             Cerrar
           </Button>
