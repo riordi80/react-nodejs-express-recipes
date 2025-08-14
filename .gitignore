@@ -44,6 +44,9 @@
 # Ignorar archivos de copias de seguridad (mantener carpeta pero no archivos)
 /backend/backups/*
 
+# Ignorar archivos temporales de importación
+/backend/uploads/*
+
 # Ignorar coberturas de tests
 /backend/coverage/
 /frontend/coverage/
