@@ -1285,12 +1285,17 @@ router.get('/backup/status', authenticateToken, authorizeRoles('admin'), async (
       await backupManager.updateSchedulerForTenant(req.tenantDb, tenantId, autoEnabled, frequency);
     }
     
+    // Obtener estadísticas de backups para el tenant
+    const tenantId = req.tenant?.tenant_id || req.tenant?.subdomain || 'default';
+    const stats = await backupManager.getBackupStatsForTenant(tenantId);
+    
     res.json({
       auto_enabled: autoEnabled,
       frequency: frequency,
       last_backup: lastBackup[0]?.timestamp || null,
       last_backup_formatted: lastBackup[0]?.timestamp ? 
-        new Date(lastBackup[0].timestamp).toLocaleString('es-ES') : 'Nunca'
+        new Date(lastBackup[0].timestamp).toLocaleString('es-ES') : 'Nunca',
+      stats: stats
     });
     
   } catch (error) {

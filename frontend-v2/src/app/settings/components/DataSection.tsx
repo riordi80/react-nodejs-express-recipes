@@ -60,8 +60,21 @@ const DataSection = () => {
   const fetchBackupStatus = async () => {
     try {
       const response = await api.get('/data/backup/status')
-      setBackupSettings(response.data.settings || backupSettings)
-      setBackupStats(response.data.stats || backupStats)
+      
+      // Transform backend response to frontend format
+      if (response.data) {
+        setBackupSettings({
+          enabled: response.data.auto_enabled || false,
+          frequency: response.data.frequency || 'weekly'
+        })
+        
+        setBackupStats({
+          total_backups: response.data.stats?.total_backups || 0,
+          total_size: response.data.stats?.total_size || 0,
+          last_backup: response.data.last_backup || '',
+          next_backup: response.data.next_backup || ''
+        })
+      }
     } catch (error) {
       console.error('Error al cargar estado de backups:', error)
     }
@@ -181,7 +194,10 @@ const DataSection = () => {
 
     try {
       setLoading(true)
-      await api.put('/data/backup/settings', backupSettings)
+      await api.put('/data/backup/settings', {
+        auto_enabled: backupSettings.enabled,
+        frequency: backupSettings.frequency
+      })
       showToast({ message: 'Configuración de backups actualizada', type: 'success' })
       fetchBackupStatus()
     } catch (error: any) {
