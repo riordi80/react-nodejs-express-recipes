@@ -138,7 +138,14 @@ router.get('/', authenticateToken, authorizeRoles('admin','chef'), async (req, r
 router.get('/:id', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
   try {
     const [rows] = await req.tenantDb.query(
-      'SELECT * FROM RECIPES WHERE recipe_id = ?',
+      `SELECT 
+         r.*,
+         GROUP_CONCAT(DISTINCT rc.name ORDER BY rc.name SEPARATOR ', ') AS categories
+       FROM RECIPES r
+       LEFT JOIN RECIPE_CATEGORY_ASSIGNMENTS rca ON r.recipe_id = rca.recipe_id
+       LEFT JOIN RECIPE_CATEGORIES rc ON rca.category_id = rc.category_id
+       WHERE r.recipe_id = ?
+       GROUP BY r.recipe_id`,
       [req.params.id]
     );
     if (!rows.length) {
