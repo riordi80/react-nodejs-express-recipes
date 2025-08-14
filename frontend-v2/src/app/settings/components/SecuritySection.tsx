@@ -126,6 +126,8 @@ const SecuritySection = () => {
       setLoading(true)
       await api.put('/settings/password-policy', passwordPolicy)
       showToast({ message: 'Política de contraseñas actualizada', type: 'success' })
+      // Refrescar configuraciones después de guardar
+      await fetchPolicies()
     } catch (error: any) {
       showToast({ message: error.response?.data?.message || 'Error al actualizar política', type: 'error' })
     } finally {
@@ -143,6 +145,8 @@ const SecuritySection = () => {
       setLoading(true)
       await api.put('/settings/session-policy', sessionPolicy)
       showToast({ message: 'Política de sesión actualizada', type: 'success' })
+      // Refrescar configuraciones después de guardar
+      await fetchPolicies()
     } catch (error: any) {
       showToast({ message: error.response?.data?.message || 'Error al actualizar política', type: 'error' })
     } finally {
