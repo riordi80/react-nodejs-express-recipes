@@ -27,6 +27,7 @@ import ConfirmModal from '@/components/ui/ConfirmModal'
 import Modal from '@/components/ui/Modal'
 import { useToastHelpers } from '@/context/ToastContext'
 import UnifiedTabs from '@/components/ui/DetailTabs'
+import { useUnsavedChanges } from '@/hooks/useUnsavedChangesSimple'
 
 interface Recipe {
   recipe_id: number
@@ -40,6 +41,7 @@ interface Recipe {
   is_featured_recipe: boolean
   tax_id: number
   cost_per_serving?: number
+  categories?: string
   created_at: string
   updated_at: string
 }
@@ -102,14 +104,7 @@ export default function RecipeDetailPage() {
   const [isEditing] = useState(true) // Siempre iniciar en modo edición
   
   // State para detectar cambios sin guardar
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
-  const [showUnsavedWarning, setShowUnsavedWarning] = useState(false)
-  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
-  const [isInitializing, setIsInitializing] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
-  const initialFormData = useRef<any>(null)
-  const initialIngredients = useRef<RecipeIngredient[]>([])
-  const initialCategories = useRef<number[]>([])
   
   // Tabs state
   const [activeTab, setActiveTab] = useState('general')
@@ -137,6 +132,16 @@ export default function RecipeDetailPage() {
     protein: '',
     carbs: '',
     fat: ''
+  })
+  
+  // Unsaved changes detection
+  const {
+    hasUnsavedChanges,
+    updateInitialValues
+  } = useUnsavedChanges({
+    formData,
+    additionalData: [ingredients, selectedCategoryIds],
+    isLoading: loading
   })
 
   // Load data
@@ -190,14 +195,7 @@ export default function RecipeDetailPage() {
       carbs: '',
       fat: ''
     }
-    initialFormData.current = initialData
-    initialIngredients.current = []
-    initialCategories.current = []
     
-    // Para nueva receta, marcar inicialización completa inmediatamente
-    setTimeout(() => {
-      setIsInitializing(false)
-    }, 500)
   }
 
   const loadAvailableCategories = async () => {
@@ -266,10 +264,17 @@ export default function RecipeDetailPage() {
       }
       setFormData(newFormData)
       
-      // Guardar valores iniciales para detectar cambios
-      initialFormData.current = { ...newFormData }
-      initialIngredients.current = [...(ingredientsResponse.data || [])]
-      initialCategories.current = []
+      // Process categories from recipe data
+      if (recipeData.categories) {
+        const cats = typeof recipeData.categories === 'string' 
+          ? recipeData.categories.split(', ').map((cat: string) => cat.trim())
+          : Array.isArray(recipeData.categories) 
+          ? recipeData.categories 
+          : [recipeData.categories]
+        setCategories(cats)
+      } else {
+        setCategories([])
+      }
       
       // Load additional data (non-blocking)
       loadAdditionalData()
@@ -280,10 +285,6 @@ export default function RecipeDetailPage() {
       console.error('Error loading recipe:', err)
     } finally {
       setLoading(false)
-      // Marcar inicialización completa después de un delay
-      setTimeout(() => {
-        setIsInitializing(false)
-      }, 1000)
     }
   }
 
@@ -307,13 +308,6 @@ export default function RecipeDetailPage() {
         ...nutritionFormData
       }))
       
-      // Actualizar valores iniciales con datos nutricionales para evitar falsos positivos
-      if (initialFormData.current && !hasUnsavedChanges) {
-        initialFormData.current = {
-          ...initialFormData.current,
-          ...nutritionFormData
-        }
-      }
     } catch {
       setNutrition(null)
     }
@@ -325,22 +319,6 @@ export default function RecipeDetailPage() {
     } catch {
       setAllergens([])
     }
-    
-    // Load categories
-    try {
-      const recipesListResponse = await apiGet<Array<{recipe_id: number, categories: string | string[]}>>('/recipes')
-      const recipeWithCategories = recipesListResponse.data.find(r => r.recipe_id === parseInt(recipeId))
-      if (recipeWithCategories?.categories) {
-        const cats = typeof recipeWithCategories.categories === 'string' 
-          ? recipeWithCategories.categories.split(', ').map((cat: string) => cat.trim())
-          : Array.isArray(recipeWithCategories.categories) 
-          ? recipeWithCategories.categories 
-          : [recipeWithCategories.categories]
-        setCategories(cats)
-      }
-    } catch {
-      setCategories([])
-    }
   }
 
   // Sync selectedCategoryIds when categories and availableCategories are loaded
@@ -350,70 +328,13 @@ export default function RecipeDetailPage() {
         .map(catName => availableCategories.find(ac => ac.name === catName)?.category_id)
         .filter((id): id is number => id !== undefined)
       setSelectedCategoryIds(categoryIds)
-      // Actualizar categorías iniciales
-      if (initialCategories.current.length === 0) {
-        initialCategories.current = [...categoryIds]
-      }
     }
   }, [categories, availableCategories])
 
-  // Hook para detectar cambios sin guardar
-  useEffect(() => {
-    // Solo detectar cambios después de que la inicialización esté completa
-    if (!initialFormData.current || loading || isInitializing) return
-    
-    // Comparar formData actual con inicial
-    const formChanged = JSON.stringify(formData) !== JSON.stringify(initialFormData.current)
-    const ingredientsChanged = JSON.stringify(ingredients) !== JSON.stringify(initialIngredients.current)
-    const categoriesChanged = JSON.stringify(selectedCategoryIds) !== JSON.stringify(initialCategories.current)
-    
-    const hasChanges = formChanged || ingredientsChanged || categoriesChanged
-    setHasUnsavedChanges(hasChanges)
-  }, [formData, ingredients, selectedCategoryIds, loading, isInitializing])
 
-  // Interceptar intentos de navegación
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasUnsavedChanges && !isSaving) {
-        e.preventDefault()
-        e.returnValue = ''
-      }
-    }
 
-    const originalPush = router.push
-    const originalBack = router.back
-
-    // Interceptar router.push
-    router.push = function(url: string, options?: any) {
-      if (hasUnsavedChanges && !isSaving && url !== window.location.pathname) {
-        setPendingNavigation(url)
-        setShowUnsavedWarning(true)
-        return Promise.resolve(true)
-      }
-      return originalPush.call(this, url, options)
-    }
-
-    // Interceptar router.back
-    router.back = function() {
-      if (hasUnsavedChanges && !isSaving) {
-        setPendingNavigation('/recipes')
-        setShowUnsavedWarning(true)
-        return
-      }
-      return originalBack.call(this)
-    }
-
-    window.addEventListener('beforeunload', handleBeforeUnload)
-
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload)
-      router.push = originalPush
-      router.back = originalBack
-    }
-  }, [hasUnsavedChanges, router, isSaving])
-
-  // Versión de handleSave que no navega automáticamente (para usar desde modal)
-  const handleSaveWithoutNavigation = async () => {
+  // Function to save recipe for the unsaved changes modal
+  const saveRecipe = async () => {
     try {
       // Validation
       const errors: Record<string, string> = {}
@@ -479,7 +400,7 @@ export default function RecipeDetailPage() {
           }
         }
         
-        setHasUnsavedChanges(false)
+        updateInitialValues()
         
       } else {
         // Update existing recipe
@@ -501,10 +422,7 @@ export default function RecipeDetailPage() {
         }
         
         // Resetear cambios sin guardar pero NO navegar
-        initialFormData.current = { ...formData }
-        initialIngredients.current = [...ingredients]
-        initialCategories.current = [...selectedCategoryIds]
-        setHasUnsavedChanges(false)
+        updateInitialValues()
         
         success('Receta actualizada correctamente', 'Receta Actualizada')
       }
@@ -518,60 +436,6 @@ export default function RecipeDetailPage() {
     }
   }
 
-  // Funciones para manejar la advertencia de cambios sin guardar
-  const handleSaveAndExit = async () => {
-    try {
-      setIsSaving(true) // Evitar interceptación durante navegación
-      await handleSaveWithoutNavigation()
-      // Después del guardado exitoso, cerrar modal y navegar
-      setShowUnsavedWarning(false)
-      
-      // Siempre navegar después de guardar desde la modal
-      if (pendingNavigation) {
-        if (pendingNavigation === '/recipes') {
-          router.back()
-        } else {
-          router.push(pendingNavigation)
-        }
-        setPendingNavigation(null)
-      } else {
-        // Si no hay pendingNavigation, volver atrás por defecto
-        router.back()
-      }
-    } catch (error) {
-      // El error ya se maneja en handleSaveWithoutNavigation
-      console.error('Error saving before exit:', error)
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  const handleDiscardChanges = () => {
-    // Deshabilitar interceptación primero
-    setHasUnsavedChanges(false)
-    setShowUnsavedWarning(false)
-    
-    // Usar setTimeout para asegurar que los estados se actualicen antes de navegar
-    setTimeout(() => {
-      // Siempre navegar después de descartar cambios
-      if (pendingNavigation) {
-        if (pendingNavigation === '/recipes') {
-          router.back()
-        } else {
-          router.push(pendingNavigation)
-        }
-        setPendingNavigation(null)
-      } else {
-        // Si no hay pendingNavigation, volver atrás por defecto
-        router.back()
-      }
-    }, 0) // Micro-delay para que React procese los cambios de estado
-  }
-
-  const handleContinueEditing = () => {
-    setShowUnsavedWarning(false)
-    setPendingNavigation(null)
-  }
 
   const handleSave = async () => {
     try {
@@ -687,10 +551,7 @@ export default function RecipeDetailPage() {
         }
         
         // Resetear cambios sin guardar ANTES de navegar para evitar modal
-        initialFormData.current = { ...formData }
-        initialIngredients.current = [...ingredients]
-        initialCategories.current = [...selectedCategoryIds]
-        setHasUnsavedChanges(false)
+        updateInitialValues()
         
         success('Receta actualizada correctamente', 'Receta Actualizada')
         router.back()
@@ -700,7 +561,7 @@ export default function RecipeDetailPage() {
       
       // Para nuevas recetas solo resetear el flag (ya navega automáticamente)
       if (isNewRecipe) {
-        setHasUnsavedChanges(false)
+        updateInitialValues()
       }
       // Para recetas existentes, los valores iniciales ya se actualizaron antes de router.back()
       
@@ -1237,7 +1098,7 @@ export default function RecipeDetailPage() {
         </div>
         
         {ingredients.length > 0 || sections.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="space-y-8">
             {(() => {
               // Crear un mapa de ingredientes por sección
               const ingredientsBySection = ingredients.reduce((acc, ingredient) => {
@@ -1261,7 +1122,7 @@ export default function RecipeDetailPage() {
                 const section = sectionId === 'no-section' ? null : sections.find(s => s.section_id === parseInt(sectionId))
                 
                 return (
-                  <div key={sectionId} className="space-y-3">
+                  <div key={sectionId} className="space-y-4">
                     {/* Encabezado de sección */}
                     {section ? (
                       <h4 className="text-sm font-medium text-gray-700 bg-gray-100 px-3 py-2 rounded-lg">
@@ -1273,8 +1134,8 @@ export default function RecipeDetailPage() {
                       </h4>
                     ) : null}
                     
-                    {/* Ingredientes de la sección */}
-                    <div className="space-y-2">
+                    {/* Ingredientes de la sección en grid horizontal de 3 columnas */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {sectionIngredients.length > 0 ? sectionIngredients.map((ingredient, index) => {
                         const wastePercent = parseFloat(ingredient.waste_percent?.toString()) || 0
                         const wasteMultiplier = 1 + wastePercent
@@ -1489,10 +1350,11 @@ export default function RecipeDetailPage() {
             
             <button
               onClick={handleSave}
+              disabled={!hasUnsavedChanges && !isNewRecipe}
               className={`p-2 rounded-lg transition-colors ${
                 hasUnsavedChanges || isNewRecipe 
                   ? 'bg-green-600 text-white hover:bg-green-700' 
-                  : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                  : 'bg-gray-100 text-gray-900 hover:bg-gray-200 cursor-not-allowed'
               }`}
               title={isNewRecipe ? 'Crear receta' : hasUnsavedChanges ? 'Guardar cambios' : 'Sin cambios que guardar'}
             >
@@ -1554,10 +1416,11 @@ export default function RecipeDetailPage() {
             
             <button
               onClick={handleSave}
+              disabled={!hasUnsavedChanges && !isNewRecipe}
               className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                 hasUnsavedChanges || isNewRecipe 
                   ? 'bg-green-600 text-white hover:bg-green-700' 
-                  : 'bg-gray-100 text-gray-900 hover:bg-gray-200'
+                  : 'bg-gray-100 text-gray-900 hover:bg-gray-200 cursor-not-allowed'
               }`}
             >
               <Save className="h-4 w-4 mr-2" />
@@ -1897,51 +1760,6 @@ export default function RecipeDetailPage() {
         type="danger"
       />
 
-      {/* Modal de cambios sin guardar - Estilo ConfirmModal */}
-      {showUnsavedWarning && (
-        <Modal 
-          isOpen={showUnsavedWarning} 
-          onClose={handleContinueEditing} 
-          size="sm" 
-          closeOnOverlay={true}
-          showCloseButton={false}
-        >
-          <div className="p-6">
-            <div className="flex items-center space-x-4">
-              <div className="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center bg-yellow-100">
-                <AlertTriangle className="h-5 w-5 text-yellow-600" />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Cambios sin guardar</h3>
-                <p className="text-sm text-gray-600">
-                  Tienes cambios sin guardar en esta receta. ¿Qué te gustaría hacer?
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end space-x-3 mt-6">
-              <button
-                onClick={handleContinueEditing}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleDiscardChanges}
-                className="inline-flex items-center px-4 py-2 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-red-600 hover:bg-red-700 whitespace-nowrap"
-              >
-                Descartar
-              </button>
-              <button
-                onClick={handleSaveAndExit}
-                className="inline-flex items-center px-4 py-2 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors bg-green-600 hover:bg-green-700 whitespace-nowrap"
-              >
-                Guardar
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
     </>
   )
 }
