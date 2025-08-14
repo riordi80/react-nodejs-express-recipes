@@ -13,7 +13,6 @@ import api from '@/lib/api'
 interface BackupSettings {
   enabled: boolean
   frequency: string
-  time: string
 }
 
 interface BackupFile {
@@ -39,8 +38,7 @@ const DataSection = () => {
   
   const [backupSettings, setBackupSettings] = useState<BackupSettings>({
     enabled: false,
-    frequency: 'weekly',
-    time: '02:00'
+    frequency: 'weekly'
   })
   
   const [backupsList, setBackupsList] = useState<BackupFile[]>([])
@@ -495,22 +493,6 @@ const DataSection = () => {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Hora
-                  </label>
-                  <Select
-                    value={backupSettings.time}
-                    onChange={(e) => setBackupSettings(prev => ({ ...prev, time: e.target.value }))}
-                    options={[
-                      { value: '00:00', label: '00:00' },
-                      { value: '02:00', label: '02:00' },
-                      { value: '04:00', label: '04:00' },
-                      { value: '06:00', label: '06:00' }
-                    ]}
-                    disabled={!isAdmin}
-                  />
-                </div>
               </>
             )}
           </div>
@@ -534,8 +516,8 @@ const DataSection = () => {
                 backupSettings.frequency === 'weekly' ? 'Cada semana (domingos)' :
                 'Cada mes (día 1)'
               }</p>
-              <p>• <strong>Hora:</strong> {backupSettings.time} (hora del servidor)</p>
-              <p>• <strong>Retención:</strong> Se mantienen los últimos 10 backups automáticos</p>
+              <p>• <strong>Horario:</strong> Durante la madrugada (optimizado automáticamente)</p>
+              <p>• <strong>Retención:</strong> Se mantienen los últimos 30 backups automáticos</p>
             </div>
           </div>
         )}

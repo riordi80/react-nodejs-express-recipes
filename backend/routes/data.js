@@ -1276,9 +1276,18 @@ router.get('/backup/status', authenticateToken, authorizeRoles('admin'), async (
       LIMIT 1
     `);
     
+    const autoEnabled = backupSettings.backup_auto_enabled === 'true';
+    const frequency = backupSettings.backup_frequency || 'weekly';
+    
+    // Inicializar scheduler si está habilitado y no está ya corriendo
+    if (autoEnabled) {
+      const tenantId = req.tenant?.tenant_id || req.tenant?.subdomain || 'default';
+      await backupManager.updateSchedulerForTenant(req.tenantDb, tenantId, autoEnabled, frequency);
+    }
+    
     res.json({
-      auto_enabled: backupSettings.backup_auto_enabled === 'true',
-      frequency: backupSettings.backup_frequency || 'weekly',
+      auto_enabled: autoEnabled,
+      frequency: frequency,
       last_backup: lastBackup[0]?.timestamp || null,
       last_backup_formatted: lastBackup[0]?.timestamp ? 
         new Date(lastBackup[0].timestamp).toLocaleString('es-ES') : 'Nunca'
@@ -1311,8 +1320,9 @@ router.put('/backup/settings', authenticateToken, authorizeRoles('admin'), async
       `, [setting.key, setting.value]);
     }
     
-    // Actualizar scheduler del BackupManager
-    await backupManager.updateScheduler(auto_enabled, frequency);
+    // Actualizar scheduler del BackupManager para el tenant actual
+    const tenantId = req.tenant?.tenant_id || req.tenant?.subdomain || 'default';
+    await backupManager.updateSchedulerForTenant(req.tenantDb, tenantId, auto_enabled, frequency);
     
     // Registrar en audit logs
     await req.tenantDb.execute(
@@ -1331,8 +1341,9 @@ router.put('/backup/settings', authenticateToken, authorizeRoles('admin'), async
 // GET /data/backup/list - Listar backups almacenados
 router.get('/backup/list', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   try {
-    const backups = await backupManager.listBackups();
-    const stats = await backupManager.getBackupStats();
+    const tenantId = req.tenant?.tenant_id || req.tenant?.subdomain || 'default';
+    const backups = await backupManager.listBackupsForTenant(tenantId);
+    const stats = await backupManager.getBackupStatsForTenant(tenantId);
     
     res.json({
       backups: backups.map(backup => ({

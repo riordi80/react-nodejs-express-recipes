@@ -1,34 +1,19 @@
 // utils/backupManager.js
 const fs = require('fs').promises;
 const path = require('path');
-const mysql = require('mysql2/promise');
+// Multi-tenant system - no necesitamos mysql pool global
 const cron = require('node-cron');
 
 class BackupManager {
   constructor() {
     this.backupDir = path.join(__dirname, '..', 'backups');
-    this.pool = mysql.createPool({
-      host: process.env.DB_HOST,
-      user: process.env.DB_USER,
-      password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME,
-    });
-    
-    this.cronJob = null;
+    this.cronJobs = new Map(); // Map de cronJobs por tenant
     this.isInitialized = false;
   }
 
   async initialize() {
     if (this.isInitialized) return;
     
-    // En sistema multi-tenant, deshabilitamos el backup automático
-    // El backup se debe manejar a nivel de servidor por cada base de datos tenant
-    console.log('ℹ️  BackupManager deshabilitado en sistema multi-tenant');
-    this.isInitialized = true;
-    return;
-    
-    // Código original comentado para sistemas single-tenant
-    /*
     // Crear directorio de backups si no existe
     try {
       await fs.access(this.backupDir);
@@ -37,27 +22,25 @@ class BackupManager {
       console.log('📁 Directorio de backups creado:', this.backupDir);
     }
 
-    // Inicializar scheduler
-    await this.initializeScheduler();
+    console.log('✅ BackupManager inicializado para sistema multi-tenant');
     this.isInitialized = true;
-    */
   }
 
-  async initializeScheduler() {
+  async initializeSchedulerForTenant(tenantDb, tenantId) {
     try {
-      // Obtener configuración actual
-      const settings = await this.getBackupSettings();
+      // Obtener configuración actual del tenant
+      const settings = await this.getBackupSettings(tenantDb);
       
       if (settings.backup_auto_enabled === 'true') {
-        this.startScheduler(settings.backup_frequency);
+        this.startSchedulerForTenant(tenantDb, tenantId, settings.backup_frequency);
       }
     } catch (error) {
-      console.error('Error inicializando scheduler:', error);
+      console.error(`Error inicializando scheduler para tenant ${tenantId}:`, error);
     }
   }
 
-  async getBackupSettings() {
-    const [rows] = await this.pool.execute(`
+  async getBackupSettings(tenantDb) {
+    const [rows] = await tenantDb.execute(`
       SELECT setting_key, setting_value 
       FROM SYSTEM_SETTINGS 
       WHERE setting_key IN ('backup_auto_enabled', 'backup_frequency')
@@ -74,74 +57,91 @@ class BackupManager {
     };
   }
 
-  getCronPattern(frequency) {
+  getCronPatternWithDistribution(frequency, tenantId) {
+    const baseHour = 2; // Hora base: 2:00 AM
+    const maxWindow = 6; // Ventana de 6 horas (2-8 AM)
+    
+    // Generar offset basado en hash del tenantId para distribución consistente
+    const hash = tenantId.toString().split('').reduce((a, b) => a + b.charCodeAt(0), 0);
+    const hourOffset = hash % maxWindow;
+    const finalHour = baseHour + hourOffset;
+    
+    // Minutos aleatorios basados en tenant para mayor distribución
+    const minuteOffset = (hash * 7) % 60; // 0-59 minutos
+    
+    console.log(`🕐 Tenant ${tenantId} programado para: ${finalHour}:${minuteOffset.toString().padStart(2, '0')}`);
+    
     switch (frequency) {
       case 'daily':
-        return '0 2 * * *'; // Todos los días a las 2:00 AM
+        return `${minuteOffset} ${finalHour} * * *`; // Cada día entre 2-8 AM
       case 'weekly':
-        return '0 2 * * 0'; // Domingos a las 2:00 AM
+        return `${minuteOffset} ${finalHour} * * 0`; // Domingos entre 2-8 AM
       case 'monthly':
-        return '0 2 1 * *'; // Primer día del mes a las 2:00 AM
+        return `${minuteOffset} ${finalHour} 1 * *`; // Primer día entre 2-8 AM
       default:
-        return '0 2 * * 0'; // Por defecto semanal
+        return `${minuteOffset} ${finalHour} * * 0`; // Por defecto semanal
     }
   }
 
-  startScheduler(frequency) {
-    // Detener scheduler existente
-    this.stopScheduler();
+  startSchedulerForTenant(tenantDb, tenantId, frequency) {
+    // Detener scheduler existente para este tenant
+    this.stopSchedulerForTenant(tenantId);
     
-    const cronPattern = this.getCronPattern(frequency);
+    const cronPattern = this.getCronPatternWithDistribution(frequency, tenantId);
     
-    this.cronJob = cron.schedule(cronPattern, async () => {
-      console.log(`🔄 Ejecutando backup automático (${frequency})`);
+    const cronJob = cron.schedule(cronPattern, async () => {
+      console.log(`🔄 Ejecutando backup automático para tenant ${tenantId} (${frequency})`);
       try {
-        await this.createAutomaticBackup();
+        await this.createAutomaticBackupForTenant(tenantDb, tenantId);
       } catch (error) {
-        console.error('Error en backup automático:', error);
+        console.error(`Error en backup automático para tenant ${tenantId}:`, error);
       }
     }, {
       scheduled: true,
       timezone: 'Europe/Madrid'
     });
     
+    this.cronJobs.set(tenantId, cronJob);
+    console.log(`⏰ Scheduler iniciado para tenant ${tenantId}: ${frequency} (${cronPattern})`);
   }
 
-  stopScheduler() {
-    if (this.cronJob) {
-      this.cronJob.destroy();
-      this.cronJob = null;
+  stopSchedulerForTenant(tenantId) {
+    const cronJob = this.cronJobs.get(tenantId);
+    if (cronJob) {
+      cronJob.destroy();
+      this.cronJobs.delete(tenantId);
+      console.log(`⏹️ Scheduler detenido para tenant ${tenantId}`);
     }
   }
 
-  async updateScheduler(autoEnabled, frequency) {
+  async updateSchedulerForTenant(tenantDb, tenantId, autoEnabled, frequency) {
     if (autoEnabled) {
-      this.startScheduler(frequency);
+      this.startSchedulerForTenant(tenantDb, tenantId, frequency);
     } else {
-      this.stopScheduler();
+      this.stopSchedulerForTenant(tenantId);
     }
   }
 
-  async createAutomaticBackup(userId = null) {
+  async createAutomaticBackupForTenant(tenantDb, tenantId, userId = null) {
     try {
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const filename = `recetario_backup_${timestamp}.json`;
+      const filename = `${tenantId}_backup_${timestamp}.json`;
       const filepath = path.join(this.backupDir, filename);
       
       // Generar datos de backup
-      const backupData = await this.generateBackupData();
+      const backupData = await this.generateBackupDataForTenant(tenantDb, tenantId);
       
       // Guardar archivo
       await fs.writeFile(filepath, JSON.stringify(backupData, null, 2));
       
       // Registrar en audit logs
-      await this.pool.execute(
+      await tenantDb.execute(
         'INSERT INTO AUDIT_LOGS (user_id, action, table_name, description, timestamp) VALUES (?, ?, ?, ?, NOW())',
         [userId, 'backup', 'SYSTEM', `Backup automático creado: ${filename}`]
       );
       
       // Actualizar fecha de último backup
-      await this.pool.execute(`
+      await tenantDb.execute(`
         INSERT INTO SYSTEM_SETTINGS (setting_key, setting_value, updated_at) 
         VALUES ('backup_last_date', NOW(), NOW())
         ON DUPLICATE KEY UPDATE 
@@ -149,46 +149,54 @@ class BackupManager {
         updated_at = VALUES(updated_at)
       `);
       
-      console.log(`✅ Backup automático creado: ${filename}`);
+      console.log(`✅ Backup automático creado para tenant ${tenantId}: ${filename}`);
       
-      // Limpiar backups antiguos
-      await this.cleanupOldBackups();
+      // Limpiar backups antiguos para este tenant
+      await this.cleanupOldBackupsForTenant(tenantId);
       
       return {
         success: true,
         filename,
         filepath,
-        size: (await fs.stat(filepath)).size
+        size: (await fs.stat(filepath)).size,
+        tenantId
       };
       
     } catch (error) {
-      console.error('Error creando backup automático:', error);
+      console.error(`Error creando backup automático para tenant ${tenantId}:`, error);
       throw error;
     }
   }
 
-  async generateBackupData() {
+  async generateBackupDataForTenant(tenantDb, tenantId) {
     // Obtener datos de todas las tablas principales
-    const [recipes] = await this.pool.execute('SELECT * FROM RECIPES');
-    const [ingredients] = await this.pool.execute('SELECT * FROM INGREDIENTS');
-    const [suppliers] = await this.pool.execute('SELECT * FROM SUPPLIERS');
-    const [users] = await this.pool.execute('SELECT user_id, first_name, last_name, email, role, is_active, language, timezone FROM USERS');
-    const [recipeIngredients] = await this.pool.execute('SELECT * FROM RECIPE_INGREDIENTS');
-    const [supplierIngredients] = await this.pool.execute('SELECT * FROM SUPPLIER_INGREDIENTS');
-    const [settings] = await this.pool.execute('SELECT * FROM SYSTEM_SETTINGS');
-    const [categories] = await this.pool.execute('SELECT * FROM RECIPE_CATEGORIES');
-    const [ingredientCategories] = await this.pool.execute('SELECT * FROM INGREDIENT_CATEGORIES');
-    const [menus] = await this.pool.execute('SELECT * FROM MENUS');
+    const [recipes] = await tenantDb.execute('SELECT * FROM RECIPES');
+    const [ingredients] = await tenantDb.execute('SELECT * FROM INGREDIENTS');
+    const [suppliers] = await tenantDb.execute('SELECT * FROM SUPPLIERS');
+    const [users] = await tenantDb.execute('SELECT user_id, first_name, last_name, email, role, is_active, language, timezone FROM USERS');
+    const [recipeIngredients] = await tenantDb.execute('SELECT * FROM RECIPE_INGREDIENTS');
+    const [supplierIngredients] = await tenantDb.execute('SELECT * FROM SUPPLIER_INGREDIENTS');
+    const [settings] = await tenantDb.execute('SELECT * FROM SYSTEM_SETTINGS');
+    const [categories] = await tenantDb.execute('SELECT * FROM RECIPE_CATEGORIES');
+    const [ingredientCategories] = await tenantDb.execute('SELECT * FROM INGREDIENT_CATEGORIES');
+    const [events] = await tenantDb.execute('SELECT * FROM EVENTS');
+    const [eventMenus] = await tenantDb.execute('SELECT * FROM EVENT_MENUS');
+    const [allergens] = await tenantDb.execute('SELECT * FROM ALLERGENS');
+    const [ingredientAllergens] = await tenantDb.execute('SELECT * FROM INGREDIENT_ALLERGENS');
+    const [recipeCategoryAssignments] = await tenantDb.execute('SELECT * FROM RECIPE_CATEGORY_ASSIGNMENTS');
+    const [ingredientCategoryAssignments] = await tenantDb.execute('SELECT * FROM INGREDIENT_CATEGORY_ASSIGNMENTS');
     
     return {
       metadata: {
         version: '1.0',
         created_at: new Date().toISOString(),
         type: 'automatic',
+        tenant_id: tenantId,
         tables: [
-          'recipes', 'ingredients', 'suppliers', 'users', 
-          'recipe_ingredients', 'supplier_ingredients', 'system_settings',
-          'recipe_categories', 'ingredient_categories', 'menus'
+          'recipes', 'ingredients', 'suppliers', 'users', 'events',
+          'recipe_ingredients', 'supplier_ingredients', 'event_menus', 'allergens',
+          'ingredient_allergens', 'recipe_category_assignments', 'ingredient_category_assignments',
+          'system_settings', 'recipe_categories', 'ingredient_categories'
         ]
       },
       data: {
@@ -196,21 +204,26 @@ class BackupManager {
         ingredients,
         suppliers,
         users,
+        events,
         recipe_ingredients: recipeIngredients,
         supplier_ingredients: supplierIngredients,
+        event_menus: eventMenus,
+        allergens,
+        ingredient_allergens: ingredientAllergens,
+        recipe_category_assignments: recipeCategoryAssignments,
+        ingredient_category_assignments: ingredientCategoryAssignments,
         system_settings: settings,
         recipe_categories: categories,
-        ingredient_categories: ingredientCategories,
-        menus
+        ingredient_categories: ingredientCategories
       }
     };
   }
 
-  async cleanupOldBackups() {
+  async cleanupOldBackupsForTenant(tenantId) {
     try {
       const files = await fs.readdir(this.backupDir);
       const backupFiles = files
-        .filter(file => file.startsWith('recetario_backup_') && file.endsWith('.json'))
+        .filter(file => file.startsWith(`${tenantId}_backup_`) && file.endsWith('.json'))
         .map(file => ({
           name: file,
           path: path.join(this.backupDir, file)
@@ -231,28 +244,28 @@ class BackupManager {
       // Ordenar por fecha (más reciente primero)
       filesWithStats.sort((a, b) => b.mtime - a.mtime);
       
-      // Mantener solo los últimos 30 backups
+      // Mantener solo los últimos 30 backups por tenant
       const maxBackups = 30;
       if (filesWithStats.length > maxBackups) {
         const filesToDelete = filesWithStats.slice(maxBackups);
         
         for (const file of filesToDelete) {
           await fs.unlink(file.path);
-          console.log(`🗑️ Backup antiguo eliminado: ${file.name}`);
+          console.log(`🗑️ Backup antiguo eliminado para tenant ${tenantId}: ${file.name}`);
         }
       }
       
-      console.log(`🧹 Limpieza completada. ${filesWithStats.length} backups mantenidos.`);
+      console.log(`🧹 Limpieza completada para tenant ${tenantId}. ${Math.min(filesWithStats.length, maxBackups)} backups mantenidos.`);
     } catch (error) {
-      console.error('Error limpiando backups antiguos:', error);
+      console.error(`Error limpiando backups antiguos para tenant ${tenantId}:`, error);
     }
   }
 
-  async listBackups() {
+  async listBackupsForTenant(tenantId) {
     try {
       const files = await fs.readdir(this.backupDir);
       const backupFiles = files
-        .filter(file => file.startsWith('recetario_backup_') && file.endsWith('.json'))
+        .filter(file => file.startsWith(`${tenantId}_backup_`) && file.endsWith('.json'))
         .map(file => ({
           name: file,
           path: path.join(this.backupDir, file)
@@ -273,7 +286,7 @@ class BackupManager {
       // Ordenar por fecha (más reciente primero)
       return filesWithStats.sort((a, b) => b.created_at - a.created_at);
     } catch (error) {
-      console.error('Error listando backups:', error);
+      console.error(`Error listando backups para tenant ${tenantId}:`, error);
       return [];
     }
   }
@@ -298,9 +311,9 @@ class BackupManager {
     }
   }
 
-  async getBackupStats() {
+  async getBackupStatsForTenant(tenantId) {
     try {
-      const backups = await this.listBackups();
+      const backups = await this.listBackupsForTenant(tenantId);
       const totalSize = backups.reduce((sum, backup) => sum + backup.size, 0);
       
       return {
@@ -310,7 +323,7 @@ class BackupManager {
         newest_backup: backups.length > 0 ? backups[0].created_at : null
       };
     } catch (error) {
-      console.error('Error obteniendo estadísticas de backup:', error);
+      console.error(`Error obteniendo estadísticas de backup para tenant ${tenantId}:`, error);
       return {
         total_backups: 0,
         total_size: 0,
