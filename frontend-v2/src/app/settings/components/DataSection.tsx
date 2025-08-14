@@ -89,7 +89,10 @@ const DataSection = () => {
 
     try {
       setLoading(true)
-      const response = await api.get(`/data/export/${type}?format=${format}`, {
+      
+      // Manejar caso especial de exportación completa (full)
+      const apiUrl = type === 'full' ? '/data/backup' : `/data/export/${type}?format=${format}`
+      const response = await api.get(apiUrl, {
         responseType: 'blob'
       })
       
@@ -98,13 +101,21 @@ const DataSection = () => {
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.download = `${type}_${new Date().toISOString().split('T')[0]}.${format}`
+      
+      // Nombre del archivo según el tipo
+      if (type === 'full') {
+        link.download = `backup_completo_${new Date().toISOString().split('T')[0]}.json`
+      } else {
+        link.download = `${type}_${new Date().toISOString().split('T')[0]}.${format}`
+      }
+      
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
       
-      showToast({ message: `Exportación de ${type} completada`, type: 'success' })
+      const exportType = type === 'full' ? 'backup completo' : type
+      showToast({ message: `Exportación de ${exportType} completada`, type: 'success' })
     } catch (error: any) {
       showToast({ message: error.response?.data?.message || 'Error en la exportación', type: 'error' })
     } finally {
@@ -299,15 +310,17 @@ const DataSection = () => {
                 >
                   JSON
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleExport(item.type, 'csv')}
-                  loading={loading}
-                  disabled={!isAdmin}
-                >
-                  CSV
-                </Button>
+                {item.type !== 'full' && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleExport(item.type, 'csv')}
+                    loading={loading}
+                    disabled={!isAdmin}
+                  >
+                    CSV
+                  </Button>
+                )}
               </div>
             </div>
           ))}
