@@ -136,7 +136,7 @@ const DataSection = () => {
       
       const result = response.data
       showToast({ 
-        message: `Importación completada: ${result.imported || 0} registros importados, ${result.errors || 0} errores`, 
+        message: `Importación completada: ${result.imported || 0} nuevos, ${result.updated || 0} actualizados, ${result.errors || 0} errores`, 
         type: result.errors > 0 ? 'warning' : 'success'
       })
     } catch (error: any) {
