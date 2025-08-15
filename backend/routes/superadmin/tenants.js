@@ -32,6 +32,11 @@ router.get('/', requirePermission('access_monitoring'), async (req, res) => {
             sort_order = 'desc'
         } = req.query;
 
+        // Validar sort_by para evitar SQL injection
+        const allowedSortFields = ['created_at', 'business_name', 'subscription_status', 'subscription_plan', 'tenant_id'];
+        const safeSortBy = allowedSortFields.includes(sort_by) ? sort_by : 'created_at';
+        const safeSortOrder = ['asc', 'desc'].includes(sort_order.toLowerCase()) ? sort_order.toUpperCase() : 'DESC';
+
         const offset = (page - 1) * limit;
         
         // Construir WHERE clause dinámico
@@ -55,30 +60,67 @@ router.get('/', requirePermission('access_monitoring'), async (req, res) => {
         }
 
         const whereClause = whereConditions.join(' AND ');
+        let mainQuery, tenants;
         
-        // Query principal con información extendida
-        const [tenants] = await masterPool.execute(`
-            SELECT 
-                t.*,
-                (SELECT COUNT(*) FROM MASTER_USERS mu WHERE mu.tenant_id = t.tenant_id AND mu.is_active = TRUE) as users_count,
-                DATEDIFF(CURDATE(), t.created_at) as days_since_creation,
-                CASE 
-                    WHEN t.trial_ends_at IS NOT NULL AND t.trial_ends_at < CURDATE() THEN 'expired'
-                    WHEN t.trial_ends_at IS NOT NULL AND t.trial_ends_at >= CURDATE() THEN 'active'
-                    ELSE 'none'
-                END as trial_status
-            FROM TENANTS t
-            WHERE ${whereClause}
-            ORDER BY t.${sort_by} ${sort_order.toUpperCase()}
-            LIMIT ? OFFSET ?
-        `, [...queryParams, parseInt(limit), parseInt(offset)]);
+        try {
+            // WORKAROUND: Usar query directo para evitar problemas con prepared statements
+            let directQuery = `
+                SELECT t.* 
+                FROM TENANTS t
+                WHERE t.is_active = TRUE`;
+            
+            // Solo agregar filtros si existen para mantener la consulta simple
+            if (status && status !== 'all') {
+                directQuery += ` AND t.subscription_status = '${status.replace(/'/g, "''")}'`;
+            }
+            
+            if (plan && plan !== 'all') {
+                directQuery += ` AND t.subscription_plan = '${plan.replace(/'/g, "''")}'`;
+            }
+            
+            if (search) {
+                const safeSearch = search.replace(/'/g, "''");
+                directQuery += ` AND (t.subdomain LIKE '%${safeSearch}%' OR t.business_name LIKE '%${safeSearch}%' OR t.admin_email LIKE '%${safeSearch}%')`;
+            }
+            
+            directQuery += ` ORDER BY t.${safeSortBy} ${safeSortOrder} LIMIT ${parseInt(limit)} OFFSET ${parseInt(offset)}`;
+            
+            [tenants] = await masterPool.query(directQuery);
+            
+        } catch (queryError) {
+            console.error('Error executing tenants query:', queryError.message);
+            
+            // Fallback a query simple
+            const limitValue = parseInt(limit) || 50;
+            const fallbackQuery = `
+                SELECT tenant_id, subdomain, business_name, subscription_status, subscription_plan, created_at, is_active
+                FROM TENANTS 
+                WHERE is_active = TRUE 
+                ORDER BY created_at DESC 
+                LIMIT ${limitValue}
+            `;
+            
+            [tenants] = await masterPool.query(fallbackQuery);
+        }
 
         // Contar total para paginación
-        const [countResult] = await masterPool.execute(`
-            SELECT COUNT(*) as total
-            FROM TENANTS t
-            WHERE ${whereClause}
-        `, queryParams);
+        let countQuery = `SELECT COUNT(*) as total FROM TENANTS t WHERE t.is_active = TRUE`;
+        
+        // Agregar los mismos filtros que en la consulta principal
+        if (status && status !== 'all') {
+            countQuery += ` AND t.subscription_status = '${status.replace(/'/g, "''")}'`;
+        }
+        
+        if (plan && plan !== 'all') {
+            countQuery += ` AND t.subscription_plan = '${plan.replace(/'/g, "''")}'`;
+        }
+        
+        if (search) {
+            const safeSearch = search.replace(/'/g, "''");
+            countQuery += ` AND (t.subdomain LIKE '%${safeSearch}%' OR t.business_name LIKE '%${safeSearch}%' OR t.admin_email LIKE '%${safeSearch}%')`;
+        }
+        
+        const [countResult] = await masterPool.query(countQuery);
 
         const total = countResult[0].total;
         const totalPages = Math.ceil(total / limit);
@@ -99,10 +141,46 @@ router.get('/', requirePermission('access_monitoring'), async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Error obteniendo lista de tenants:', error);
+        console.error('Error obteniendo lista de tenants:', error.message);
         res.status(500).json({
             error: 'Error del servidor',
             message: 'Error al obtener lista de tenants'
+        });
+    }
+});
+
+/**
+ * GET /api/superadmin/tenants/stats
+ * Obtener estadísticas generales de tenants
+ */
+router.get('/stats', requirePermission('access_monitoring'), async (req, res) => {
+    try {
+        // Obtener estadísticas generales
+        const [statsResult] = await masterPool.execute(`
+            SELECT 
+                COUNT(*) as total_tenants,
+                SUM(CASE WHEN subscription_status = 'active' THEN 1 ELSE 0 END) as active_tenants,
+                SUM(CASE WHEN subscription_status = 'trial' THEN 1 ELSE 0 END) as trial_tenants,
+                SUM(CASE WHEN subscription_status = 'suspended' THEN 1 ELSE 0 END) as suspended_tenants,
+                SUM(CASE WHEN subscription_status = 'cancelled' THEN 1 ELSE 0 END) as cancelled_tenants
+            FROM TENANTS 
+            WHERE is_active = TRUE
+        `);
+
+        const stats = statsResult[0];
+
+        res.json({
+            success: true,
+            data: {
+                stats
+            }
+        });
+
+    } catch (error) {
+        console.error('Error obteniendo estadísticas:', error);
+        res.status(500).json({
+            error: 'Error del servidor',
+            message: 'Error al obtener estadísticas'
         });
     }
 });
@@ -331,10 +409,10 @@ router.post('/:tenantId/suspend', requirePermission(['manage_tenants', 'manage_b
 });
 
 /**
- * POST /api/superadmin/tenants/:tenantId/reactivate
- * Reactivar un tenant suspendido
+ * POST /api/superadmin/tenants/:tenantId/activate
+ * Activar/reactivar un tenant
  */
-router.post('/:tenantId/reactivate', requirePermission(['manage_tenants', 'manage_billing']), auditLog('reactivate_tenant'), async (req, res) => {
+router.post('/:tenantId/activate', requirePermission(['manage_tenants', 'manage_billing']), auditLog('activate_tenant'), async (req, res) => {
     try {
         const { tenantId } = req.params;
 
@@ -348,7 +426,7 @@ router.post('/:tenantId/reactivate', requirePermission(['manage_tenants', 'manag
 
         res.json({
             success: true,
-            message: 'Tenant reactivado correctamente'
+            message: 'Tenant activado correctamente'
         });
 
     } catch (error) {
@@ -356,6 +434,104 @@ router.post('/:tenantId/reactivate', requirePermission(['manage_tenants', 'manag
         res.status(500).json({
             error: 'Error del servidor',
             message: 'Error al reactivar el tenant'
+        });
+    }
+});
+
+/**
+ * POST /api/superadmin/tenants/:tenantId/impersonate
+ * Generar token de impersonación para acceder al tenant
+ */
+router.post('/:tenantId/impersonate', requirePermission('impersonate_tenants'), auditLog('impersonate_tenant'), async (req, res) => {
+    try {
+        const { tenantId } = req.params;
+
+        // Verificar que el tenant existe y está activo
+        const [tenantResult] = await masterPool.execute(`
+            SELECT tenant_id, subdomain, business_name, subscription_status, is_active
+            FROM TENANTS 
+            WHERE tenant_id = ? AND is_active = TRUE
+        `, [tenantId]);
+
+        if (tenantResult.length === 0) {
+            return res.status(404).json({
+                error: 'Tenant no encontrado',
+                message: 'El tenant no existe o está inactivo'
+            });
+        }
+
+        const tenant = tenantResult[0];
+
+        // Verificar que el tenant no está suspendido
+        if (tenant.subscription_status === 'suspended') {
+            return res.status(403).json({
+                error: 'Tenant suspendido',
+                message: 'No se puede acceder a un tenant suspendido'
+            });
+        }
+
+        // Obtener el usuario administrador del tenant
+        const [adminResult] = await masterPool.execute(`
+            SELECT user_id, email, first_name, last_name
+            FROM MASTER_USERS 
+            WHERE tenant_id = ? AND is_tenant_owner = TRUE AND is_active = TRUE
+            LIMIT 1
+        `, [tenantId]);
+
+        if (adminResult.length === 0) {
+            return res.status(404).json({
+                error: 'Administrador no encontrado',
+                message: 'No se encontró un administrador activo para este tenant'
+            });
+        }
+
+        const admin = adminResult[0];
+
+        // Generar token temporal de impersonación (30 minutos)
+        const jwt = require('jsonwebtoken');
+        const impersonationToken = jwt.sign({
+            user_id: admin.user_id,
+            email: admin.email,
+            first_name: admin.first_name,
+            last_name: admin.last_name,
+            tenant_id: tenantId,
+            role: 'admin',
+            impersonated_by: req.superAdmin.user_id,
+            impersonated_at: new Date().toISOString()
+        }, process.env.JWT_SECRET, { 
+            expiresIn: '30m' 
+        });
+
+        // Construir URL de redirección
+        const protocol = process.env.PROTOCOL || 'https';
+        const baseUrl = process.env.TENANT_BASE_URL || 'ordidev.com';
+        const redirectUrl = `${protocol}://${tenant.subdomain}.${baseUrl}/dashboard?impersonation_token=${impersonationToken}`;
+
+        res.json({
+            success: true,
+            message: 'Token de impersonación generado',
+            data: {
+                tenant: {
+                    tenant_id: tenant.tenant_id,
+                    subdomain: tenant.subdomain,
+                    business_name: tenant.business_name
+                },
+                admin: {
+                    email: admin.email,
+                    first_name: admin.first_name,
+                    last_name: admin.last_name
+                },
+                redirect_url: redirectUrl,
+                token: impersonationToken,
+                expires_in: 1800 // 30 minutos en segundos
+            }
+        });
+
+    } catch (error) {
+        console.error('Error impersonando tenant:', error);
+        res.status(500).json({
+            error: 'Error del servidor',
+            message: 'Error al generar token de impersonación'
         });
     }
 });

@@ -1,7 +1,7 @@
 // middleware/superAdminMiddleware.js
 const mysql = require('mysql2/promise');
 
-// Pool de conexiones a la base de datos maestra
+// Pool de conexiones a la base de datos maestra - con configuración idéntica al sistema tenant
 const masterPool = mysql.createPool({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
@@ -9,17 +9,29 @@ const masterPool = mysql.createPool({
     database: 'recetario_master',
     waitForConnections: true,
     connectionLimit: 10,
-    queueLimit: 0
+    queueLimit: 0,
+    idleTimeout: 600000,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 0
+});
+
+// Agregar manejo de errores para el pool
+masterPool.on('error', (err) => {
+    console.error('SuperAdmin MySQL pool error:', err);
 });
 
 /**
  * Middleware para verificar que el usuario es superadmin
- * Debe ejecutarse DESPUÉS del middleware de autenticación normal
+ * Maneja su propia autenticación con tokens SuperAdmin
  */
 async function requireSuperAdmin(req, res, next) {
     try {
-        // 1. Verificar autenticación básica
-        if (!req.user) {
+        const jwt = require('jsonwebtoken');
+        
+        // 1. Verificar token de SuperAdmin en cookies
+        const token = req.cookies.superadmin_token;
+        
+        if (!token) {
             return res.status(401).json({ 
                 error: 'No autenticado',
                 message: 'Debe iniciar sesión para acceder al panel de administración',
@@ -27,10 +39,22 @@ async function requireSuperAdmin(req, res, next) {
             });
         }
 
-        // 2. Verificar que es superadmin en la base de datos maestra
+        // 2. Verificar y decodificar token JWT
+        let decoded;
+        try {
+            decoded = jwt.verify(token, process.env.JWT_SECRET);
+        } catch (jwtError) {
+            return res.status(401).json({
+                error: 'Token inválido',
+                message: 'Su sesión ha expirado. Por favor, inicie sesión nuevamente',
+                code: 'TOKEN_INVALID'
+            });
+        }
+
+        // 3. Verificar que es superadmin en la base de datos maestra
         const [rows] = await masterPool.execute(
             'SELECT user_id, email, first_name, last_name, is_super_admin, superadmin_role FROM MASTER_USERS WHERE user_id = ? AND is_super_admin = TRUE AND is_active = TRUE',
-            [req.user.user_id]
+            [decoded.user_id]
         );
 
         if (rows.length === 0) {
@@ -56,7 +80,7 @@ async function requireSuperAdmin(req, res, next) {
         // 4. Cargar permisos específicos del superadmin
         const [permissions] = await masterPool.execute(
             'SELECT permission_type FROM SUPERADMIN_PERMISSIONS WHERE user_id = ?',
-            [req.user.user_id]
+            [decoded.user_id]
         );
 
         const userPermissions = permissions.map(p => p.permission_type);
@@ -70,7 +94,7 @@ async function requireSuperAdmin(req, res, next) {
         // 6. Actualizar último login de superadmin
         await masterPool.execute(
             'UPDATE MASTER_USERS SET last_superadmin_login_at = CURRENT_TIMESTAMP WHERE user_id = ?',
-            [req.user.user_id]
+            [decoded.user_id]
         );
 
         next();

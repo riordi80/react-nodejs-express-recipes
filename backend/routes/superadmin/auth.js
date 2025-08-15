@@ -3,7 +3,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const mysql = require('mysql2/promise');
-const { auditLog } = require('../../middleware/superAdminMiddleware');
+const { requireSuperAdmin, auditLog } = require('../../middleware/superAdminMiddleware');
 
 const router = express.Router();
 
@@ -200,7 +200,7 @@ router.post('/logout', auditLog('superadmin_logout'), (req, res) => {
  * GET /api/superadmin/auth/me
  * Verificar estado de autenticación del superadmin
  */
-router.get('/me', (req, res) => {
+router.get('/me', requireSuperAdmin, (req, res) => {
     res.json({
         authenticated: true,
         user: {

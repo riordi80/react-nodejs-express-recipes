@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useSuperAdmin } from '@/context/SuperAdminContext'
+import { useSuperAdminTheme } from '@/context/SuperAdminThemeContext'
 import { 
   HomeIcon, 
   UsersIcon, 
@@ -83,6 +84,8 @@ const navigation: NavItem[] = [
 export function SuperAdminSidebar() {
   const pathname = usePathname()
   const { user, hasPermission, isFullAdmin } = useSuperAdmin()
+  const { getThemeClasses, isDark } = useSuperAdminTheme()
+  const themeClasses = getThemeClasses()
 
   const canAccessItem = (item: NavItem): boolean => {
     // Si requiere roles específicos
@@ -102,25 +105,25 @@ export function SuperAdminSidebar() {
 
   return (
     <div className="hidden md:flex md:w-64 md:flex-col">
-      <div className="flex flex-col flex-grow pt-5 bg-slate-800 overflow-y-auto">
+      <div className={`flex flex-col flex-grow pt-5 ${themeClasses.bgSecondary} overflow-y-auto`}>
         {/* Logo/Brand */}
         <div className="flex items-center flex-shrink-0 px-4 mb-8">
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <div className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <ShieldCheckIcon className="h-5 w-5 text-white" />
+                <ShieldCheckIcon className={`h-5 w-5 ${isDark ? 'text-white' : 'text-white'}`} />
               </div>
             </div>
             <div className="ml-3">
-              <h1 className="text-xl font-bold text-white">SuperAdmin</h1>
-              <p className="text-xs text-slate-400">Console</p>
+              <h1 className={`text-xl font-bold ${themeClasses.text}`}>SuperAdmin</h1>
+              <p className={`text-xs ${themeClasses.textSecondary}`}>Console</p>
             </div>
           </div>
         </div>
 
         {/* User Info */}
         <div className="px-4 mb-6">
-          <div className="bg-slate-700 rounded-lg p-3">
+          <div className={`${themeClasses.bg} rounded-lg p-3 border ${themeClasses.border}`}>
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <div className="h-8 w-8 bg-blue-600 rounded-full flex items-center justify-center">
@@ -130,10 +133,10 @@ export function SuperAdminSidebar() {
                 </div>
               </div>
               <div className="ml-3 flex-1 min-w-0">
-                <p className="text-sm font-medium text-white truncate">
+                <p className={`text-sm font-medium ${themeClasses.text} truncate`}>
                   {user?.first_name} {user?.last_name}
                 </p>
-                <p className="text-xs text-slate-400 truncate">
+                <p className={`text-xs ${themeClasses.textSecondary} truncate`}>
                   {user?.superadmin_role === 'super_admin_full' ? 'Full Admin' :
                    user?.superadmin_role === 'super_admin_read' ? 'Read Only' :
                    user?.superadmin_role === 'super_admin_billing' ? 'Billing' :
@@ -159,15 +162,15 @@ export function SuperAdminSidebar() {
                 className={`
                   group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors
                   ${isActive
-                    ? 'bg-slate-700 text-white'
-                    : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+                    ? `${themeClasses.bg} ${themeClasses.text} border ${themeClasses.border}`
+                    : `${themeClasses.textSecondary} ${themeClasses.buttonHover}`
                   }
                 `}
               >
                 <item.icon
                   className={`
                     mr-3 flex-shrink-0 h-5 w-5 transition-colors
-                    ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-white'}
+                    ${isActive ? themeClasses.text : `${themeClasses.textSecondary} group-hover:${themeClasses.text}`}
                   `}
                 />
                 {item.name}
@@ -177,8 +180,8 @@ export function SuperAdminSidebar() {
         </nav>
 
         {/* Footer */}
-        <div className="flex-shrink-0 px-4 py-4 border-t border-slate-700">
-          <div className="text-xs text-slate-400 text-center">
+        <div className={`flex-shrink-0 px-4 py-4 border-t ${themeClasses.border}`}>
+          <div className={`text-xs ${themeClasses.textSecondary} text-center`}>
             <p>Console v1.0.0</p>
             <p className="mt-1">© 2024 SuperAdmin</p>
           </div>

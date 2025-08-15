@@ -3,6 +3,7 @@
 import React from 'react'
 import { usePathname } from 'next/navigation'
 import { SuperAdminProvider } from '@/context/SuperAdminContext'
+import { SuperAdminThemeProvider, useSuperAdminTheme } from '@/context/SuperAdminThemeContext'
 import { SuperAdminAuthGuard } from '@/components/layout/SuperAdminAuthGuard'
 import { SuperAdminSidebar } from '@/components/layout/SuperAdminSidebar'
 import { SuperAdminHeader } from '@/components/layout/SuperAdminHeader'
@@ -11,44 +12,56 @@ interface SuperAdminLayoutProps {
   children: React.ReactNode
 }
 
-export default function SuperAdminLayout({ children }: SuperAdminLayoutProps) {
+// Componente interno que usa el tema
+function SuperAdminLayoutContent({ children }: SuperAdminLayoutProps) {
   const pathname = usePathname()
+  const { getThemeClasses } = useSuperAdminTheme()
+  const themeClasses = getThemeClasses()
   
   // Páginas que NO necesitan AuthGuard (páginas públicas del SuperAdmin)
   const isPublicPage = pathname === '/superadmin/login'
 
+  if (isPublicPage) {
+    return (
+      <div className={`min-h-screen ${themeClasses.bg}`}>
+        {children}
+      </div>
+    )
+  }
+
   return (
-    <SuperAdminProvider>
-      {isPublicPage ? (
-        // Para páginas públicas: solo el contexto, sin AuthGuard ni layout
-        <div className="min-h-screen bg-slate-900">
-          {children}
-        </div>
-      ) : (
-        // Para páginas protegidas: AuthGuard + layout completo
-        <SuperAdminAuthGuard>
-          <div className="min-h-screen bg-slate-900">
-            {/* Layout con tema dark específico para superadmin */}
-            <div className="flex h-screen overflow-hidden">
-              {/* Sidebar */}
-              <SuperAdminSidebar />
-              
-              {/* Contenido principal */}
-              <div className="flex-1 flex flex-col overflow-hidden">
-                {/* Header */}
-                <SuperAdminHeader />
-                
-                {/* Contenido */}
-                <main className="flex-1 overflow-auto bg-slate-50">
-                  <div className="h-full">
-                    {children}
-                  </div>
-                </main>
+    <SuperAdminAuthGuard>
+      <div className={`min-h-screen ${themeClasses.bg}`}>
+        <div className="flex h-screen overflow-hidden">
+          {/* Sidebar */}
+          <SuperAdminSidebar />
+          
+          {/* Contenido principal */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Header */}
+            <SuperAdminHeader />
+            
+            {/* Contenido */}
+            <main className={`flex-1 overflow-auto ${themeClasses.bgSecondary}`}>
+              <div className="h-full">
+                {children}
               </div>
-            </div>
+            </main>
           </div>
-        </SuperAdminAuthGuard>
-      )}
-    </SuperAdminProvider>
+        </div>
+      </div>
+    </SuperAdminAuthGuard>
+  )
+}
+
+export default function SuperAdminLayout({ children }: SuperAdminLayoutProps) {
+  return (
+    <SuperAdminThemeProvider>
+      <SuperAdminProvider>
+        <SuperAdminLayoutContent>
+          {children}
+        </SuperAdminLayoutContent>
+      </SuperAdminProvider>
+    </SuperAdminThemeProvider>
   )
 }
