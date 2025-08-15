@@ -25,13 +25,27 @@ export default function RootLayout({
 }>) {
   const pathname = usePathname();
   
-  // Páginas que tienen su propio layout independiente
-  const hasIndependentLayout = pathname === '/login' || 
-                              pathname === '/recovery-password';
+  // Páginas que tienen su propio layout independiente (sin HTML base)
+  const hasNoHtmlLayout = pathname === '/login' || 
+                         pathname === '/recovery-password';
 
-  if (hasIndependentLayout) {
+  // Páginas con HTML base pero sin providers del sistema normal
+  const isSuperAdmin = pathname.startsWith('/superadmin');
+
+  if (hasNoHtmlLayout) {
     // Para páginas con layout independiente, solo devolver children sin estructura
     return children;
+  }
+
+  if (isSuperAdmin) {
+    // Para SuperAdmin: HTML base pero sin providers del sistema normal
+    return (
+      <html lang="es">
+        <body className={`${inter.variable} font-sans antialiased bg-slate-900 text-white min-h-screen`}>
+          {children}
+        </body>
+      </html>
+    );
   }
 
   return (

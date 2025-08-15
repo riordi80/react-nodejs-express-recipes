@@ -37,8 +37,8 @@ const DataSection = () => {
   const [showResetConfirm, setShowResetConfirm] = useState(false)
   
   const [backupSettings, setBackupSettings] = useState<BackupSettings>({
-    enabled: false,
-    frequency: 'weekly'
+    enabled: true,
+    frequency: 'daily'
   })
   
   const [backupsList, setBackupsList] = useState<BackupFile[]>([])

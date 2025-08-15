@@ -58,8 +58,8 @@ class BackupManager {
     });
     
     return {
-      backup_auto_enabled: settings.backup_auto_enabled || 'false',
-      backup_frequency: settings.backup_frequency || 'weekly'
+      backup_auto_enabled: settings.backup_auto_enabled || 'true',
+      backup_frequency: settings.backup_frequency || 'daily'
     };
   }
 
