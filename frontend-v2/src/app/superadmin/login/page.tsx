@@ -179,7 +179,7 @@ export default function SuperAdminLoginPage() {
 
         {/* Footer */}
         <div className="text-center text-xs text-slate-500">
-          <p>© 2024 SuperAdmin Console v1.0.0</p>
+          <p>© 2025 SuperAdmin Console v1.0.0</p>
           <p className="mt-1">Acceso solo para administradores autorizados</p>
         </div>
       </div>

@@ -66,6 +66,139 @@ router.get('/system-health', requirePermission('access_monitoring'), async (req,
 });
 
 /**
+ * GET /api/superadmin/monitoring/alerts
+ * Alertas del sistema
+ */
+router.get('/alerts', requirePermission('access_monitoring'), async (req, res) => {
+    try {
+        const { filter = 'all' } = req.query;
+        
+        // Por ahora retornamos alertas simuladas
+        // En producción estas vendrían de un sistema de monitoreo real
+        const mockAlerts = [
+            {
+                alert_id: '1',
+                type: 'critical',
+                title: 'Alto uso de CPU en servidor principal',
+                message: 'El servidor DB-01 está experimentando un uso de CPU del 89% durante los últimos 15 minutos.',
+                created_at: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
+                action_required: true,
+                affected_tenants: ['tenant-restaurant-abc', 'tenant-pizzeria-roma']
+            },
+            {
+                alert_id: '2',
+                type: 'warning',
+                title: 'Tenant con pagos pendientes',
+                message: 'El tenant "restaurant-moroso" tiene 3 intentos de pago fallidos.',
+                created_at: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
+                action_required: true,
+                affected_tenants: ['tenant-restaurant-moroso']
+            }
+        ];
+        
+        let filteredAlerts = mockAlerts;
+        
+        if (filter === 'critical') {
+            filteredAlerts = mockAlerts.filter(a => a.type === 'critical');
+        } else if (filter === 'warning') {
+            filteredAlerts = mockAlerts.filter(a => a.type === 'warning');
+        } else if (filter === 'unresolved') {
+            filteredAlerts = mockAlerts.filter(a => !a.resolved_at);
+        }
+        
+        res.json({
+            success: true,
+            data: filteredAlerts
+        });
+        
+    } catch (error) {
+        console.error('Error obteniendo alertas:', error);
+        res.status(500).json({
+            error: 'Error del servidor',
+            message: 'Error al obtener alertas del sistema'
+        });
+    }
+});
+
+/**
+ * POST /api/superadmin/monitoring/alerts/:id/resolve
+ * Resolver una alerta
+ */
+router.post('/alerts/:id/resolve', requirePermission('access_monitoring'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        
+        // En producción actualizaría la alerta en la base de datos
+        // Por ahora solo simulamos la respuesta
+        
+        res.json({
+            success: true,
+            message: 'Alerta marcada como resuelta'
+        });
+        
+    } catch (error) {
+        console.error('Error resolviendo alerta:', error);
+        res.status(500).json({
+            error: 'Error del servidor',
+            message: 'Error al resolver alerta'
+        });
+    }
+});
+
+/**
+ * GET /api/superadmin/monitoring/system-metrics
+ * Métricas detalladas del sistema
+ */
+router.get('/system-metrics', requirePermission('access_monitoring'), async (req, res) => {
+    try {
+        // Obtener métricas de la base de datos
+        const [dbMetrics] = await masterPool.execute(`
+            SELECT 
+                COUNT(DISTINCT table_schema) as total_databases,
+                ROUND(SUM(DATA_LENGTH + INDEX_LENGTH) / 1024 / 1024, 2) as total_size_mb,
+                COUNT(*) as total_tables
+            FROM INFORMATION_SCHEMA.TABLES
+            WHERE TABLE_SCHEMA LIKE 'recetario_%'
+        `);
+        
+        // Métricas de conexiones activas
+        const [connectionMetrics] = await masterPool.execute(`
+            SELECT COUNT(*) as active_connections
+            FROM INFORMATION_SCHEMA.PROCESSLIST
+            WHERE DB LIKE 'recetario_%'
+        `);
+        
+        // Simular métricas del sistema operativo
+        const systemMetrics = {
+            cpu_usage: Math.random() * 80 + 10, // 10-90%
+            memory_usage: Math.random() * 70 + 20, // 20-90%
+            disk_usage: Math.random() * 60 + 30, // 30-90%
+            uptime_hours: process.uptime() / 3600,
+            response_time_avg: Math.random() * 300 + 100 // 100-400ms
+        };
+        
+        res.json({
+            success: true,
+            data: {
+                database: {
+                    ...dbMetrics[0],
+                    ...connectionMetrics[0]
+                },
+                system: systemMetrics,
+                timestamp: new Date().toISOString()
+            }
+        });
+        
+    } catch (error) {
+        console.error('Error obteniendo métricas del sistema:', error);
+        res.status(500).json({
+            error: 'Error del servidor',
+            message: 'Error al obtener métricas del sistema'
+        });
+    }
+});
+
+/**
  * GET /api/superadmin/monitoring/audit-logs
  * Logs de auditoría
  */
@@ -115,6 +248,46 @@ router.get('/audit-logs', requirePermission('access_monitoring'), async (req, re
         res.status(500).json({
             error: 'Error del servidor',
             message: 'Error al obtener logs de auditoría'
+        });
+    }
+});
+
+/**
+ * GET /api/superadmin/monitoring/performance
+ * Métricas de rendimiento de la API
+ */
+router.get('/performance', requirePermission('access_monitoring'), async (req, res) => {
+    try {
+        // Simular métricas de rendimiento
+        // En producción estas vendrían de un sistema de monitoreo como Prometheus
+        const performanceData = {
+            api_calls_last_hour: Math.floor(Math.random() * 5000 + 1000),
+            avg_response_time_ms: Math.random() * 200 + 50,
+            error_rate_percent: Math.random() * 5,
+            requests_per_minute: Math.floor(Math.random() * 100 + 20),
+            popular_endpoints: [
+                { endpoint: '/api/recipes', calls: 1250, avg_time: 145 },
+                { endpoint: '/api/events', calls: 890, avg_time: 95 },
+                { endpoint: '/api/suppliers', calls: 720, avg_time: 110 },
+                { endpoint: '/api/auth/me', calls: 2100, avg_time: 25 },
+                { endpoint: '/api/ingredients', calls: 650, avg_time: 130 }
+            ],
+            hourly_traffic: Array.from({ length: 24 }, (_, i) => ({
+                hour: i,
+                requests: Math.floor(Math.random() * 500 + 100)
+            }))
+        };
+        
+        res.json({
+            success: true,
+            data: performanceData
+        });
+        
+    } catch (error) {
+        console.error('Error obteniendo métricas de rendimiento:', error);
+        res.status(500).json({
+            error: 'Error del servidor',
+            message: 'Error al obtener métricas de rendimiento'
         });
     }
 });

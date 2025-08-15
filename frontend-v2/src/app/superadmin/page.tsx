@@ -3,166 +3,135 @@
 import { useEffect, useState } from 'react'
 import { useSuperAdmin } from '@/context/SuperAdminContext'
 import { useSuperAdminTheme } from '@/context/SuperAdminThemeContext'
+import api from '@/lib/api'
 import { 
-  UsersIcon, 
-  BuildingOfficeIcon, 
-  CurrencyDollarIcon,
   ChartBarIcon,
   ExclamationTriangleIcon,
-  CheckCircleIcon,
   ClockIcon,
-  ArrowTrendingUpIcon
+  EyeIcon,
+  CogIcon
 } from '@heroicons/react/24/outline'
 
-// Interfaces para los datos del dashboard
-interface DashboardMetrics {
-  totalTenants: number
-  activeTenants: number
-  suspendedTenants: number
-  totalUsers: number
-  monthlyRevenue: number
-  yearlyRevenue: number
-  systemHealth: string
-  lastBackup: string
-}
+// Importar componentes de gráficos
+import MetricsGrid from '@/components/superadmin/dashboard/MetricsGrid'
+import TenantGrowthChart from '@/components/superadmin/charts/TenantGrowthChart'
+import RevenueChart from '@/components/superadmin/charts/RevenueChart'
+import SystemHealthChart from '@/components/superadmin/charts/SystemHealthChart'
+import AlertsPanel from '@/components/superadmin/dashboard/AlertsPanel'
+import FinancialMetrics from '@/components/superadmin/dashboard/FinancialMetrics'
 
+// Interfaces para los datos del dashboard
 interface RecentActivity {
-  id: number
-  type: 'tenant_created' | 'tenant_suspended' | 'payment_received' | 'system_alert'
-  message: string
-  timestamp: string
-  severity?: 'info' | 'warning' | 'error' | 'success'
+  type: string
+  action_type: string
+  performed_at: string
+  target_tenant_id?: string
+  target_user_id?: string
+  first_name?: string
+  last_name?: string
+  email?: string
+  tenant_name?: string
+  subscription_plan?: string
 }
 
 export default function SuperAdminDashboard() {
   const { user, hasPermission } = useSuperAdmin()
   const { getThemeClasses, isDark } = useSuperAdminTheme()
-  const [metrics, setMetrics] = useState<DashboardMetrics | null>(null)
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([])
   const [loading, setLoading] = useState(true)
+  const [selectedChartPeriod, setSelectedChartPeriod] = useState(30)
   const themeClasses = getThemeClasses()
 
-  // Simulación de datos - en producción vendría de la API
+  // Cargar datos de actividad reciente
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      setLoading(true)
-      
-      // Simular llamada a API
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
-      // Mock data
-      setMetrics({
-        totalTenants: 127,
-        activeTenants: 119,
-        suspendedTenants: 8,
-        totalUsers: 1456,
-        monthlyRevenue: 15750.00,
-        yearlyRevenue: 189000.00,
-        systemHealth: 'good',
-        lastBackup: '2024-01-15T02:30:00Z'
-      })
-
-      setRecentActivity([
-        {
-          id: 1,
-          type: 'tenant_created',
-          message: 'Nuevo tenant "restaurant-nueva-cocina" creado exitosamente',
-          timestamp: '2024-01-15T10:30:00Z',
-          severity: 'success'
-        },
-        {
-          id: 2,
-          type: 'payment_received',
-          message: 'Pago recibido de $89.99 del tenant "restaurant-abc"',
-          timestamp: '2024-01-15T09:15:00Z',
-          severity: 'success'
-        },
-        {
-          id: 3,
-          type: 'tenant_suspended',
-          message: 'Tenant "restaurant-moroso" suspendido por falta de pago',
-          timestamp: '2024-01-15T08:45:00Z',
-          severity: 'warning'
-        },
-        {
-          id: 4,
-          type: 'system_alert',
-          message: 'Alta carga en el servidor DB-02, revisión recomendada',
-          timestamp: '2024-01-15T07:20:00Z',
-          severity: 'warning'
+    const fetchActivityFeed = async () => {
+      try {
+        setLoading(true)
+        const response = await api.get('/superadmin/dashboard/activity-feed?limit=10')
+        
+        if (response.data.success) {
+          setRecentActivity(response.data.data)
         }
-      ])
-      
-      setLoading(false)
+      } catch (error) {
+        console.error('Error fetching activity feed:', error)
+      } finally {
+        setLoading(false)
+      }
     }
 
-    fetchDashboardData()
+    fetchActivityFeed()
+    
+    // Actualizar cada 2 minutos
+    const interval = setInterval(fetchActivityFeed, 2 * 60 * 1000)
+    return () => clearInterval(interval)
   }, [])
 
-  if (loading) {
-    return (
-      <div className="p-6">
-        <div className="animate-pulse">
-          <div className={`h-8 ${isDark ? 'bg-slate-700' : 'bg-gray-300'} rounded w-64 mb-6`}></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className={`${isDark ? 'bg-slate-700' : 'bg-gray-300'} h-32 rounded-lg`}></div>
-            ))}
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-ES', {
-      style: 'currency',
-      currency: 'EUR'
-    }).format(amount)
-  }
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString('es-ES')
   }
 
-  const getActivityIcon = (type: string) => {
-    switch (type) {
-      case 'tenant_created':
-        return <BuildingOfficeIcon className="h-5 w-5" />
-      case 'payment_received':
-        return <CurrencyDollarIcon className="h-5 w-5" />
-      case 'tenant_suspended':
+  const getActivityIcon = (actionType: string) => {
+    switch (actionType) {
+      case 'create_tenant':
+        return <ChartBarIcon className="h-5 w-5" />
+      case 'suspend_tenant':
         return <ExclamationTriangleIcon className="h-5 w-5" />
-      case 'system_alert':
-        return <ExclamationTriangleIcon className="h-5 w-5" />
+      case 'impersonate_tenant':
+        return <EyeIcon className="h-5 w-5" />
+      case 'update_tenant':
+        return <CogIcon className="h-5 w-5" />
       default:
         return <ClockIcon className="h-5 w-5" />
     }
   }
 
-  const getSeverityColor = (severity?: string) => {
+  const getActionColor = (actionType: string) => {
     if (isDark) {
-      switch (severity) {
-        case 'success':
+      switch (actionType) {
+        case 'create_tenant':
           return 'text-green-400 bg-green-900/30'
-        case 'warning':
-          return 'text-yellow-400 bg-yellow-900/30'
-        case 'error':
+        case 'suspend_tenant':
           return 'text-red-400 bg-red-900/30'
-        default:
+        case 'update_tenant':
           return 'text-blue-400 bg-blue-900/30'
+        default:
+          return 'text-purple-400 bg-purple-900/30'
       }
     } else {
-      switch (severity) {
-        case 'success':
+      switch (actionType) {
+        case 'create_tenant':
           return 'text-green-600 bg-green-50'
-        case 'warning':
-          return 'text-yellow-600 bg-yellow-50'
-        case 'error':
+        case 'suspend_tenant':
           return 'text-red-600 bg-red-50'
-        default:
+        case 'update_tenant':
           return 'text-blue-600 bg-blue-50'
+        default:
+          return 'text-purple-600 bg-purple-50'
       }
+    }
+  }
+
+  const getActivityMessage = (activity: RecentActivity) => {
+    const userName = activity.first_name && activity.last_name 
+      ? `${activity.first_name} ${activity.last_name}`
+      : activity.email || 'Usuario'
+    
+    const tenantName = activity.tenant_name || activity.target_tenant_id || 'tenant'
+    
+    switch (activity.action_type) {
+      case 'create_tenant':
+        return activity.type === 'new_tenant' 
+          ? `Nuevo tenant "${tenantName}" registrado con plan ${activity.subscription_plan}`
+          : `${userName} creó el tenant "${tenantName}"`
+      case 'suspend_tenant':
+        return `${userName} suspendió el tenant "${tenantName}"`
+      case 'update_tenant':
+        return `${userName} actualizó el tenant "${tenantName}"`
+      case 'impersonate_tenant':
+        return `${userName} accedió al panel del tenant "${tenantName}"`
+      default:
+        return `${userName} realizó: ${activity.action_type}`
     }
   }
 
@@ -177,196 +146,172 @@ export default function SuperAdminDashboard() {
           </p>
         </div>
 
-        {/* Metrics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {/* Total Tenants */}
-        <div className={`rounded-lg shadow p-6 ${themeClasses.card}`}>
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <BuildingOfficeIcon className="h-8 w-8 text-blue-600" />
-            </div>
-            <div className="ml-5 w-0 flex-1">
-              <dl>
-                <dt className={`text-sm font-medium ${themeClasses.textSecondary} truncate`}>
-                  Total Tenants
-                </dt>
-                <dd className={`text-lg font-medium ${themeClasses.text}`}>
-                  {metrics?.totalTenants}
-                </dd>
-              </dl>
-            </div>
-          </div>
-          <div className="mt-4">
-            <div className="flex items-center text-sm">
-              <span className="text-green-600 font-medium">
-                {metrics?.activeTenants} activos
-              </span>
-              <span className={`${themeClasses.textSecondary} ml-2`}>
-                / {metrics?.suspendedTenants} suspendidos
-              </span>
-            </div>
-          </div>
+        {/* Metrics Grid */}
+        <div className="mb-8">
+          <MetricsGrid />
         </div>
 
-        {/* Total Users */}
-        <div className={`rounded-lg shadow p-6 ${themeClasses.card}`}>
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <UsersIcon className="h-8 w-8 text-green-600" />
-            </div>
-            <div className="ml-5 w-0 flex-1">
-              <dl>
-                <dt className={`text-sm font-medium ${themeClasses.textSecondary} truncate`}>
-                  Total Usuarios
-                </dt>
-                <dd className={`text-lg font-medium ${themeClasses.text}`}>
-                  {metrics?.totalUsers}
-                </dd>
-              </dl>
-            </div>
-          </div>
-          <div className="mt-4">
-            <div className="flex items-center text-sm text-green-600">
-              <ArrowTrendingUpIcon className="h-4 w-4 mr-1" />
-              <span>+12% este mes</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Monthly Revenue */}
-        {hasPermission('view_billing') && (
-          <div className={`rounded-lg shadow p-6 ${themeClasses.card}`}>
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <CurrencyDollarIcon className="h-8 w-8 text-yellow-600" />
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className={`text-sm font-medium ${themeClasses.textSecondary} truncate`}>
-                    Ingresos Mensuales
-                  </dt>
-                  <dd className={`text-lg font-medium ${themeClasses.text}`}>
-                    {formatCurrency(metrics?.monthlyRevenue || 0)}
-                  </dd>
-                </dl>
-              </div>
-            </div>
-            <div className="mt-4">
-              <div className="flex items-center text-sm text-green-600">
-                <ArrowTrendingUpIcon className="h-4 w-4 mr-1" />
-                <span>+8.2% vs mes anterior</span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* System Health */}
-        <div className={`rounded-lg shadow p-6 ${themeClasses.card}`}>
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              {metrics?.systemHealth === 'good' ? (
-                <CheckCircleIcon className="h-8 w-8 text-green-600" />
-              ) : (
-                <ExclamationTriangleIcon className="h-8 w-8 text-red-600" />
-              )}
-            </div>
-            <div className="ml-5 w-0 flex-1">
-              <dl>
-                <dt className={`text-sm font-medium ${themeClasses.textSecondary} truncate`}>
-                  Estado del Sistema
-                </dt>
-                <dd className={`text-lg font-medium ${themeClasses.text}`}>
-                  {metrics?.systemHealth === 'good' ? 'Funcionando' : 'Problemas'}
-                </dd>
-              </dl>
-            </div>
-          </div>
-          <div className="mt-4">
-            <div className={`text-sm ${themeClasses.textSecondary}`}>
-              Último backup: {formatDate(metrics?.lastBackup || '')}
-            </div>
-          </div>
-        </div>
-      </div>
-
-        {/* Charts and Activity */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Revenue Chart Placeholder */}
-        {hasPermission('view_metrics') && (
-          <div className={`rounded-lg shadow p-6 ${themeClasses.card}`}>
-            <h3 className={`text-lg font-medium ${themeClasses.text} mb-4`}>
-              Ingresos por Mes
-            </h3>
-            <div className={`h-64 ${themeClasses.bgSecondary} rounded-lg flex items-center justify-center`}>
-              <div className={`text-center ${themeClasses.textSecondary}`}>
-                <ChartBarIcon className="h-12 w-12 mx-auto mb-2" />
-                <p>Gráfico de ingresos</p>
-                <p className="text-sm">(Implementar con Chart.js)</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Recent Activity */}
-        <div className={`rounded-lg shadow p-6 ${themeClasses.card}`}>
-          <h3 className={`text-lg font-medium ${themeClasses.text} mb-4`}>
-            Actividad Reciente
-          </h3>
-          <div className="space-y-4 max-h-64 overflow-y-auto">
-            {recentActivity.map((activity) => (
-              <div key={activity.id} className="flex items-start space-x-3">
-                <div className={`flex-shrink-0 p-2 rounded-full ${getSeverityColor(activity.severity)}`}>
-                  {getActivityIcon(activity.type)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm ${themeClasses.text}`}>{activity.message}</p>
-                  <p className={`text-xs ${themeClasses.textSecondary} mt-1`}>
-                    {formatDate(activity.timestamp)}
-                  </p>
-                </div>
-              </div>
+        {/* Chart Period Selector */}
+        <div className="mb-6 flex justify-end">
+          <div className={`inline-flex rounded-lg ${themeClasses.bgSecondary} p-1`}>
+            {[7, 30, 90].map((days) => (
+              <button
+                key={days}
+                onClick={() => setSelectedChartPeriod(days)}
+                className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                  selectedChartPeriod === days
+                    ? (isDark ? 'bg-blue-600 text-white' : 'bg-blue-600 text-white')
+                    : (isDark ? 'text-slate-300 hover:text-white hover:bg-slate-600' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100')
+                }`}
+              >
+                {days}d
+              </button>
             ))}
           </div>
-          <div className={`mt-4 pt-4 border-t ${themeClasses.border}`}>
-            <button className={`text-sm ${isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-500'} transition-colors`}>
-              Ver toda la actividad →
-            </button>
-          </div>
         </div>
-      </div>
 
-        {/* Quick Actions */}
-        <div className={`rounded-lg shadow p-6 ${themeClasses.card}`}>
-        <h3 className={`text-lg font-medium ${themeClasses.text} mb-4`}>Acciones Rápidas</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {hasPermission('manage_tenants') && (
-            <button className={`p-4 border ${themeClasses.border} rounded-lg ${themeClasses.buttonHover} text-left`}>
-              <BuildingOfficeIcon className="h-6 w-6 text-blue-600 mb-2" />
-              <h4 className={`font-medium ${themeClasses.text}`}>Crear Tenant</h4>
-              <p className={`text-sm ${themeClasses.textSecondary}`}>Nuevo restaurante</p>
-            </button>
+        {/* Charts Grid */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
+          {/* Tenant Growth Chart */}
+          <div className={`rounded-lg shadow p-6 ${themeClasses.card}`}>
+            <h3 className={`text-lg font-medium ${themeClasses.text} mb-4`}>
+              Crecimiento de Tenants
+            </h3>
+            <TenantGrowthChart period={selectedChartPeriod} />
+          </div>
+
+          {/* Revenue Chart */}
+          {hasPermission('manage_billing') && (
+            <div className={`rounded-lg shadow p-6 ${themeClasses.card}`}>
+              <h3 className={`text-lg font-medium ${themeClasses.text} mb-4`}>
+                Ingresos Mensuales
+              </h3>
+              <RevenueChart period={12} />
+            </div>
           )}
-          
-          {hasPermission('manage_users') && (
-            <button className={`p-4 border ${themeClasses.border} rounded-lg ${themeClasses.buttonHover} text-left`}>
-              <UsersIcon className="h-6 w-6 text-green-600 mb-2" />
-              <h4 className={`font-medium ${themeClasses.text}`}>Gestionar Usuarios</h4>
-              <p className={`text-sm ${themeClasses.textSecondary}`}>Administrar accesos</p>
-            </button>
+
+          {/* System Health Chart */}
+          {hasPermission('access_monitoring') && (
+            <div className={`rounded-lg shadow p-6 ${themeClasses.card}`}>
+              <h3 className={`text-lg font-medium ${themeClasses.text} mb-4`}>
+                Estado del Sistema
+              </h3>
+              <SystemHealthChart />
+            </div>
           )}
-          
-          <button className={`p-4 border ${themeClasses.border} rounded-lg ${themeClasses.buttonHover} text-left`}>
-            <ChartBarIcon className="h-6 w-6 text-purple-600 mb-2" />
-            <h4 className={`font-medium ${themeClasses.text}`}>Ver Métricas</h4>
-            <p className={`text-sm ${themeClasses.textSecondary}`}>Analíticas detalladas</p>
-          </button>
-          
-          <button className={`p-4 border ${themeClasses.border} rounded-lg ${themeClasses.buttonHover} text-left`}>
-            <ExclamationTriangleIcon className="h-6 w-6 text-red-600 mb-2" />
-            <h4 className={`font-medium ${themeClasses.text}`}>Estado Sistema</h4>
-            <p className={`text-sm ${themeClasses.textSecondary}`}>Monitoreo en vivo</p>
-          </button>
         </div>
+
+        {/* Financial Metrics Section */}
+        {hasPermission('manage_billing') && (
+          <div className="mb-8">
+            <FinancialMetrics />
+          </div>
+        )}
+
+        {/* Activity, Alerts and Quick Actions */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
+
+          {/* Recent Activity */}
+          <div className={`rounded-lg shadow p-6 ${themeClasses.card}`}>
+            <h3 className={`text-lg font-medium ${themeClasses.text} mb-4`}>
+              Actividad Reciente
+            </h3>
+            {loading ? (
+              <div className="space-y-4">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="animate-pulse flex items-start space-x-3">
+                    <div className={`w-8 h-8 rounded-full ${isDark ? 'bg-slate-600' : 'bg-gray-300'}`}></div>
+                    <div className="flex-1">
+                      <div className={`h-4 ${isDark ? 'bg-slate-600' : 'bg-gray-300'} rounded w-3/4 mb-2`}></div>
+                      <div className={`h-3 ${isDark ? 'bg-slate-600' : 'bg-gray-300'} rounded w-1/2`}></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="space-y-4 max-h-80 overflow-y-auto">
+                {recentActivity.map((activity, index) => (
+                  <div key={`${activity.performed_at}-${index}`} className="flex items-start space-x-3">
+                    <div className={`flex-shrink-0 p-2 rounded-full ${getActionColor(activity.action_type)}`}>
+                      {getActivityIcon(activity.action_type)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-sm ${themeClasses.text}`}>
+                        {getActivityMessage(activity)}
+                      </p>
+                      <p className={`text-xs ${themeClasses.textSecondary} mt-1`}>
+                        {formatDate(activity.performed_at)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+                {recentActivity.length === 0 && (
+                  <div className={`text-center py-8 ${themeClasses.textSecondary}`}>
+                    <ClockIcon className="h-8 w-8 mx-auto mb-2" />
+                    <p>No hay actividad reciente</p>
+                  </div>
+                )}
+              </div>
+            )}
+            <div className={`mt-4 pt-4 border-t ${themeClasses.border}`}>
+              <button className={`text-sm ${isDark ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-500'} transition-colors`}>
+                Ver toda la actividad →
+              </button>
+            </div>
+          </div>
+
+          {/* System Alerts */}
+          {hasPermission('access_monitoring') && (
+            <div className={`rounded-lg shadow p-6 ${themeClasses.card}`}>
+              <AlertsPanel />
+            </div>
+          )}
+
+          {/* Quick Actions */}
+          <div className={`rounded-lg shadow p-6 ${themeClasses.card}`}>
+            <h3 className={`text-lg font-medium ${themeClasses.text} mb-4`}>Acciones Rápidas</h3>
+            <div className="grid grid-cols-1 gap-3">
+              {hasPermission('manage_tenants') && (
+                <button className={`p-3 border ${themeClasses.border} rounded-lg ${themeClasses.buttonHover} text-left transition-all duration-200 hover:shadow-md flex items-center space-x-3`}>
+                  <ChartBarIcon className="h-5 w-5 text-blue-600" />
+                  <div>
+                    <h4 className={`font-medium ${themeClasses.text} text-sm`}>Gestionar Tenants</h4>
+                    <p className={`text-xs ${themeClasses.textSecondary}`}>Ver y administrar restaurantes</p>
+                  </div>
+                </button>
+              )}
+              
+              {hasPermission('manage_superadmins') && (
+                <button className={`p-3 border ${themeClasses.border} rounded-lg ${themeClasses.buttonHover} text-left transition-all duration-200 hover:shadow-md flex items-center space-x-3`}>
+                  <CogIcon className="h-5 w-5 text-green-600" />
+                  <div>
+                    <h4 className={`font-medium ${themeClasses.text} text-sm`}>Gestionar Usuarios</h4>
+                    <p className={`text-xs ${themeClasses.textSecondary}`}>Administrar SuperAdmins</p>
+                  </div>
+                </button>
+              )}
+              
+              {hasPermission('access_monitoring') && (
+                <button className={`p-3 border ${themeClasses.border} rounded-lg ${themeClasses.buttonHover} text-left transition-all duration-200 hover:shadow-md flex items-center space-x-3`}>
+                  <ExclamationTriangleIcon className="h-5 w-5 text-purple-600" />
+                  <div>
+                    <h4 className={`font-medium ${themeClasses.text} text-sm`}>Monitoreo</h4>
+                    <p className={`text-xs ${themeClasses.textSecondary}`}>Estado del sistema</p>
+                  </div>
+                </button>
+              )}
+              
+              {hasPermission('manage_billing') && (
+                <button className={`p-3 border ${themeClasses.border} rounded-lg ${themeClasses.buttonHover} text-left transition-all duration-200 hover:shadow-md flex items-center space-x-3`}>
+                  <ChartBarIcon className="h-5 w-5 text-yellow-600" />
+                  <div>
+                    <h4 className={`font-medium ${themeClasses.text} text-sm`}>Facturación</h4>
+                    <p className={`text-xs ${themeClasses.textSecondary}`}>Ingresos y suscripciones</p>
+                  </div>
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

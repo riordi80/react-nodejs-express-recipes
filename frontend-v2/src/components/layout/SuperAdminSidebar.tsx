@@ -183,7 +183,7 @@ export function SuperAdminSidebar() {
         <div className={`flex-shrink-0 px-4 py-4 border-t ${themeClasses.border}`}>
           <div className={`text-xs ${themeClasses.textSecondary} text-center`}>
             <p>Console v1.0.0</p>
-            <p className="mt-1">© 2024 SuperAdmin</p>
+            <p className="mt-1">© 2025 RecetasAPI</p>
           </div>
         </div>
       </div>
