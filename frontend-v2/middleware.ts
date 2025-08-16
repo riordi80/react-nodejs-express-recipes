@@ -87,21 +87,59 @@ export function middleware(request: NextRequest) {
   const hostname = request.headers.get('host')
   const pathname = request.nextUrl.pathname
   
-  console.log(`🔍 Middleware: ${hostname}${pathname}`)
+  // SIEMPRE loggear para confirmar que se ejecuta
+  console.log(`🔍 MIDDLEWARE EJECUTANDOSE: ${hostname}${pathname}`)
+  
+  // Verificación más simple: Si la ruta es /superadmin y no es console.*, bloquear
+  if (pathname.startsWith('/superadmin')) {
+    const cleanHostname = hostname?.split(':')[0] || ''
+    console.log(`🔐 SuperAdmin detected - hostname: ${cleanHostname}`)
+    
+    // Si NO contiene "console" al principio, bloquear
+    if (!cleanHostname.startsWith('console.')) {
+      console.log(`❌ BLOCKING SuperAdmin - hostname does not start with console.`)
+      return new NextResponse('<h1>404 - Not Found</h1>', { 
+        status: 404,
+        headers: { 'content-type': 'text/html' }
+      })
+    }
+    
+    console.log(`✅ ALLOWING SuperAdmin - console hostname detected`)
+  }
   
   // 1. Si es el dominio principal, permitir acceso normal
   if (isMainDomain(hostname)) {
+    console.log(`✅ Main domain detected: ${hostname}`)
     return NextResponse.next()
   }
   
-  // 2. Si es un subdominio tenant, agregar headers con información del tenant
+  // 2. Si es un subdominio tenant, agregar headers
   const tenantSubdomain = extractTenantSubdomain(hostname)
+  console.log(`🏢 Tenant subdomain: ${tenantSubdomain}`)
+  
   if (tenantSubdomain) {
+    // 2.1. Restricción inversa: en subdominio "console", solo permitir SuperAdmin y páginas públicas
+    if (tenantSubdomain === 'console') {
+      const allowedPaths = ['/superadmin', '/login', '/']
+      const isAllowedPath = allowedPaths.some(path => pathname.startsWith(path))
+      console.log(`🎮 Console subdomain - path ${pathname} allowed: ${isAllowedPath}`)
+      
+      if (!isAllowedPath) {
+        console.log(`❌ BLOCKING console access - path not allowed`)
+        return new NextResponse('<h1>404 - Not Found</h1>', { 
+          status: 404,
+          headers: { 'content-type': 'text/html' }
+        })
+      }
+    }
+    
+    // 2.2. Agregar headers con información del tenant
     const response = NextResponse.next()
     response.headers.set('x-tenant-subdomain', tenantSubdomain)
     return response
   }
   
+  console.log(`⚠️ No tenant detected, allowing normal flow`)
   // 3. Cualquier otra configuración, continuar normalmente
   return NextResponse.next()
 }
