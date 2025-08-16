@@ -22,7 +22,7 @@ const masterPool = mysql.createPool({
  * POST /api/superadmin/auth/login
  * Login específico para superadministradores
  */
-router.post('/login', auditLog('superadmin_login'), async (req, res) => {
+router.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
 

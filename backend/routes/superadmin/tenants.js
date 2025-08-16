@@ -444,6 +444,13 @@ router.post('/:tenantId/activate', requirePermission(['manage_tenants', 'manage_
  */
 router.post('/:tenantId/impersonate', requirePermission('impersonate_tenants'), auditLog('impersonate_tenant'), async (req, res) => {
     try {
+        console.log('🎭 Iniciando impersonación para tenant:', req.params.tenantId);
+        console.log('SuperAdmin info:', {
+            user_id: req.superAdmin?.user_id,
+            email: req.superAdmin?.email,
+            permissions: req.superAdmin?.permissions
+        });
+        
         const { tenantId } = req.params;
 
         // Verificar que el tenant existe y está activo
@@ -572,6 +579,297 @@ router.delete('/:tenantId', requirePermission('delete_tenants'), auditLog('delet
         res.status(500).json({
             error: 'Error del servidor',
             message: 'Error al eliminar el tenant'
+        });
+    }
+});
+
+/**
+ * POST /api/superadmin/tenants
+ * Crear un nuevo tenant usando el script create_tenant.js
+ */
+router.post('/', requirePermission('create_tenants'), auditLog('create_tenant'), async (req, res) => {
+    try {
+        const {
+            subdomain,
+            business_name,
+            admin_email,
+            admin_password,
+            admin_first_name,
+            admin_last_name,
+            subscription_plan = 'basic',
+            billing_email,
+            tax_number,
+            notes
+        } = req.body;
+        
+        // Validaciones más estrictas
+        if (!subdomain || !business_name || !admin_email || !admin_password || !admin_first_name || !admin_last_name) {
+            return res.status(400).json({
+                success: false,
+                message: 'Todos los campos son requeridos: subdomain, business_name, admin_email, admin_password, admin_first_name, admin_last_name'
+            });
+        }
+        
+        // Validar formato de subdomain
+        if (!/^[a-z0-9][a-z0-9-]*[a-z0-9]$/.test(subdomain.toLowerCase()) || subdomain.length < 3) {
+            return res.status(400).json({
+                success: false,
+                message: 'El subdomain debe tener al menos 3 caracteres y solo contener letras minúsculas, números y guiones'
+            });
+        }
+        
+        // Validar email
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(admin_email)) {
+            return res.status(400).json({
+                success: false,
+                message: 'El email no tiene un formato válido'
+            });
+        }
+        
+        // Verificar que el subdomain no existe
+        const [existingTenant] = await masterPool.execute(
+            'SELECT tenant_id FROM TENANTS WHERE subdomain = ?',
+            [subdomain.toLowerCase()]
+        );
+        
+        if (existingTenant.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'El subdomain ya existe'
+            });
+        }
+        
+        // Verificar que el email no existe
+        const [existingUser] = await masterPool.execute(
+            'SELECT user_id FROM MASTER_USERS WHERE email = ?',
+            [admin_email.toLowerCase()]
+        );
+        
+        if (existingUser.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'El email ya está registrado'
+            });
+        }
+        
+        // Usar el script create_tenant.js para crear el tenant completo
+        const path = require('path');
+        const bcrypt = require('bcryptjs');
+        const fs = require('fs').promises;
+        const { execSync } = require('child_process');
+        
+        // Función para buscar archivo en múltiples ubicaciones
+        async function findSchemaFile(filename) {
+            const possiblePaths = [
+                path.resolve(__dirname, '../../../database', filename),
+                path.resolve(__dirname, '../../database', filename),
+                path.resolve(process.cwd(), 'database', filename),
+                path.resolve('/var/www/recetasAPI/database', filename)
+            ];
+            
+            for (const filePath of possiblePaths) {
+                try {
+                    await fs.access(filePath);
+                    console.log(`✅ Archivo encontrado: ${filePath}`);
+                    return filePath;
+                } catch (error) {
+                    console.log(`❌ No encontrado: ${filePath}`);
+                }
+            }
+            
+            throw new Error(`Archivo ${filename} no encontrado en ninguna ubicación esperada`);
+        }
+        
+        // Configuración de archivos - buscar en múltiples ubicaciones
+        console.log('Buscando archivos de database...');
+        console.log('Working directory:', process.cwd());
+        console.log('__dirname:', __dirname);
+        
+        const TENANT_SCHEMA_FILE = await findSchemaFile('01b_recipes_for_tenants.sql');
+        let TENANT_SEEDS_FILE;
+        try {
+            TENANT_SEEDS_FILE = await findSchemaFile('seeds/03_extended_demo_seed_tenant.sql');
+        } catch (error) {
+            console.log('⚠️ Archivo de seeds no encontrado, se omitirá la carga de datos iniciales');
+            TENANT_SEEDS_FILE = null;
+        }
+        
+        // Función helper para generar tenant ID
+        function generateTenantId() {
+            const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+            let result = '';
+            for (let i = 0; i < 8; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+        }
+        
+        // Función para ejecutar SQL con cliente MySQL
+        async function executeSqlWithMysqlClient(sqlFilePath) {
+            const command = `mysql -u${process.env.DB_USER} -h${process.env.DB_HOST} -e "SOURCE ${sqlFilePath}"`;
+            
+            try {
+                const output = execSync(command, {
+                    stdio: ['pipe', 'pipe', 'pipe'],
+                    env: { ...process.env, MYSQL_PWD: process.env.DB_PASSWORD },
+                    encoding: 'utf8',
+                    timeout: 120000
+                });
+                
+                return output;
+            } catch (error) {
+                throw new Error(`Error ejecutando SQL: ${error.message}`);
+            }
+        }
+        
+        // Generar información del tenant
+        const tenantId = generateTenantId();
+        const newDbName = `recetario_${subdomain.toLowerCase()}`;
+        const passwordHash = await bcrypt.hash(admin_password, 12);
+        
+        // Verificar que existe la BD maestra
+        const [masterExists] = await masterPool.execute(
+            'SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?',
+            ['recetario_master']
+        );
+        
+        if (masterExists.length === 0) {
+            return res.status(500).json({
+                success: false,
+                message: 'La base de datos maestra no existe. Contacte al administrador del sistema.'
+            });
+        }
+        
+        // Crear entrada en TENANTS
+        await masterPool.execute(`
+            INSERT INTO TENANTS (
+                tenant_id, subdomain, database_name, business_name, admin_email,
+                subscription_plan, subscription_status, trial_ends_at, 
+                billing_email, tax_number, notes, is_active
+            ) VALUES (?, ?, ?, ?, ?, ?, 'trial', DATE_ADD(NOW(), INTERVAL 30 DAY), ?, ?, ?, TRUE)
+        `, [
+            tenantId,
+            subdomain.toLowerCase(),
+            newDbName,
+            business_name,
+            admin_email.toLowerCase(),
+            subscription_plan,
+            billing_email || null,
+            tax_number || null,
+            notes || null
+        ]);
+        
+        // Crear usuario administrador en BD maestra
+        await masterPool.execute(`
+            INSERT INTO MASTER_USERS (
+                tenant_id, email, password_hash, first_name, last_name,
+                role, is_tenant_owner, email_verified_at, is_active
+            ) VALUES (?, ?, ?, ?, ?, 'admin', TRUE, NOW(), TRUE)
+        `, [
+            tenantId,
+            admin_email.toLowerCase(),
+            passwordHash,
+            admin_first_name,
+            admin_last_name
+        ]);
+        
+        // Crear base de datos del tenant
+        const tenantSql = await fs.readFile(TENANT_SCHEMA_FILE, 'utf8');
+        const modifiedTenantSql = tenantSql
+            .replace(/CREATE DATABASE.*recipes.*;/i, `CREATE DATABASE \`${newDbName}\`;`)
+            .replace(/USE recipes;/i, `USE \`${newDbName}\`;`);
+        
+        // Crear archivo temporal en directorio accesible  
+        const tempSqlFile = path.resolve(path.dirname(TENANT_SCHEMA_FILE), `temp_${newDbName}.sql`);
+        await fs.writeFile(tempSqlFile, modifiedTenantSql);
+        
+        try {
+            // Ejecutar estructura del tenant
+            await executeSqlWithMysqlClient(tempSqlFile);
+            
+            // Cargar datos iniciales si existe el archivo de seeds
+            if (TENANT_SEEDS_FILE) {
+                try {
+                
+                // Conectar a la BD del tenant para cargar seeds
+                const tenantConnection = await mysql.createConnection({
+                    host: process.env.DB_HOST,
+                    user: process.env.DB_USER,
+                    password: process.env.DB_PASSWORD,
+                    database: newDbName
+                });
+                
+                const seedsSql = await fs.readFile(TENANT_SEEDS_FILE, 'utf8');
+                const statements = seedsSql.split(';').filter(stmt => stmt.trim());
+                
+                for (const statement of statements) {
+                    try {
+                        await tenantConnection.execute(statement);
+                    } catch (seedError) {
+                        // Ignorar errores menores en seeds
+                        console.log('Seed warning:', seedError.message);
+                    }
+                }
+                
+                // Actualizar usuario admin en BD del tenant
+                await tenantConnection.execute(`
+                    UPDATE USERS SET 
+                        email = ?, 
+                        first_name = ?, 
+                        last_name = ?, 
+                        password_hash = ?
+                    WHERE role = 'admin' LIMIT 1
+                `, [admin_email.toLowerCase(), admin_first_name, admin_last_name, passwordHash]);
+                
+                // Actualizar información del restaurante
+                await tenantConnection.execute(`
+                    UPDATE RESTAURANT_INFO SET 
+                        name = ?, 
+                        business_name = ?, 
+                        email = ?
+                    WHERE restaurant_id = 1
+                `, [business_name, business_name, admin_email.toLowerCase()]);
+                
+                await tenantConnection.end();
+                
+                } catch (seedError) {
+                    console.log('Error loading seeds:', seedError.message);
+                }
+            } else {
+                console.log('⚠️ Seeds file not available, skipping initial data load');
+            }
+            
+        } finally {
+            // Limpiar archivo temporal
+            try {
+                await fs.unlink(tempSqlFile);
+            } catch (unlinkError) {
+                console.log('Error cleaning temp file:', unlinkError.message);
+            }
+        }
+        
+        res.status(201).json({
+            success: true,
+            message: 'Tenant creado exitosamente con base de datos completa',
+            data: {
+                tenant_id: tenantId,
+                subdomain: subdomain.toLowerCase(),
+                database_name: newDbName,
+                business_name,
+                admin_email: admin_email.toLowerCase(),
+                admin_name: `${admin_first_name} ${admin_last_name}`,
+                subscription_plan,
+                subscription_status: 'trial',
+                trial_ends_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                access_url: `https://${subdomain.toLowerCase()}.${process.env.TENANT_BASE_URL || 'localhost:3000'}`
+            }
+        });
+        
+    } catch (error) {
+        console.error('Error creando tenant:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error al crear tenant: ' + error.message
         });
     }
 });

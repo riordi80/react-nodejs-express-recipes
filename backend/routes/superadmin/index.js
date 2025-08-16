@@ -13,7 +13,32 @@ const billingRoutes = require('./billing');
 const monitoringRoutes = require('./monitoring');
 const settingsRoutes = require('./settings');
 
-// Rutas de autenticación (NO requieren middleware de autenticación)
+// Middleware para restringir SuperAdmin solo al subdominio console
+function restrictToSuperAdminDomain(req, res, next) {
+    const allowedDomain = 'console'; // Solo subdominio console
+    const host = req.get('host') || '';
+    const baseUrl = process.env.TENANT_BASE_URL || process.env.MAIN_DOMAIN || 'ordidev.com';
+    const expectedHost = `${allowedDomain}.${baseUrl}`;
+    
+    console.log(`🔒 Verificando acceso SuperAdmin - Host: ${host}, Esperado: ${expectedHost}`);
+    
+    // Verificar que el host sea exactamente console.domain.com
+    if (host !== expectedHost && !host.startsWith('console.')) {
+        return res.status(403).json({
+            error: 'Acceso denegado',
+            message: `El panel SuperAdmin solo está disponible en ${expectedHost}`,
+            code: 'DOMAIN_RESTRICTED'
+        });
+    }
+    
+    console.log(`✅ Acceso permitido a SuperAdmin desde: ${host}`);
+    next();
+}
+
+// Aplicar restricción de dominio a todas las rutas SuperAdmin
+router.use(restrictToSuperAdminDomain);
+
+// Rutas de autenticación (NO requieren middleware de autenticación pero sí restricción de dominio)
 router.use('/auth', authRoutes);
 
 // Aplicar middleware de superadmin y rate limiting a todas las rutas protegidas

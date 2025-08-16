@@ -208,9 +208,12 @@ router.get('/charts/revenue', requirePermission(['access_monitoring', 'manage_bi
 router.get('/activity-feed', requirePermission('access_monitoring'), async (req, res) => {
     try {
         const { limit = 20 } = req.query;
+        const auditLimit = Math.floor(parseInt(limit) / 2);
+        const tenantLimit = Math.floor(parseInt(limit) / 2);
 
+        // WORKAROUND: Usar query directo para evitar problemas con prepared statements
         // Actividad de audit log
-        const [auditActivity] = await masterPool.execute(`
+        const auditQuery = `
             SELECT 
                 'audit' as type,
                 al.action_type,
@@ -225,11 +228,13 @@ router.get('/activity-feed', requirePermission('access_monitoring'), async (req,
             JOIN MASTER_USERS mu ON al.user_id = mu.user_id
             LEFT JOIN TENANTS t ON al.target_tenant_id = t.tenant_id
             ORDER BY al.performed_at DESC
-            LIMIT ?
-        `, [parseInt(limit) / 2]);
+            LIMIT ${auditLimit}
+        `;
+        
+        const [auditActivity] = await masterPool.query(auditQuery);
 
         // Actividad de nuevos tenants
-        const [tenantActivity] = await masterPool.execute(`
+        const tenantQuery = `
             SELECT 
                 'new_tenant' as type,
                 'create_tenant' as action_type,
@@ -242,8 +247,10 @@ router.get('/activity-feed', requirePermission('access_monitoring'), async (req,
             FROM TENANTS
             WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
             ORDER BY created_at DESC
-            LIMIT ?
-        `, [parseInt(limit) / 2]);
+            LIMIT ${tenantLimit}
+        `;
+        
+        const [tenantActivity] = await masterPool.query(tenantQuery);
 
         // Combinar y ordenar actividades
         const allActivity = [...auditActivity, ...tenantActivity]

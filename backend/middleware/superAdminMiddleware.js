@@ -30,8 +30,12 @@ async function requireSuperAdmin(req, res, next) {
         
         // 1. Verificar token de SuperAdmin en cookies
         const token = req.cookies.superadmin_token;
+        console.log(`🔍 Verificando autenticación SuperAdmin para ${req.method} ${req.path}`);
+        console.log('Token encontrado:', !!token);
         
         if (!token) {
+            console.error(`❌ Token SuperAdmin no encontrado para ${req.method} ${req.path}`);
+            console.error('Cookies disponibles:', Object.keys(req.cookies || {}));
             return res.status(401).json({ 
                 error: 'No autenticado',
                 message: 'Debe iniciar sesión para acceder al panel de administración',
@@ -91,6 +95,13 @@ async function requireSuperAdmin(req, res, next) {
             permissions: userPermissions
         };
 
+        console.log(`✅ SuperAdmin autenticado: ${superAdminUser.email} (ID: ${superAdminUser.user_id}) para ${req.method} ${req.path}`);
+        console.log(`🔍 req.superAdmin configurado:`, {
+            user_id: req.superAdmin.user_id,
+            email: req.superAdmin.email,
+            permissions: req.superAdmin.permissions
+        });
+
         // 6. Actualizar último login de superadmin
         await masterPool.execute(
             'UPDATE MASTER_USERS SET last_superadmin_login_at = CURRENT_TIMESTAMP WHERE user_id = ?',
@@ -115,13 +126,19 @@ async function requireSuperAdmin(req, res, next) {
  */
 function requirePermission(requiredPermissions) {
     return (req, res, next) => {
+        console.log(`🔐 Verificando permisos para ${req.method} ${req.path}`);
+        console.log(`🔍 req.superAdmin disponible:`, !!req.superAdmin);
+        
         if (!req.superAdmin) {
+            console.error('❌ req.superAdmin no está disponible en requirePermission');
             return res.status(500).json({
                 error: 'Error de configuración',
                 message: 'Middleware requireSuperAdmin debe ejecutarse antes que requirePermission',
                 code: 'MIDDLEWARE_ORDER_ERROR'
             });
         }
+
+        console.log(`👤 Usuario actual: ${req.superAdmin.email} (${req.superAdmin.user_id})`);
 
         // Convertir a array si es string
         const permissions = Array.isArray(requiredPermissions) ? requiredPermissions : [requiredPermissions];
@@ -184,6 +201,26 @@ function auditLog(actionType) {
  */
 async function logAuditAction(req, actionType, responseBody) {
     try {
+        // Validar que req.superAdmin existe antes de usarlo
+        if (!req.superAdmin) {
+            console.error('❌ Error en audit log: req.superAdmin no está disponible');
+            console.error('Path:', req.path);
+            console.error('Method:', req.method);
+            console.error('User:', req.user ? `${req.user.email} (${req.user.user_id})` : 'No user');
+            
+            // No fallar la operación, solo registrar el error
+            return;
+        }
+
+        if (!req.superAdmin.user_id) {
+            console.error('❌ Error en audit log: req.superAdmin.user_id no está disponible');
+            console.error('req.superAdmin keys:', Object.keys(req.superAdmin));
+            console.error('req.superAdmin:', JSON.stringify(req.superAdmin, null, 2));
+            
+            // No fallar la operación, solo registrar el error
+            return;
+        }
+
         const actionDetails = {
             method: req.method,
             path: req.path,
@@ -195,6 +232,8 @@ async function logAuditAction(req, actionType, responseBody) {
         // Extraer IDs del request si están disponibles
         const targetTenantId = req.params.tenantId || req.body.tenant_id || null;
         const targetUserId = req.params.userId || req.body.user_id || null;
+
+        console.log(`📝 Registrando audit log: ${actionType} por usuario ${req.superAdmin.user_id}`);
 
         await masterPool.execute(`
             INSERT INTO SUPERADMIN_AUDIT_LOG (
@@ -211,8 +250,11 @@ async function logAuditAction(req, actionType, responseBody) {
             req.get('User-Agent') || 'Unknown'
         ]);
 
+        console.log(`✅ Audit log registrado exitosamente: ${actionType}`);
+
     } catch (error) {
         console.error('Error guardando audit log:', error);
+        console.error('Stack:', error.stack);
     }
 }
 
