@@ -77,9 +77,6 @@ export function SuperAdminProvider({ children }: SuperAdminProviderProps) {
     try {
       setLoading(true)
       
-      // Debug temporal - quitar después
-      console.log('SuperAdmin API URL:', `${apiBaseUrl}/api/superadmin/auth/me`)
-      
       const response = await fetch(`${apiBaseUrl}/api/superadmin/auth/me`, {
         method: 'GET',
         credentials: 'include',

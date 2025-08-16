@@ -13,9 +13,7 @@ export function SuperAdminAuthGuard({ children }: SuperAdminAuthGuardProps) {
   const router = useRouter()
 
   useEffect(() => {
-    console.log('SuperAdminAuthGuard:', { loading, user, hasUser: !!user })
     if (!loading && !user) {
-      console.log('Redirecting to /superadmin/login')
       router.push('/superadmin/login')
     }
   }, [user, loading, router])

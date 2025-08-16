@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useEffect } from 'react'
-import { usePathname } from 'next/navigation'
 import { notFound } from 'next/navigation'
 import { SuperAdminProvider } from '@/context/SuperAdminContext'
 import { SuperAdminThemeProvider, useSuperAdminTheme } from '@/context/SuperAdminThemeContext'
@@ -18,18 +17,15 @@ function SubdomainGuard({ children }: { children: React.ReactNode }) {
     // Solo ejecutar en el browser
     if (typeof window !== 'undefined') {
       const hostname = window.location.hostname
-      console.log(`🔐 SuperAdmin SubdomainGuard checking: ${hostname}`)
       
       // Si NO es console.*, bloquear acceso
       const isValid = hostname.startsWith('console.') || hostname.includes('localhost')
       
       if (!isValid) {
-        console.log(`❌ BLOCKING SuperAdmin - hostname: ${hostname}`)
         notFound() // Usar 404 nativo de Next.js
         return
       }
       
-      console.log(`✅ ALLOWING SuperAdmin - console hostname: ${hostname}`)
       setIsValidSubdomain(true)
     }
   }, [])
@@ -56,12 +52,11 @@ interface SuperAdminLayoutProps {
 
 // Componente interno que usa el tema
 function SuperAdminLayoutContent({ children }: SuperAdminLayoutProps) {
-  const pathname = usePathname()
   const { getThemeClasses } = useSuperAdminTheme()
   const themeClasses = getThemeClasses()
   
   // Páginas que NO necesitan AuthGuard (páginas públicas del SuperAdmin)
-  const isPublicPage = pathname === '/superadmin/login'
+  const isPublicPage = typeof window !== 'undefined' && window.location.pathname === '/superadmin/login'
 
   if (isPublicPage) {
     return (
