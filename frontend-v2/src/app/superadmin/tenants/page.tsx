@@ -750,10 +750,10 @@ Eliminado:
       return styles[status as keyof typeof styles] || styles.cancelled;
     } else {
       const styles = {
-        active: 'bg-green-100 text-green-800 border border-green-200',
-        trial: 'bg-blue-100 text-blue-800 border border-blue-200',
-        suspended: 'bg-red-100 text-red-800 border border-red-200',
-        cancelled: 'bg-gray-200 text-gray-800 border border-gray-300'
+        active: 'bg-green-50 text-green-700 border border-green-300',
+        trial: 'bg-blue-50 text-blue-700 border border-blue-300',
+        suspended: 'bg-red-50 text-red-700 border border-red-300',
+        cancelled: 'bg-gray-100 text-gray-700 border border-gray-300'
       };
       return styles[status as keyof typeof styles] || styles.cancelled;
     }
@@ -770,14 +770,39 @@ Eliminado:
       return styles[plan as keyof typeof styles] || styles.free;
     } else {
       const styles = {
-        free: 'bg-gray-200 text-gray-800 border border-gray-300',
-        basic: 'bg-blue-100 text-blue-800 border border-blue-200',
-        premium: 'bg-purple-100 text-purple-800 border border-purple-200',
-        enterprise: 'bg-yellow-100 text-yellow-800 border border-yellow-200'
+        free: 'bg-gray-100 text-gray-700 border border-gray-300',
+        basic: 'bg-blue-50 text-blue-700 border border-blue-300',
+        premium: 'bg-purple-50 text-purple-700 border border-purple-300',
+        enterprise: 'bg-amber-50 text-amber-700 border border-amber-300'
       };
       return styles[plan as keyof typeof styles] || styles.free;
     }
   };
+
+  // Function to get icon colors based on theme
+  const getIconColors = () => {
+    if (isDark) {
+      return {
+        view: 'text-blue-400 hover:text-blue-300',
+        edit: 'text-orange-400 hover:text-orange-300',
+        impersonate: 'text-green-400 hover:text-green-300',
+        delete: 'text-red-600 hover:text-red-500',
+        suspend: 'text-red-400 hover:text-red-300',
+        activate: 'text-green-400 hover:text-green-300'
+      };
+    } else {
+      return {
+        view: 'text-blue-600 hover:text-blue-700',
+        edit: 'text-orange-600 hover:text-orange-700',
+        impersonate: 'text-green-600 hover:text-green-700',
+        delete: 'text-red-600 hover:text-red-700',
+        suspend: 'text-red-600 hover:text-red-700',
+        activate: 'text-green-600 hover:text-green-700'
+      };
+    }
+  };
+
+  const iconColors = getIconColors();
 
   // Bulk actions handlers
   const handleBulkSuspend = () => {
@@ -1122,7 +1147,7 @@ Para confirmar, escribe exactamente "ELIMINAR":`,
               setSelectedTenant(tenant);
               setShowDetailsModal(true);
             }}
-            className="text-blue-400 hover:text-blue-300 transition-colors"
+            className={`${iconColors.view} transition-colors`}
             title="Ver detalles"
           >
             <EyeIcon className="h-5 w-5" />
@@ -1133,7 +1158,7 @@ Para confirmar, escribe exactamente "ELIMINAR":`,
               setSelectedTenant(tenant);
               setShowEditModal(true);
             }}
-            className="text-orange-400 hover:text-orange-300 transition-colors"
+            className={`${iconColors.edit} transition-colors`}
             title="Editar tenant"
           >
             <PencilIcon className="h-5 w-5" />
@@ -1141,7 +1166,7 @@ Para confirmar, escribe exactamente "ELIMINAR":`,
           
           <button
             onClick={() => handleImpersonate(tenant)}
-            className="text-green-400 hover:text-green-300 transition-colors"
+            className={`${iconColors.impersonate} transition-colors`}
             title="Impersonar"
           >
             <UserIcon className="h-5 w-5" />
@@ -1149,7 +1174,7 @@ Para confirmar, escribe exactamente "ELIMINAR":`,
 
           <button
             onClick={() => handleDeleteTenant(tenant.tenant_id)}
-            className="text-red-600 hover:text-red-500 transition-colors"
+            className={`${iconColors.delete} transition-colors`}
             title="Eliminar permanentemente"
           >
             <TrashIcon className="h-5 w-5" />
@@ -1158,7 +1183,7 @@ Para confirmar, escribe exactamente "ELIMINAR":`,
           {tenant.subscription_status === 'active' ? (
             <button
               onClick={() => handleSuspendTenant(tenant.tenant_id)}
-              className="text-red-400 hover:text-red-300 transition-colors"
+              className={`${iconColors.suspend} transition-colors`}
               title="Suspender"
             >
               <PauseIcon className="h-5 w-5" />
@@ -1166,14 +1191,14 @@ Para confirmar, escribe exactamente "ELIMINAR":`,
           ) : tenant.subscription_status === 'suspended' ? (
             <button
               onClick={() => handleActivateTenant(tenant.tenant_id)}
-              className="text-green-400 hover:text-green-300 transition-colors"
+              className={`${iconColors.activate} transition-colors`}
               title="Activar"
             >
               <PlayIcon className="h-5 w-5" />
             </button>
           ) : (
             // Trial tenants can access the system - no action needed
-            <span className="text-blue-400 text-sm font-medium px-2 py-1 bg-blue-900/30 rounded-md">
+            <span className={`text-sm font-medium px-2 py-1 rounded-md ${getStatusBadge(tenant.subscription_status)}`}>
               {tenant.subscription_status === 'trial' ? 'Trial' : tenant.subscription_status}
             </span>
           )}

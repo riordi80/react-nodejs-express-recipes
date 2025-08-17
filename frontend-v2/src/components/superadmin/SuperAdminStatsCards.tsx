@@ -21,13 +21,26 @@ interface SuperAdminStatsCardsProps {
   className?: string;
 }
 
-const colorClasses = {
-  blue: 'text-blue-400',
-  green: 'text-green-400', 
-  red: 'text-red-400',
-  yellow: 'text-yellow-400',
-  purple: 'text-purple-400',
-  gray: 'text-gray-400'
+const getColorClasses = (isDark: boolean) => {
+  if (isDark) {
+    return {
+      blue: 'text-blue-400',
+      green: 'text-green-400', 
+      red: 'text-red-400',
+      yellow: 'text-yellow-400',
+      purple: 'text-purple-400',
+      gray: 'text-gray-400'
+    };
+  } else {
+    return {
+      blue: 'text-blue-600',
+      green: 'text-green-600', 
+      red: 'text-red-600',
+      yellow: 'text-amber-600',
+      purple: 'text-purple-600',
+      gray: 'text-gray-600'
+    };
+  }
 };
 
 const gridClasses = {
@@ -41,8 +54,9 @@ export default function SuperAdminStatsCards({
   columns = 4,
   className = ''
 }: SuperAdminStatsCardsProps) {
-  const { getThemeClasses } = useSuperAdminTheme();
+  const { getThemeClasses, isDark } = useSuperAdminTheme();
   const themeClasses = getThemeClasses();
+  const colorClasses = getColorClasses(isDark);
 
   return (
     <div className={`grid ${gridClasses[columns]} gap-6 mb-8 ${className}`}>
@@ -58,7 +72,7 @@ export default function SuperAdminStatsCards({
                   {stat.value}
                 </p>
                 {stat.change && (
-                  <div className={`flex items-center text-xs ${stat.change.type === 'increase' ? 'text-green-500' : 'text-red-500'}`}>
+                  <div className={`flex items-center text-xs ${stat.change.type === 'increase' ? (isDark ? 'text-green-400' : 'text-green-600') : (isDark ? 'text-red-400' : 'text-red-600')}`}>
                     <span className="font-medium">
                       {stat.change.type === 'increase' ? '+' : '-'}{Math.abs(stat.change.value)}%
                     </span>

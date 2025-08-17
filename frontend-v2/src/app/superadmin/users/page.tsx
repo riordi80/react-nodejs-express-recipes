@@ -49,13 +49,13 @@ const getRoleBadge = (role: string, isDark: boolean) => {
     return styles[role as keyof typeof styles] || 'bg-gray-800 text-gray-200 border border-gray-600';
   } else {
     const styles = {
-      super_admin_full: 'bg-red-100 text-red-800 border border-red-200',
-      super_admin_read: 'bg-blue-100 text-blue-800 border border-blue-200',
-      super_admin_billing: 'bg-green-100 text-green-800 border border-green-200',
-      super_admin_support: 'bg-yellow-100 text-yellow-800 border border-yellow-200',
-      super_admin_dev: 'bg-purple-100 text-purple-800 border border-purple-200'
+      super_admin_full: 'bg-red-50 text-red-700 border border-red-300',
+      super_admin_read: 'bg-blue-50 text-blue-700 border border-blue-300',
+      super_admin_billing: 'bg-green-50 text-green-700 border border-green-300',
+      super_admin_support: 'bg-amber-50 text-amber-700 border border-amber-300',
+      super_admin_dev: 'bg-purple-50 text-purple-700 border border-purple-300'
     };
-    return styles[role as keyof typeof styles] || 'bg-gray-200 text-gray-800 border border-gray-300';
+    return styles[role as keyof typeof styles] || 'bg-gray-100 text-gray-700 border border-gray-300';
   }
 };
 
@@ -230,6 +230,33 @@ export default function SuperAdminUsersPage() {
     });
   };
 
+  // Function to get icon colors based on theme
+  const getIconColors = () => {
+    if (isDark) {
+      return {
+        view: 'text-blue-400 hover:text-blue-300',
+        edit: 'text-orange-400 hover:text-orange-300',
+        deactivate: 'text-red-400 hover:text-red-300',
+        activate: 'text-green-400 hover:text-green-300',
+        statusActive: 'text-green-400',
+        statusLocked: 'text-red-400',
+        statusIndicator: 'bg-green-400'
+      };
+    } else {
+      return {
+        view: 'text-blue-600 hover:text-blue-700',
+        edit: 'text-orange-600 hover:text-orange-700',
+        deactivate: 'text-red-600 hover:text-red-700',
+        activate: 'text-green-600 hover:text-green-700',
+        statusActive: 'text-green-600',
+        statusLocked: 'text-red-600',
+        statusIndicator: 'bg-green-600'
+      };
+    }
+  };
+
+  const iconColors = getIconColors();
+
   // Configuración de columnas para la tabla
   const tableColumns = [
     {
@@ -260,19 +287,19 @@ export default function SuperAdminUsersPage() {
         <div className="flex items-center">
           {adminUser.is_active ? (
             isUserLocked(adminUser) ? (
-              <div className="flex items-center text-red-400">
+              <div className={`flex items-center ${iconColors.statusLocked}`}>
                 <LockClosedIcon className="h-4 w-4 mr-1" />
                 <span className="text-xs">Bloqueado</span>
               </div>
             ) : (
-              <div className="flex items-center text-green-400">
-                <div className="h-2 w-2 bg-green-400 rounded-full mr-2"></div>
+              <div className={`flex items-center ${iconColors.statusActive}`}>
+                <div className={`h-2 w-2 ${iconColors.statusIndicator} rounded-full mr-2`}></div>
                 <span className="text-xs">Activo</span>
               </div>
             )
           ) : (
-            <div className="flex items-center text-gray-400">
-              <div className="h-2 w-2 bg-gray-400 rounded-full mr-2"></div>
+            <div className={`flex items-center ${themeClasses.textSecondary}`}>
+              <div className={`h-2 w-2 ${isDark ? 'bg-gray-400' : 'bg-gray-500'} rounded-full mr-2`}></div>
               <span className="text-xs">Inactivo</span>
             </div>
           )}
@@ -308,7 +335,7 @@ export default function SuperAdminUsersPage() {
               setSelectedUser(adminUser);
               setShowDetailsModal(true);
             }}
-            className="text-blue-400 hover:text-blue-300 transition-colors"
+            className={`${iconColors.view} transition-colors`}
             title="Ver detalles"
           >
             <EyeIcon className="h-5 w-5" />
@@ -319,7 +346,7 @@ export default function SuperAdminUsersPage() {
               setSelectedUser(adminUser);
               setShowEditModal(true);
             }}
-            className="text-yellow-400 hover:text-yellow-300 transition-colors"
+            className={`${iconColors.edit} transition-colors`}
             title="Editar"
           >
             <PencilIcon className="h-5 w-5" />
@@ -328,7 +355,7 @@ export default function SuperAdminUsersPage() {
           {adminUser.user_id !== user?.user_id && adminUser.is_active && (
             <button
               onClick={() => handleDeactivateUser(adminUser.user_id, `${adminUser.first_name} ${adminUser.last_name}`)}
-              className="text-red-400 hover:text-red-300 transition-colors"
+              className={`${iconColors.deactivate} transition-colors`}
               title="Desactivar"
             >
               <TrashIcon className="h-5 w-5" />
