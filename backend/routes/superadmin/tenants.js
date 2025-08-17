@@ -12,6 +12,16 @@ try {
     createTenant = null;
 }
 
+// Importar deleteTenant de forma condicional para evitar errores de dependencias
+let deleteTenant;
+try {
+    const deleteTenantModule = require('../../delete_tenant');
+    deleteTenant = deleteTenantModule.deleteTenant;
+} catch (error) {
+    console.log('⚠️ No se pudo importar delete_tenant.js, función de eliminación permanente no disponible');
+    deleteTenant = null;
+}
+
 const router = express.Router();
 
 // Pool de conexiones a la base de datos maestra
@@ -549,13 +559,14 @@ router.post('/:tenantId/impersonate', requirePermission('impersonate_tenants'), 
 
 /**
  * DELETE /api/superadmin/tenants/:tenantId
- * Eliminar un tenant (marca como inactivo)
+ * Eliminar un tenant PERMANENTEMENTE (BD + registros + usuarios)
  */
 router.delete('/:tenantId', requirePermission('delete_tenants'), auditLog('delete_tenant'), async (req, res) => {
     try {
         const { tenantId } = req.params;
-        const { confirm_deletion } = req.body;
+        const { confirm_deletion, confirmation_text } = req.body;
 
+        // Validaciones de seguridad
         if (!confirm_deletion) {
             return res.status(400).json({
                 error: 'Confirmación requerida',
@@ -563,26 +574,74 @@ router.delete('/:tenantId', requirePermission('delete_tenants'), auditLog('delet
             });
         }
 
-        // Marcar como inactivo en lugar de eliminar
-        await masterPool.execute(`
-            UPDATE TENANTS 
-            SET is_active = FALSE, 
-                subscription_status = 'cancelled',
-                updated_at = CURRENT_TIMESTAMP,
-                notes = CONCAT(COALESCE(notes, ''), '\n[', NOW(), '] Eliminado por superadmin')
-            WHERE tenant_id = ?
-        `, [tenantId]);
+        // Verificar que tenemos acceso al script de eliminación
+        if (!deleteTenant) {
+            return res.status(503).json({
+                error: 'Servicio no disponible',
+                message: 'La funcionalidad de eliminación permanente no está disponible'
+            });
+        }
 
+        // Obtener información del tenant para validación y auditoría
+        const [tenantInfo] = await masterPool.execute(
+            'SELECT * FROM TENANTS WHERE tenant_id = ?',
+            [tenantId]
+        );
+
+        if (tenantInfo.length === 0) {
+            return res.status(404).json({
+                error: 'Tenant no encontrado',
+                message: `No se encontró el tenant con ID ${tenantId}`
+            });
+        }
+
+        const tenant = tenantInfo[0];
+
+        // Validar texto de confirmación (subdomain para individual, "ELIMINAR" para masiva)
+        const isValidConfirmation = confirmation_text === tenant.subdomain || confirmation_text === 'ELIMINAR';
+        
+        if (!isValidConfirmation) {
+            return res.status(400).json({
+                error: 'Texto de confirmación incorrecto',
+                message: `Debe escribir exactamente "${tenant.subdomain}" o "ELIMINAR" para confirmar`
+            });
+        }
+
+        // Ejecutar eliminación permanente usando el script adaptado
+        const result = await deleteTenant(tenantId, {
+            silent: true, // No mostrar logs en consola
+            userId: req.superAdmin.user_id // Para audit trail
+        });
+
+        if (!result.success) {
+            return res.status(500).json({
+                error: 'Error en eliminación',
+                message: result.error || 'Error desconocido durante la eliminación'
+            });
+        }
+
+        // Respuesta exitosa con detalles de lo eliminado
         res.json({
             success: true,
-            message: 'Tenant eliminado correctamente'
+            message: `Tenant "${tenant.business_name}" eliminado permanentemente`,
+            data: {
+                tenant: {
+                    tenant_id: tenant.tenant_id,
+                    subdomain: tenant.subdomain,
+                    business_name: tenant.business_name
+                },
+                deleted: {
+                    users: result.deleted.users,
+                    database: result.deleted.database
+                }
+            }
         });
 
     } catch (error) {
-        console.error('Error eliminando tenant:', error);
+        console.error('Error eliminando tenant permanentemente:', error);
         res.status(500).json({
             error: 'Error del servidor',
-            message: 'Error al eliminar el tenant'
+            message: 'Error interno durante la eliminación del tenant'
         });
     }
 });

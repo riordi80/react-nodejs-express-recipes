@@ -8,6 +8,7 @@ import {
   PlayIcon,
   PauseIcon,
   UserIcon,
+  TrashIcon,
   BuildingOfficeIcon,
   ChartBarIcon,
   ArrowDownTrayIcon,
@@ -388,6 +389,92 @@ export default function TenantsPage() {
     } catch {
       console.error('Fixed error in catch block');
     }
+  };
+
+  const handleDeleteTenant = async (tenantId: string) => {
+    // Encontrar el tenant por ID para obtener el subdomain
+    const tenant = tenants.find(t => t.tenant_id === tenantId);
+    if (!tenant) {
+      setMessageModal({
+        isOpen: true,
+        title: 'Error',
+        message: 'No se pudo encontrar el tenant seleccionado.',
+        type: 'error'
+      });
+      return;
+    }
+
+    setPromptModal({
+      isOpen: true,
+      title: 'Eliminar Tenant',
+      message: `Esta acción eliminará permanentemente:
+
+• Tenant: ${tenant.business_name} (${tenant.subdomain}).
+• La base de datos completa.
+• Todos los usuarios asociados.
+
+Esta operación es irreversible. Para continuar escriba exactamente el subdomain: ${tenant.subdomain}`,
+      type: 'danger',
+      placeholder: `Escribe "${tenant.subdomain}" para confirmar`,
+      onConfirm: async (confirmationText: string) => {
+        if (confirmationText !== tenant.subdomain) {
+          setMessageModal({
+            isOpen: true,
+            title: 'Confirmación incorrecta',
+            message: `Debe escribir exactamente "${tenant.subdomain}" para confirmar la eliminación.`,
+            type: 'error'
+          });
+          return;
+        }
+
+        setPromptModal(prev => ({ ...prev, loading: true }));
+        
+        try {
+          const response = await fetch(`/api/superadmin/tenants/${tenantId}`, {
+            method: 'DELETE',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              confirm_deletion: true,
+              confirmation_text: tenant.subdomain
+            })
+          });
+
+          const data = await response.json();
+
+          if (response.ok && data.success) {
+            setMessageModal({
+              isOpen: true,
+              title: 'Tenant Eliminado',
+              message: `El tenant "${data.data.tenant.business_name}" ha sido eliminado permanentemente.
+
+Eliminado:
+• ${data.data.deleted.users} usuario(s)
+• Base de datos: ${data.data.deleted.database ? 'Sí' : 'No existía'}`,
+              type: 'success'
+            });
+            
+            // Recargar lista de tenants
+            await loadTenants();
+            
+          } else {
+            throw new Error(data.message || 'Error desconocido');
+          }
+        } catch (error) {
+          console.error('Error eliminando tenant:', error);
+          setMessageModal({
+            isOpen: true,
+            title: 'Error de eliminación',
+            message: 'Error al eliminar el tenant. Verifica tu conexión y permisos.',
+            type: 'error'
+          });
+        } finally {
+          setPromptModal(prev => ({ ...prev, isOpen: false, loading: false }));
+        }
+      }
+    });
   };
 
   // Función para guardar cambios del tenant editado
@@ -816,6 +903,93 @@ export default function TenantsPage() {
     }
   };
 
+  const handleBulkDelete = () => {
+    if (bulkSelection.selectedCount === 0) return;
+
+    setPromptModal({
+      isOpen: true,
+      title: `Eliminar ${bulkSelection.selectedCount} tenant${bulkSelection.selectedCount > 1 ? 's' : ''} PERMANENTEMENTE`,
+      message: `ATENCIÓN: Esta acción eliminará PERMANENTEMENTE ${bulkSelection.selectedCount} tenant${bulkSelection.selectedCount > 1 ? 's' : ''}:
+
+${bulkSelection.selectedItems.map(t => `• ${t.business_name} (${t.subdomain})`).join('\n')}
+
+ESTO INCLUYE:
+• Todas las bases de datos
+• Todos los usuarios asociados
+• Todos los datos sin posibilidad de recuperación
+
+Para confirmar, escribe exactamente "ELIMINAR":`,
+      type: 'danger',
+      placeholder: 'Escribe ELIMINAR para confirmar',
+      onConfirm: async (confirmationText: string) => {
+        if (confirmationText !== 'ELIMINAR') {
+          setMessageModal({
+            isOpen: true,
+            title: 'Confirmación incorrecta',
+            message: 'Debe escribir exactamente "ELIMINAR" para confirmar la eliminación masiva.',
+            type: 'error'
+          });
+          return;
+        }
+
+        setPromptModal(prev => ({ ...prev, loading: true }));
+        
+        const results = await Promise.allSettled(
+          bulkSelection.selectedItems.map(async (tenant) => {
+            const response = await fetch(`/api/superadmin/tenants/${tenant.tenant_id}`, {
+              method: 'DELETE',
+              credentials: 'include',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                confirm_deletion: true,
+                confirmation_text: 'ELIMINAR'
+              })
+            });
+
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(`${tenant.business_name}: ${errorData.message}`);
+            }
+
+            const data = await response.json();
+            return {
+              tenant: tenant.business_name,
+              success: true,
+              deleted: data.data.deleted
+            };
+          })
+        );
+
+        const successful = results.filter(r => r.status === 'fulfilled').length;
+        const failed = results.filter(r => r.status === 'rejected');
+
+        let message = `Eliminación masiva completada:
+• ${successful} tenant${successful !== 1 ? 's' : ''} eliminado${successful !== 1 ? 's' : ''} exitosamente`;
+
+        if (failed.length > 0) {
+          message += `\n• ${failed.length} fallo${failed.length !== 1 ? 's' : ''}:`;
+          failed.forEach((failure: any) => {
+            message += `\n  - ${failure.reason?.message || 'Error desconocido'}`;
+          });
+        }
+
+        setMessageModal({
+          isOpen: true,
+          title: 'Eliminación Masiva Completada',
+          message,
+          type: failed.length === 0 ? 'success' : 'warning'
+        });
+
+        // Limpiar selección y recargar
+        bulkSelection.clearSelection();
+        await loadTenants();
+        setPromptModal(prev => ({ ...prev, isOpen: false, loading: false }));
+      }
+    });
+  };
+
   // Define bulk actions
   const bulkActions = [
     {
@@ -833,6 +1007,14 @@ export default function TenantsPage() {
       variant: 'success' as const,
       onClick: handleBulkActivate,
       disabled: bulkSelection.selectedItems.every(t => t.subscription_status === 'active')
+    },
+    {
+      id: 'delete',
+      label: 'Eliminar',
+      icon: <TrashIcon className="w-4 h-4" />,
+      variant: 'danger' as const,
+      onClick: handleBulkDelete,
+      disabled: false
     },
     {
       id: 'export-csv',
@@ -963,6 +1145,14 @@ export default function TenantsPage() {
             title="Impersonar"
           >
             <UserIcon className="h-5 w-5" />
+          </button>
+
+          <button
+            onClick={() => handleDeleteTenant(tenant.tenant_id)}
+            className="text-red-600 hover:text-red-500 transition-colors"
+            title="Eliminar permanentemente"
+          >
+            <TrashIcon className="h-5 w-5" />
           </button>
           
           {tenant.subscription_status === 'active' ? (

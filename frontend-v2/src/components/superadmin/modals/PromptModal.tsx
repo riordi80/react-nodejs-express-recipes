@@ -82,7 +82,7 @@ const PromptModal = ({
     }
   }
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && isValid) {
       handleConfirm()
     }
@@ -104,15 +104,15 @@ const PromptModal = ({
           {title && (
             <h3 className={`text-lg font-medium ${themeClasses.text} mb-2`}>{title}</h3>
           )}
-          <p className={`text-sm ${themeClasses.textSecondary} mb-4`}>{message}</p>
+          <p className={`text-sm ${themeClasses.textSecondary} mb-4 whitespace-pre-line`}>{message}</p>
           
-          <textarea
+          <input
+            type="text"
             value={value}
             onChange={(e) => setValue(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyDown}
             placeholder={placeholder}
-            className={`w-full ${themeClasses.bgSecondary} border ${themeClasses.border} rounded-lg px-3 py-2 ${themeClasses.text} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none`}
-            rows={3}
+            className={`w-full ${themeClasses.bgSecondary} border ${themeClasses.border} rounded-lg px-3 py-2 ${themeClasses.text} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors`}
             disabled={loading}
             autoFocus
           />
