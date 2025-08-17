@@ -15,7 +15,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { useSuperAdmin } from '@/context/SuperAdminContext';
 import { useSuperAdminTheme } from '@/context/SuperAdminThemeContext';
-import { SuperAdminStatsCards, SuperAdminFilters, SuperAdminTable, SuperAdminModal } from '@/components/superadmin';
+import { SuperAdminStatsCards, SuperAdminFilters, SuperAdminTable } from '@/components/superadmin';
 
 interface SuperAdminUser {
   user_id: number;

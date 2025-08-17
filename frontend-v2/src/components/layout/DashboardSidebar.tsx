@@ -83,9 +83,11 @@ export default function DashboardSidebar() {
   const handleLogout = async () => {
     try {
       await logout()
-      router.push('/login')
+      // No hacer router.push porque logout() ya maneja la redirección al dominio principal
     } catch (error) {
       console.error('Error al cerrar sesión:', error)
+      // Solo en caso de error, redirigir al login local
+      router.push('/login')
     }
   }
 

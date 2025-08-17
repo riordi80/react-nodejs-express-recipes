@@ -12,7 +12,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { useSuperAdmin } from '@/context/SuperAdminContext';
 import { useSuperAdminTheme } from '@/context/SuperAdminThemeContext';
-import { SuperAdminStatsCards, SuperAdminFilters, SuperAdminTable, SuperAdminModal } from '@/components/superadmin';
+import { SuperAdminStatsCards, SuperAdminFilters, SuperAdminTable, ThemedModal, ConfirmModal, PromptModal, MessageModal } from '@/components/superadmin';
 
 interface Tenant {
   tenant_id: string;
@@ -48,6 +48,46 @@ export default function TenantsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  
+  // Estados para las nuevas modales
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message: string;
+    type?: 'danger' | 'warning' | 'info' | 'success';
+    onConfirm: () => void;
+    confirmText?: string;
+    loading?: boolean;
+  }>({
+    isOpen: false,
+    message: '',
+    onConfirm: () => {}
+  });
+
+  const [promptModal, setPromptModal] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message: string;
+    type?: 'danger' | 'warning' | 'info' | 'success';
+    onConfirm: (value: string) => void;
+    placeholder?: string;
+    loading?: boolean;
+  }>({
+    isOpen: false,
+    message: '',
+    onConfirm: () => {}
+  });
+
+  const [messageModal, setMessageModal] = useState<{
+    isOpen: boolean;
+    title?: string;
+    message: string;
+    type?: 'success' | 'error' | 'warning' | 'info';
+  }>({
+    isOpen: false,
+    message: '',
+    type: 'info'
+  });
   
   // Estados para el modal de crear tenant
   const [createStep, setCreateStep] = useState(1);
@@ -160,39 +200,125 @@ export default function TenantsPage() {
   };
 
   const handleSuspendTenant = async (tenantId: string) => {
-    if (!confirm('¿Estás seguro de que quieres suspender este tenant?')) return;
-    
-    try {
-      const response = await fetch(`/api/superadmin/tenants/${tenantId}/suspend`, {
-        method: 'POST',
-        credentials: 'include'
-      });
-      if (response.ok) {
-        loadTenants();
-        loadStats();
+    setPromptModal({
+      isOpen: true,
+      title: 'Suspender Tenant',
+      message: 'Por favor, indica la razón de la suspensión:',
+      type: 'warning',
+      placeholder: 'Ej: Incumplimiento de términos, pago pendiente...',
+      onConfirm: async (reason: string) => {
+        setPromptModal(prev => ({ ...prev, loading: true }));
+        
+        try {
+          const response = await fetch(`/api/superadmin/tenants/${tenantId}/suspend`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            credentials: 'include',
+            body: JSON.stringify({ reason: reason.trim() })
+          });
+          
+          if (response.ok) {
+            setMessageModal({
+              isOpen: true,
+              title: 'Tenant suspendido',
+              message: 'El tenant ha sido suspendido correctamente.',
+              type: 'success'
+            });
+            loadTenants();
+            loadStats();
+          } else {
+            const errorData = await response.json();
+            setMessageModal({
+              isOpen: true,
+              title: 'Error al suspender',
+              message: errorData.error || 'Error desconocido',
+              type: 'error'
+            });
+          }
+        } catch (error) {
+          console.error('Error suspending tenant:', error);
+          setMessageModal({
+            isOpen: true,
+            title: 'Error de conexión',
+            message: 'Error al suspender el tenant. Verifica tu conexión.',
+            type: 'error'
+          });
+        } finally {
+          setPromptModal(prev => ({ ...prev, isOpen: false, loading: false }));
+        }
       }
-    } catch (error) {
-      console.error('Error suspending tenant:', error);
-    }
+    });
   };
 
   const handleActivateTenant = async (tenantId: string) => {
-    try {
-      const response = await fetch(`/api/superadmin/tenants/${tenantId}/activate`, {
-        method: 'POST',
-        credentials: 'include'
-      });
-      if (response.ok) {
-        loadTenants();
-        loadStats();
+    setConfirmModal({
+      isOpen: true,
+      title: 'Activar Tenant',
+      message: '¿Estás seguro de que quieres activar este tenant? El usuario podrá acceder inmediatamente.',
+      type: 'success',
+      confirmText: 'Activar',
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, loading: true }));
+        
+        try {
+          const response = await fetch(`/api/superadmin/tenants/${tenantId}/activate`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            credentials: 'include'
+          });
+          
+          if (response.ok) {
+            setMessageModal({
+              isOpen: true,
+              title: 'Tenant activado',
+              message: 'El tenant ha sido activado correctamente.',
+              type: 'success'
+            });
+            loadTenants();
+            loadStats();
+          } else {
+            const errorData = await response.json();
+            setMessageModal({
+              isOpen: true,
+              title: 'Error al activar',
+              message: errorData.error || 'Error desconocido',
+              type: 'error'
+            });
+          }
+        } catch (error) {
+          console.error('Error activating tenant:', error);
+          setMessageModal({
+            isOpen: true,
+            title: 'Error de conexión',
+            message: 'Error al activar el tenant. Verifica tu conexión.',
+            type: 'error'
+          });
+        } finally {
+          setConfirmModal(prev => ({ ...prev, isOpen: false, loading: false }));
+        }
       }
-    } catch (error) {
-      console.error('Error activating tenant:', error);
-    }
+    });
   };
 
   const handleImpersonate = async (tenant: Tenant) => {
-    if (!confirm(`¿Acceder como administrador al tenant "${tenant.business_name}"?`)) return;
+    setConfirmModal({
+      isOpen: true,
+      title: 'Acceder como Administrador',
+      message: `¿Quieres acceder como administrador al tenant "${tenant.business_name}"?`,
+      type: 'info',
+      confirmText: 'Acceder',
+      onConfirm: async () => {
+        // Continúa con el resto de la función original
+        handleImpersonateExecution(tenant);
+      }
+    });
+  };
+
+  const handleImpersonateExecution = async (tenant: Tenant) => {
     
     try {
       const response = await fetch(`/api/superadmin/tenants/${tenant.tenant_id}/impersonate`, {
@@ -304,7 +430,12 @@ export default function TenantsPage() {
     if (validation.isValid) {
       setCreateStep(prev => prev + 1);
     } else {
-      alert(validation.errors.join('\n'));
+      setMessageModal({
+        isOpen: true,
+        title: 'Campos requeridos',
+        message: validation.errors.join('\n'),
+        type: 'warning'
+      });
     }
   };
 
@@ -317,7 +448,12 @@ export default function TenantsPage() {
     for (let step = 1; step <= 3; step++) {
       const validation = validateStep(step);
       if (!validation.isValid) {
-        alert(`Error en paso ${step}:\n${validation.errors.join('\n')}`);
+        setMessageModal({
+          isOpen: true,
+          title: `Error en paso ${step}`,
+          message: validation.errors.join('\n'),
+          type: 'warning'
+        });
         setCreateStep(step); // Volver al paso con error
         return;
       }
@@ -345,7 +481,12 @@ export default function TenantsPage() {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        alert('¡Tenant creado exitosamente!');
+        setMessageModal({
+          isOpen: true,
+          title: '¡Tenant creado!',
+          message: 'El tenant ha sido creado exitosamente.',
+          type: 'success'
+        });
         handleCreateModalClose();
         
         // Forzar recarga completa con estado limpio
@@ -367,11 +508,21 @@ export default function TenantsPage() {
           setTableKey(prev => prev + 1);
         }, 100);
       } else {
-        alert(`Error: ${data.error || 'Error desconocido'}`);
+        setMessageModal({
+          isOpen: true,
+          title: 'Error al crear tenant',
+          message: data.error || 'Error desconocido',
+          type: 'error'
+        });
       }
     } catch (error) {
       console.error('Error creating tenant:', error);
-      alert('Error al crear el tenant. Inténtalo de nuevo.');
+      setMessageModal({
+        isOpen: true,
+        title: 'Error de conexión',
+        message: 'Error al crear el tenant. Inténtalo de nuevo.',
+        type: 'error'
+      });
     } finally {
       setCreateLoading(false);
     }
@@ -515,7 +666,7 @@ export default function TenantsPage() {
             >
               <PauseIcon className="h-5 w-5" />
             </button>
-          ) : (
+          ) : tenant.subscription_status === 'suspended' ? (
             <button
               onClick={() => handleActivateTenant(tenant.tenant_id)}
               className="text-green-400 hover:text-green-300 transition-colors"
@@ -523,6 +674,11 @@ export default function TenantsPage() {
             >
               <PlayIcon className="h-5 w-5" />
             </button>
+          ) : (
+            // Trial tenants can access the system - no action needed
+            <span className="text-blue-400 text-sm font-medium px-2 py-1 bg-blue-900/30 rounded-md">
+              {tenant.subscription_status === 'trial' ? 'Trial' : tenant.subscription_status}
+            </span>
           )}
         </div>
       )
@@ -636,32 +792,31 @@ export default function TenantsPage() {
       </div>
 
       {/* Modal Crear Tenant - Multi-Step Wizard */}
-      <SuperAdminModal
+      <ThemedModal
         isOpen={showCreateModal}
         onClose={handleCreateModalClose}
         title="Crear Nuevo Tenant"
         subtitle={`Paso ${createStep} de 4: ${createStep === 1 ? 'Información básica' : createStep === 2 ? 'Administrador' : createStep === 3 ? 'Plan y configuración' : 'Confirmación'}`}
-        maxWidth="3xl"
-        mobileFullscreen={true}
+        size="lg"
         footer={
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-2 w-full">
-            <div className="flex items-center justify-start order-2 sm:order-1">
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-center">
               {createStep > 1 && (
                 <button
                   onClick={handleStepPrev}
                   disabled={createLoading}
-                  className={`px-3 sm:px-4 py-2 border ${themeClasses.border} ${themeClasses.textSecondary} rounded-lg ${themeClasses.buttonHover} transition-colors disabled:opacity-50 text-sm`}
+                  className={`px-4 py-2 border ${themeClasses.border} ${themeClasses.textSecondary} rounded-lg ${themeClasses.buttonHover} transition-colors disabled:opacity-50 text-sm`}
                 >
                   Anterior
                 </button>
               )}
             </div>
             
-            <div className="flex items-center gap-2 order-1 sm:order-2">
+            <div className="flex items-center gap-3">
               <button
                 onClick={handleCreateModalClose}
                 disabled={createLoading}
-                className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 border ${themeClasses.border} ${themeClasses.textSecondary} rounded-lg ${themeClasses.buttonHover} transition-colors text-sm`}
+                className={`px-4 py-2 border ${themeClasses.border} ${themeClasses.textSecondary} rounded-lg ${themeClasses.buttonHover} transition-colors text-sm`}
               >
                 Cancelar
               </button>
@@ -669,8 +824,8 @@ export default function TenantsPage() {
               {createStep < 4 ? (
                 <button
                   onClick={handleStepNext}
-                  disabled={createLoading}
-                  className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 text-sm"
+                  disabled={createLoading || !isStepValid(createStep)}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 text-sm"
                 >
                   Siguiente
                 </button>
@@ -678,19 +833,15 @@ export default function TenantsPage() {
                 <button
                   onClick={handleCreateTenant}
                   disabled={createLoading}
-                  className="flex-1 sm:flex-none px-3 sm:px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2 text-sm"
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2 text-sm"
                 >
                   {createLoading ? (
                     <>
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                      <span className="hidden sm:inline">Creando...</span>
-                      <span className="sm:hidden">...</span>
+                      Creando...
                     </>
                   ) : (
-                    <>
-                      <span className="hidden sm:inline">Crear Tenant</span>
-                      <span className="sm:hidden">Crear</span>
-                    </>
+                    'Crear Tenant'
                   )}
                 </button>
               )}
@@ -699,14 +850,14 @@ export default function TenantsPage() {
         }
       >
         {/* Progress Bar */}
-        <div className={`px-3 sm:px-6 py-3 sm:py-4 mb-6 ${themeClasses.bgSecondary} rounded-lg`}>
-          <div className="flex items-center justify-center overflow-x-auto">
+        <div className={`px-4 py-3 mb-4 ${themeClasses.bgSecondary} rounded-lg`}>
+          <div className="flex items-center justify-between">
             {[1, 2, 3, 4].map((step) => (
-              <div key={step} className="flex items-center flex-shrink-0">
+              <div key={step} className={`flex items-center ${step < 4 ? 'flex-1' : ''}`}>
                 <div className="flex flex-col items-center">
                   <div 
                     className={`
-                      w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold transition-all duration-200
+                      w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-200
                       ${step <= createStep 
                         ? 'bg-blue-600 text-white shadow-lg' 
                         : `${themeClasses.bg} ${themeClasses.textSecondary} border-2 ${themeClasses.border}`
@@ -719,17 +870,17 @@ export default function TenantsPage() {
                       step
                     )}
                   </div>
-                  <span className={`text-xs mt-1 text-center max-w-16 sm:max-w-none ${step <= createStep ? 'text-blue-600 font-medium' : themeClasses.textSecondary}`}>
-                    {step === 1 ? (typeof window !== 'undefined' && window.innerWidth < 640 ? 'Info' : 'Información') : 
-                     step === 2 ? (typeof window !== 'undefined' && window.innerWidth < 640 ? 'Admin' : 'Administrador') : 
+                  <span className={`text-xs mt-1 text-center font-medium ${step <= createStep ? 'text-blue-600' : themeClasses.textSecondary}`}>
+                    {step === 1 ? 'Info' : 
+                     step === 2 ? 'Admin' : 
                      step === 3 ? 'Plan' : 
-                     typeof window !== 'undefined' && window.innerWidth < 640 ? 'Conf.' : 'Confirmación'}
+                     'Confirmar'}
                   </span>
                 </div>
                 {step < 4 && (
                   <div 
                     className={`
-                      w-8 sm:w-16 h-0.5 mx-2 sm:mx-3 transition-all duration-200
+                      flex-1 h-0.5 mx-2 transition-all duration-200
                       ${step < createStep ? 'bg-blue-600' : themeClasses.border}
                     `}
                   />
@@ -740,9 +891,9 @@ export default function TenantsPage() {
         </div>
 
         {/* Step Content */}
-        <div className="space-y-6">
+        <div className="space-y-4">
           {createStep === 1 && (
-            <div className="space-y-6">
+            <div className="space-y-4">
               <div>
                 <label className={`block text-sm font-medium ${themeClasses.textSecondary} mb-2`}>
                   Subdominio *
@@ -770,7 +921,7 @@ export default function TenantsPage() {
                   type="text"
                   value={createFormData.businessName}
                   onChange={(e) => handleCreateFormChange('businessName', e.target.value)}
-                  className={`w-full ${themeClasses.bgSecondary} border ${themeClasses.border} rounded-lg px-3 py-2 ${themeClasses.text} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                  className={`w-full ${themeClasses.bgSecondary} border ${themeClasses.border} rounded-lg px-3 py-2.5 ${themeClasses.text} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                   placeholder="Mi Restaurante"
                 />
               </div>
@@ -782,8 +933,8 @@ export default function TenantsPage() {
                 <textarea
                   value={createFormData.description}
                   onChange={(e) => handleCreateFormChange('description', e.target.value)}
-                  className={`w-full ${themeClasses.bgSecondary} border ${themeClasses.border} rounded-lg px-3 py-2 ${themeClasses.text} focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                  rows={3}
+                  className={`w-full ${themeClasses.bgSecondary} border ${themeClasses.border} rounded-lg px-3 py-2.5 ${themeClasses.text} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                  rows={2}
                   placeholder="Descripción del negocio..."
                 />
               </div>
@@ -791,11 +942,7 @@ export default function TenantsPage() {
           )}
 
           {createStep === 2 && (
-            <div className="space-y-6">
-              <h4 className={`text-lg font-medium ${themeClasses.text} mb-4`}>
-                Información del Administrador
-              </h4>
-              
+            <div className="space-y-4">
               <div>
                 <label className={`block text-sm font-medium ${themeClasses.textSecondary} mb-2`}>
                   Email del Administrador *
@@ -804,12 +951,12 @@ export default function TenantsPage() {
                   type="email"
                   value={createFormData.adminEmail}
                   onChange={(e) => handleCreateFormChange('adminEmail', e.target.value)}
-                  className={`w-full ${themeClasses.bgSecondary} border ${themeClasses.border} rounded-lg px-3 py-2 ${themeClasses.text} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                  className={`w-full ${themeClasses.bgSecondary} border ${themeClasses.border} rounded-lg px-3 py-2.5 ${themeClasses.text} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                   placeholder="admin@mirestaurante.com"
                 />
               </div>
               
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div>
                   <label className={`block text-sm font-medium ${themeClasses.textSecondary} mb-2`}>
                     Nombre *
@@ -818,7 +965,7 @@ export default function TenantsPage() {
                     type="text"
                     value={createFormData.adminFirstName}
                     onChange={(e) => handleCreateFormChange('adminFirstName', e.target.value)}
-                    className={`w-full ${themeClasses.bgSecondary} border ${themeClasses.border} rounded-lg px-3 py-2 ${themeClasses.text} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                    className={`w-full ${themeClasses.bgSecondary} border ${themeClasses.border} rounded-lg px-3 py-2.5 ${themeClasses.text} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                     placeholder="Juan"
                   />
                 </div>
@@ -831,13 +978,13 @@ export default function TenantsPage() {
                     type="text"
                     value={createFormData.adminLastName}
                     onChange={(e) => handleCreateFormChange('adminLastName', e.target.value)}
-                    className={`w-full ${themeClasses.bgSecondary} border ${themeClasses.border} rounded-lg px-3 py-2 ${themeClasses.text} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                    className={`w-full ${themeClasses.bgSecondary} border ${themeClasses.border} rounded-lg px-3 py-2.5 ${themeClasses.text} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                     placeholder="Pérez"
                   />
                 </div>
               </div>
               
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div>
                   <label className={`block text-sm font-medium ${themeClasses.textSecondary} mb-2`}>
                     Contraseña *
@@ -846,7 +993,7 @@ export default function TenantsPage() {
                     type="password"
                     value={createFormData.adminPassword}
                     onChange={(e) => handleCreateFormChange('adminPassword', e.target.value)}
-                    className={`w-full ${themeClasses.bgSecondary} border ${themeClasses.border} rounded-lg px-3 py-2 ${themeClasses.text} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                    className={`w-full ${themeClasses.bgSecondary} border ${themeClasses.border} rounded-lg px-3 py-2.5 ${themeClasses.text} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                     placeholder="Mínimo 6 caracteres"
                   />
                 </div>
@@ -859,7 +1006,7 @@ export default function TenantsPage() {
                     type="password"
                     value={createFormData.confirmPassword}
                     onChange={(e) => handleCreateFormChange('confirmPassword', e.target.value)}
-                    className={`w-full ${themeClasses.bgSecondary} border ${themeClasses.border} rounded-lg px-3 py-2 ${themeClasses.text} focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                    className={`w-full ${themeClasses.bgSecondary} border ${themeClasses.border} rounded-lg px-3 py-2.5 ${themeClasses.text} focus:outline-none focus:ring-2 focus:ring-blue-500`}
                     placeholder="Repetir contraseña"
                   />
                 </div>
@@ -868,23 +1015,19 @@ export default function TenantsPage() {
           )}
 
           {createStep === 3 && (
-            <div className="space-y-6">
-              <h4 className={`text-lg font-medium ${themeClasses.text} mb-6`}>
-                Seleccionar Plan de Suscripción
-              </h4>
-              
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {/* Plan Free */}
                 <div 
-                  className={`relative p-6 border-2 rounded-lg cursor-pointer transition-all ${
+                  className={`relative p-3 border-2 rounded-lg cursor-pointer transition-all ${
                     createFormData.subscriptionPlan === 'free' 
-                      ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-900/20' 
-                      : `${themeClasses.border} ${themeClasses.buttonHover}`
+                      ? `border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/20` 
+                      : `${themeClasses.border} ${themeClasses.card} ${themeClasses.buttonHover}`
                   }`}
                   onClick={() => handleCreateFormChange('subscriptionPlan', 'free')}
                 >
-                  <div className="flex items-center justify-between mb-4">
-                    <h5 className={`text-lg font-semibold ${themeClasses.text}`}>Free Trial</h5>
+                  <div className="flex items-center justify-between mb-2">
+                    <h5 className={`text-sm font-semibold ${themeClasses.text}`}>Free Trial</h5>
                     <input
                       type="radio"
                       checked={createFormData.subscriptionPlan === 'free'}
@@ -892,10 +1035,10 @@ export default function TenantsPage() {
                       className="text-blue-600"
                     />
                   </div>
-                  <p className={`text-sm ${themeClasses.textSecondary} mb-4`}>
+                  <p className={`text-xs ${themeClasses.textSecondary} mb-2`}>
                     Perfecto para empezar y probar todas las funcionalidades
                   </p>
-                  <div className="space-y-2 text-sm">
+                  <div className="space-y-0.5 text-xs">
                     <div className={`flex items-center ${themeClasses.text}`}>
                       ✓ 30 días gratis
                     </div>
@@ -913,15 +1056,15 @@ export default function TenantsPage() {
 
                 {/* Plan Basic */}
                 <div 
-                  className={`relative p-6 border-2 rounded-lg cursor-pointer transition-all ${
+                  className={`relative p-3 border-2 rounded-lg cursor-pointer transition-all ${
                     createFormData.subscriptionPlan === 'basic' 
-                      ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-900/20' 
-                      : `${themeClasses.border} ${themeClasses.buttonHover}`
+                      ? `border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/20` 
+                      : `${themeClasses.border} ${themeClasses.card} ${themeClasses.buttonHover}`
                   }`}
                   onClick={() => handleCreateFormChange('subscriptionPlan', 'basic')}
                 >
-                  <div className="flex items-center justify-between mb-4">
-                    <h5 className={`text-lg font-semibold ${themeClasses.text}`}>Basic</h5>
+                  <div className="flex items-center justify-between mb-2">
+                    <h5 className={`text-sm font-semibold ${themeClasses.text}`}>Basic</h5>
                     <input
                       type="radio"
                       checked={createFormData.subscriptionPlan === 'basic'}
@@ -929,10 +1072,10 @@ export default function TenantsPage() {
                       className="text-blue-600"
                     />
                   </div>
-                  <p className={`text-sm ${themeClasses.textSecondary} mb-4`}>
+                  <p className={`text-xs ${themeClasses.textSecondary} mb-2`}>
                     Para restaurantes pequeños que buscan crecer
                   </p>
-                  <div className="space-y-2 text-sm">
+                  <div className="space-y-0.5 text-xs">
                     <div className={`flex items-center ${themeClasses.text}`}>
                       ✓ Hasta 20 usuarios
                     </div>
@@ -950,15 +1093,15 @@ export default function TenantsPage() {
 
                 {/* Plan Premium */}
                 <div 
-                  className={`relative p-6 border-2 rounded-lg cursor-pointer transition-all ${
+                  className={`relative p-3 border-2 rounded-lg cursor-pointer transition-all ${
                     createFormData.subscriptionPlan === 'premium' 
-                      ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-900/20' 
-                      : `${themeClasses.border} ${themeClasses.buttonHover}`
+                      ? `border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/20` 
+                      : `${themeClasses.border} ${themeClasses.card} ${themeClasses.buttonHover}`
                   }`}
                   onClick={() => handleCreateFormChange('subscriptionPlan', 'premium')}
                 >
-                  <div className="flex items-center justify-between mb-4">
-                    <h5 className={`text-lg font-semibold ${themeClasses.text}`}>Premium</h5>
+                  <div className="flex items-center justify-between mb-2">
+                    <h5 className={`text-sm font-semibold ${themeClasses.text}`}>Premium</h5>
                     <input
                       type="radio"
                       checked={createFormData.subscriptionPlan === 'premium'}
@@ -966,10 +1109,10 @@ export default function TenantsPage() {
                       className="text-blue-600"
                     />
                   </div>
-                  <p className={`text-sm ${themeClasses.textSecondary} mb-4`}>
+                  <p className={`text-xs ${themeClasses.textSecondary} mb-2`}>
                     Para restaurantes medianos con operaciones complejas
                   </p>
-                  <div className="space-y-2 text-sm">
+                  <div className="space-y-0.5 text-xs">
                     <div className={`flex items-center ${themeClasses.text}`}>
                       ✓ Hasta 50 usuarios
                     </div>
@@ -987,15 +1130,15 @@ export default function TenantsPage() {
 
                 {/* Plan Enterprise */}
                 <div 
-                  className={`relative p-6 border-2 rounded-lg cursor-pointer transition-all ${
+                  className={`relative p-3 border-2 rounded-lg cursor-pointer transition-all ${
                     createFormData.subscriptionPlan === 'enterprise' 
-                      ? 'border-blue-500 bg-blue-50/50 dark:bg-blue-900/20' 
-                      : `${themeClasses.border} ${themeClasses.buttonHover}`
+                      ? `border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/20` 
+                      : `${themeClasses.border} ${themeClasses.card} ${themeClasses.buttonHover}`
                   }`}
                   onClick={() => handleCreateFormChange('subscriptionPlan', 'enterprise')}
                 >
-                  <div className="flex items-center justify-between mb-4">
-                    <h5 className={`text-lg font-semibold ${themeClasses.text}`}>Enterprise</h5>
+                  <div className="flex items-center justify-between mb-2">
+                    <h5 className={`text-sm font-semibold ${themeClasses.text}`}>Enterprise</h5>
                     <input
                       type="radio"
                       checked={createFormData.subscriptionPlan === 'enterprise'}
@@ -1003,10 +1146,10 @@ export default function TenantsPage() {
                       className="text-blue-600"
                     />
                   </div>
-                  <p className={`text-sm ${themeClasses.textSecondary} mb-4`}>
+                  <p className={`text-xs ${themeClasses.textSecondary} mb-2`}>
                     Para cadenas de restaurantes y grandes operaciones
                   </p>
-                  <div className="space-y-2 text-sm">
+                  <div className="space-y-0.5 text-xs">
                     <div className={`flex items-center ${themeClasses.text}`}>
                       ✓ Usuarios ilimitados
                     </div>
@@ -1059,7 +1202,7 @@ export default function TenantsPage() {
                   value={createFormData.notes}
                   onChange={(e) => handleCreateFormChange('notes', e.target.value)}
                   className={`w-full ${themeClasses.bgSecondary} border ${themeClasses.border} rounded-lg px-3 py-2 ${themeClasses.text} focus:outline-none focus:ring-2 focus:ring-blue-500`}
-                  rows={3}
+                  rows={2}
                   placeholder="Notas adicionales sobre el cliente o configuración especial..."
                 />
               </div>
@@ -1067,15 +1210,11 @@ export default function TenantsPage() {
           )}
 
           {createStep === 4 && (
-            <div className="space-y-6">
-              <h4 className={`text-lg font-medium ${themeClasses.text} mb-6`}>
-                Confirmar Creación del Tenant
-              </h4>
-              
-              <div className={`p-6 rounded-lg ${themeClasses.bgSecondary} space-y-4`}>
-                <h5 className={`font-medium ${themeClasses.text} mb-4`}>Resumen de la configuración:</h5>
+            <div className="space-y-4">
+              <div className={`p-4 rounded-lg ${themeClasses.bgSecondary} space-y-3`}>
+                <h5 className={`font-medium ${themeClasses.text} mb-3`}>Resumen de la configuración:</h5>
                 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                   <div>
                     <span className={`${themeClasses.textSecondary}`}>Subdominio:</span>
                     <p className={`${themeClasses.text} font-medium break-all`}>{createFormData.subdomain}.{baseDomain}</p>
@@ -1119,14 +1258,14 @@ export default function TenantsPage() {
             </div>
           )}
         </div>
-      </SuperAdminModal>
+      </ThemedModal>
 
       {/* Modal de Detalles del Tenant */}
-      <SuperAdminModal
+      <ThemedModal
         isOpen={showDetailsModal && !!selectedTenant}
         onClose={() => setShowDetailsModal(false)}
         title="Detalles del Tenant"
-        maxWidth="lg"
+        size="lg"
         footer={
           <div className="flex items-center justify-end">
             <button
@@ -1192,7 +1331,38 @@ export default function TenantsPage() {
             </div>
           </div>
         )}
-      </SuperAdminModal>
+      </ThemedModal>
+
+      {/* Modales de acción */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        type={confirmModal.type}
+        confirmText={confirmModal.confirmText}
+        loading={confirmModal.loading}
+      />
+
+      <PromptModal
+        isOpen={promptModal.isOpen}
+        onClose={() => setPromptModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={promptModal.onConfirm}
+        title={promptModal.title}
+        message={promptModal.message}
+        type={promptModal.type}
+        placeholder={promptModal.placeholder}
+        loading={promptModal.loading}
+      />
+
+      <MessageModal
+        isOpen={messageModal.isOpen}
+        onClose={() => setMessageModal(prev => ({ ...prev, isOpen: false }))}
+        title={messageModal.title}
+        message={messageModal.message}
+        type={messageModal.type}
+      />
     </div>
   );
 }
