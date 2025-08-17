@@ -14,6 +14,7 @@ interface SuperAdminThemeContextType {
     text: string
     textSecondary: string
     border: string
+    divider: string
     button: string
     buttonHover: string
     card: string
@@ -53,6 +54,7 @@ export function SuperAdminThemeProvider({ children }: { children: React.ReactNod
         text: 'text-white',
         textSecondary: 'text-slate-300',
         border: 'border-slate-700',
+        divider: 'divide-slate-700',
         button: 'text-slate-400 hover:text-slate-300',
         buttonHover: 'hover:bg-slate-700',
         card: 'bg-slate-800 border-slate-700',
@@ -65,6 +67,7 @@ export function SuperAdminThemeProvider({ children }: { children: React.ReactNod
         text: 'text-gray-900',
         textSecondary: 'text-gray-600',
         border: 'border-gray-200',
+        divider: 'divide-gray-200',
         button: 'text-gray-600 hover:text-gray-900',
         buttonHover: 'hover:bg-gray-100',
         card: 'bg-white border-gray-200',

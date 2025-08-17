@@ -3,8 +3,6 @@
 import React, { useState } from 'react'
 
 export default function SuperAdminDarkDemoPage() {
-  const [showModal, setShowModal] = useState(false)
-  const [selectedMetric, setSelectedMetric] = useState('tenants')
   
   return (
     <div className="min-h-screen bg-slate-900 text-white">

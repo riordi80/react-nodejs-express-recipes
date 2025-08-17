@@ -273,7 +273,7 @@ export default function CentralLoginPage() {
             Acceso al Sistema
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            Ingresa tu email para acceder a tu restaurante
+            Escribe tu email para acceder a tu restaurante
           </p>
         </div>
 
@@ -319,7 +319,7 @@ export default function CentralLoginPage() {
                   <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
                 ) : (
                   <>
-                    Buscar mi restaurante
+                    Continuar
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </>
                 )}

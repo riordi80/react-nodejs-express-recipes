@@ -160,8 +160,7 @@ export default function EventDetailPage() {
     notes: ''
   })
 
-  // Saving state
-  const [isSaving, setIsSaving] = useState(false)
+  // Saving state is handled by form submission
 
   // Hook simplificado para detectar cambios sin guardar
   const {
@@ -174,15 +173,7 @@ export default function EventDetailPage() {
   })
 
   // Load event data
-  useEffect(() => {
-    if (!isNewEvent) {
-      loadEventData()
-    } else {
-      setLoading(false)
-    }
-  }, [eventId, isNewEvent]) // loadEventData is defined below, exclude from deps
-
-  const loadEventData = async () => {
+  const loadEventData = useCallback(async () => {
     try {
       setLoading(true)
       const eventResponse = await apiGet<Event & { menu?: EventRecipe[] }>(`/events/${eventId}`)
@@ -211,17 +202,23 @@ export default function EventDetailPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [eventId, showError])
+
+  useEffect(() => {
+    if (!isNewEvent) {
+      loadEventData()
+    } else {
+      setLoading(false)
+    }
+  }, [eventId, isNewEvent, loadEventData])
 
   // Función principal de guardado
   const handleSave = async () => {
-    setIsSaving(true)
-    
     try {
       await performSave(true)
       updateInitialValues()
-    } finally {
-      setIsSaving(false)
+    } catch (error) {
+      console.error('Error saving:', error)
     }
   }
 
@@ -339,22 +336,12 @@ export default function EventDetailPage() {
     setLoadingRecipes(true)
     setIsAddRecipeOpen(true)
     try {
-      console.log('🔍 Haciendo llamada a /recipes...')
       const response = await apiGet<{data: Recipe[], pagination: any}>('/recipes')
-      console.log('📡 Respuesta completa del API:', response)
-      console.log('📊 response.data:', response.data)
-      console.log('📋 response.data.data:', response.data.data)
       
       // Extract recipes from response.data.data (paginated response structure)
       const recipesData = Array.isArray(response.data.data) ? response.data.data : []
-      console.log('✅ Recetas procesadas:', recipesData.length)
-      if (recipesData.length > 0) {
-        console.log('📝 Primera receta:', recipesData[0])
-      }
-      console.log('🍽️ Recetas del evento actual:', eventRecipes.length)
       setAvailableRecipes(recipesData)
     } catch (error) {
-      console.error('❌ Error cargando recetas:', error)
       setAvailableRecipes([]) // Reset to empty array on error
       showError('Error al cargar las recetas disponibles', 'Error de Carga')
     } finally {
@@ -449,12 +436,6 @@ export default function EventDetailPage() {
     return matchesSearch
   })
   
-  // Debug logging for filtered recipes
-  console.log('Available recipes:', availableRecipes.length)
-  console.log('Event recipes:', eventRecipes.length)
-  console.log('Search text:', recipeSearchText)
-  console.log('Filtered available recipes:', filteredAvailableRecipes.length)
-
   // Edit recipe functions
   const openEditRecipeModal = (recipe: EventRecipe) => {
     setEditingRecipe(recipe)
@@ -959,43 +940,6 @@ export default function EventDetailPage() {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Estado</p>
-                <p className={`text-2xl font-bold mt-1 ${(() => {
-                  switch(event.status) {
-                    case 'planned': return 'text-blue-600'
-                    case 'confirmed': return 'text-green-600'
-                    case 'in_progress': return 'text-yellow-600'
-                    case 'completed': return 'text-gray-600'
-                    case 'cancelled': return 'text-red-600'
-                    default: return 'text-gray-900'
-                  }
-                })()}`}>
-                  {statusLabels[event.status]}
-                </p>
-              </div>
-              <div className="bg-orange-100 p-3 rounded-lg">
-                <Calendar className="h-6 w-6 text-orange-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Presupuesto</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">
-                  {event.budget ? `€${event.budget.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'N/A'}
-                </p>
-              </div>
-              <div className="bg-orange-100 p-3 rounded-lg">
-                <Euro className="h-6 w-6 text-orange-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between">
-              <div>
                 <p className="text-sm font-medium text-gray-600">Platos</p>
                 <p className="text-2xl font-bold text-gray-900 mt-1">
                   {eventRecipes.length}
@@ -1034,6 +978,43 @@ export default function EventDetailPage() {
               </div>
               <div className="bg-orange-100 p-3 rounded-lg">
                 <ChefHat className="h-6 w-6 text-orange-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Presupuesto</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">
+                  {event.budget ? `€${event.budget.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'N/A'}
+                </p>
+              </div>
+              <div className="bg-orange-100 p-3 rounded-lg">
+                <Euro className="h-6 w-6 text-orange-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Estado</p>
+                <p className={`text-2xl font-bold mt-1 ${(() => {
+                  switch(event.status) {
+                    case 'planned': return 'text-blue-600'
+                    case 'confirmed': return 'text-green-600'
+                    case 'in_progress': return 'text-yellow-600'
+                    case 'completed': return 'text-gray-600'
+                    case 'cancelled': return 'text-red-600'
+                    default: return 'text-gray-900'
+                  }
+                })()}`}>
+                  {statusLabels[event.status]}
+                </p>
+              </div>
+              <div className="bg-orange-100 p-3 rounded-lg">
+                <Calendar className="h-6 w-6 text-orange-600" />
               </div>
             </div>
           </div>

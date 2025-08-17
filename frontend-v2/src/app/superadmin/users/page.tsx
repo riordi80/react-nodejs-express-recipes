@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { 
-  MagnifyingGlassIcon, 
   PlusIcon, 
   EyeIcon, 
   PencilIcon, 
@@ -16,6 +15,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { useSuperAdmin } from '@/context/SuperAdminContext';
 import { useSuperAdminTheme } from '@/context/SuperAdminThemeContext';
+import { SuperAdminStatsCards, SuperAdminFilters, SuperAdminTable, SuperAdminModal } from '@/components/superadmin';
 
 interface SuperAdminUser {
   user_id: number;
@@ -230,6 +230,115 @@ export default function SuperAdminUsersPage() {
     });
   };
 
+  // Configuración de columnas para la tabla
+  const tableColumns = [
+    {
+      key: 'user_info',
+      label: 'Usuario',
+      render: (_: any, adminUser: SuperAdminUser) => (
+        <div>
+          <div className={`text-sm font-medium ${themeClasses.text}`}>
+            {adminUser.first_name} {adminUser.last_name}
+          </div>
+          <div className={`text-sm ${themeClasses.textSecondary}`}>{adminUser.email}</div>
+        </div>
+      )
+    },
+    {
+      key: 'superadmin_role',
+      label: 'Rol',
+      render: (role: string) => (
+        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleBadge(role, isDark)}`}>
+          {getRoleName(role)}
+        </span>
+      )
+    },
+    {
+      key: 'status',
+      label: 'Estado',
+      render: (_: any, adminUser: SuperAdminUser) => (
+        <div className="flex items-center">
+          {adminUser.is_active ? (
+            isUserLocked(adminUser) ? (
+              <div className="flex items-center text-red-400">
+                <LockClosedIcon className="h-4 w-4 mr-1" />
+                <span className="text-xs">Bloqueado</span>
+              </div>
+            ) : (
+              <div className="flex items-center text-green-400">
+                <div className="h-2 w-2 bg-green-400 rounded-full mr-2"></div>
+                <span className="text-xs">Activo</span>
+              </div>
+            )
+          ) : (
+            <div className="flex items-center text-gray-400">
+              <div className="h-2 w-2 bg-gray-400 rounded-full mr-2"></div>
+              <span className="text-xs">Inactivo</span>
+            </div>
+          )}
+        </div>
+      )
+    },
+    {
+      key: 'last_login_at',
+      label: 'Último Acceso',
+      render: (lastLogin: string | null) => (
+        <div className={`flex items-center text-sm ${themeClasses.text}`}>
+          <ClockIcon className={`h-4 w-4 mr-1 ${themeClasses.textSecondary}`} />
+          {formatLastLogin(lastLogin)}
+        </div>
+      )
+    },
+    {
+      key: 'created_at',
+      label: 'Creado',
+      render: (date: string) => (
+        <span className={`text-sm ${themeClasses.text}`}>
+          {new Date(date).toLocaleDateString('es-ES')}
+        </span>
+      )
+    },
+    {
+      key: 'actions',
+      label: 'Acciones',
+      render: (_: any, adminUser: SuperAdminUser) => (
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setSelectedUser(adminUser);
+              setShowDetailsModal(true);
+            }}
+            className="text-blue-400 hover:text-blue-300 transition-colors"
+            title="Ver detalles"
+          >
+            <EyeIcon className="h-5 w-5" />
+          </button>
+          
+          <button
+            onClick={() => {
+              setSelectedUser(adminUser);
+              setShowEditModal(true);
+            }}
+            className="text-yellow-400 hover:text-yellow-300 transition-colors"
+            title="Editar"
+          >
+            <PencilIcon className="h-5 w-5" />
+          </button>
+          
+          {adminUser.user_id !== user?.user_id && adminUser.is_active && (
+            <button
+              onClick={() => handleDeactivateUser(adminUser.user_id, `${adminUser.first_name} ${adminUser.last_name}`)}
+              className="text-red-400 hover:text-red-300 transition-colors"
+              title="Desactivar"
+            >
+              <TrashIcon className="h-5 w-5" />
+            </button>
+          )}
+        </div>
+      )
+    }
+  ];
+
   if (isLoading || loading) {
     return (
       <div className={`min-h-screen ${themeClasses.bg} flex items-center justify-center`}>
@@ -243,239 +352,89 @@ export default function SuperAdminUsersPage() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className={`text-3xl font-bold ${themeClasses.text} mb-2`}>Gestión de SuperAdmins</h1>
+          <h1 className={`text-3xl font-bold ${themeClasses.text} mb-2`}>Gestión de Usuarios</h1>
           <p className={themeClasses.textSecondary}>Administra usuarios con acceso al panel de administración</p>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className={`rounded-lg p-6 border ${themeClasses.card}`}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className={`${themeClasses.textSecondary} text-sm`}>Total SuperAdmins</p>
-                <p className={`text-2xl font-bold ${themeClasses.text}`}>{users.length}</p>
-              </div>
-              <UserIcon className="h-8 w-8 text-blue-400" />
-            </div>
-          </div>
-          
-          <div className={`rounded-lg p-6 border ${themeClasses.card}`}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className={`${themeClasses.textSecondary} text-sm`}>Activos</p>
-                <p className="text-2xl font-bold text-green-400">
-                  {users.filter(u => u.is_active).length}
-                </p>
-              </div>
-              <ShieldCheckIcon className="h-8 w-8 text-green-400" />
-            </div>
-          </div>
-          
-          <div className={`rounded-lg p-6 border ${themeClasses.card}`}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className={`${themeClasses.textSecondary} text-sm`}>Bloqueados</p>
-                <p className="text-2xl font-bold text-red-400">
-                  {users.filter(u => isUserLocked(u)).length}
-                </p>
-              </div>
-              <LockClosedIcon className="h-8 w-8 text-red-400" />
-            </div>
-          </div>
-          
-          <div className={`rounded-lg p-6 border ${themeClasses.card}`}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className={`${themeClasses.textSecondary} text-sm`}>Admin Completos</p>
-                <p className="text-2xl font-bold text-yellow-400">
-                  {users.filter(u => u.superadmin_role === 'super_admin_full').length}
-                </p>
-              </div>
-              <KeyIcon className="h-8 w-8 text-yellow-400" />
-            </div>
-          </div>
-        </div>
+        <SuperAdminStatsCards 
+          stats={[
+            {
+              title: "Total SuperAdmins",
+              value: users.length,
+              color: "blue",
+              icon: UserIcon
+            },
+            {
+              title: "Activos",
+              value: users.filter(u => u.is_active).length,
+              color: "green",
+              icon: ShieldCheckIcon
+            },
+            {
+              title: "Bloqueados",
+              value: users.filter(u => isUserLocked(u)).length,
+              color: "red",
+              icon: LockClosedIcon
+            },
+            {
+              title: "Admin Completos",
+              value: users.filter(u => u.superadmin_role === 'super_admin_full').length,
+              color: "yellow",
+              icon: KeyIcon
+            }
+          ]}
+          columns={4}
+        />
 
         {/* Filters and Search */}
-        <div className={`rounded-lg border p-6 mb-8 ${themeClasses.card}`}>
-          <div className="flex flex-col md:flex-row gap-4">
-            {/* Search */}
-            <div className="flex-1">
-              <div className="relative">
-                <MagnifyingGlassIcon className={`h-5 w-5 absolute left-3 top-3 ${themeClasses.textSecondary}`} />
-                <input
-                  type="text"
-                  placeholder="Buscar por nombre o email..."
-                  className={`w-full ${themeClasses.bgSecondary} border ${themeClasses.border} rounded-lg pl-10 pr-4 py-2 ${themeClasses.text} placeholder-${isDark ? 'slate-400' : 'gray-400'} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* Status Filter */}
-            <select
-              className={`${themeClasses.bgSecondary} border ${themeClasses.border} rounded-lg px-4 py-2 ${themeClasses.text} focus:outline-none focus:ring-2 focus:ring-blue-500`}
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="active">Activos</option>
-              <option value="inactive">Inactivos</option>
-              <option value="locked">Bloqueados</option>
-              <option value="all">Todos</option>
-            </select>
-
-            {/* Role Filter */}
-            <select
-              className={`${themeClasses.bgSecondary} border ${themeClasses.border} rounded-lg px-4 py-2 ${themeClasses.text} focus:outline-none focus:ring-2 focus:ring-blue-500`}
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
-            >
-              <option value="all">Todos los roles</option>
-              {Object.entries(roles).map(([roleKey, roleData]) => (
-                <option key={roleKey} value={roleKey}>{roleData.name}</option>
-              ))}
-            </select>
-
-            {/* Create Button */}
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
-            >
-              <PlusIcon className="h-5 w-5" />
-              Crear SuperAdmin
-            </button>
-          </div>
-        </div>
+        <SuperAdminFilters
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder="Buscar por nombre o email..."
+          filters={[
+            {
+              value: statusFilter,
+              onChange: setStatusFilter,
+              options: [
+                { value: "active", label: "Activos" },
+                { value: "inactive", label: "Inactivos" },
+                { value: "locked", label: "Bloqueados" },
+                { value: "all", label: "Todos" }
+              ]
+            },
+            {
+              value: roleFilter,
+              onChange: setRoleFilter,
+              options: [
+                { value: "all", label: "Todos los roles" },
+                ...Object.entries(roles).map(([roleKey, roleData]) => ({
+                  value: roleKey,
+                  label: roleData.name
+                }))
+              ]
+            }
+          ]}
+          createButton={{
+            label: "Crear SuperAdmin",
+            onClick: () => setShowCreateModal(true),
+            icon: PlusIcon
+          }}
+        />
 
         {/* Users Table */}
-        <div className={`rounded-lg border overflow-hidden ${themeClasses.card}`}>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className={themeClasses.bgSecondary}>
-                <tr>
-                  <th className={`px-6 py-3 text-left text-xs font-medium ${themeClasses.textSecondary} uppercase tracking-wider`}>
-                    Usuario
-                  </th>
-                  <th className={`px-6 py-3 text-left text-xs font-medium ${themeClasses.textSecondary} uppercase tracking-wider`}>
-                    Rol
-                  </th>
-                  <th className={`px-6 py-3 text-left text-xs font-medium ${themeClasses.textSecondary} uppercase tracking-wider`}>
-                    Estado
-                  </th>
-                  <th className={`px-6 py-3 text-left text-xs font-medium ${themeClasses.textSecondary} uppercase tracking-wider`}>
-                    Último Acceso
-                  </th>
-                  <th className={`px-6 py-3 text-left text-xs font-medium ${themeClasses.textSecondary} uppercase tracking-wider`}>
-                    Creado
-                  </th>
-                  <th className={`px-6 py-3 text-left text-xs font-medium ${themeClasses.textSecondary} uppercase tracking-wider`}>
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
-              <tbody className={`${themeClasses.bg} divide-y ${themeClasses.border}`}>
-                {filteredUsers.map((adminUser) => (
-                  <tr key={adminUser.user_id} className={`${themeClasses.buttonHover}`}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <div className={`text-sm font-medium ${themeClasses.text}`}>
-                          {adminUser.first_name} {adminUser.last_name}
-                        </div>
-                        <div className={`text-sm ${themeClasses.textSecondary}`}>{adminUser.email}</div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleBadge(adminUser.superadmin_role, isDark)}`}>
-                        {getRoleName(adminUser.superadmin_role)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        {adminUser.is_active ? (
-                          isUserLocked(adminUser) ? (
-                            <div className="flex items-center text-red-400">
-                              <LockClosedIcon className="h-4 w-4 mr-1" />
-                              <span className="text-xs">Bloqueado</span>
-                            </div>
-                          ) : (
-                            <div className="flex items-center text-green-400">
-                              <div className="h-2 w-2 bg-green-400 rounded-full mr-2"></div>
-                              <span className="text-xs">Activo</span>
-                            </div>
-                          )
-                        ) : (
-                          <div className="flex items-center text-gray-400">
-                            <div className="h-2 w-2 bg-gray-400 rounded-full mr-2"></div>
-                            <span className="text-xs">Inactivo</span>
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${themeClasses.text}`}>
-                      <div className="flex items-center">
-                        <ClockIcon className={`h-4 w-4 mr-1 ${themeClasses.textSecondary}`} />
-                        {formatLastLogin(adminUser.last_login_at)}
-                      </div>
-                    </td>
-                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${themeClasses.text}`}>
-                      {new Date(adminUser.created_at).toLocaleDateString('es-ES')}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => {
-                            setSelectedUser(adminUser);
-                            setShowDetailsModal(true);
-                          }}
-                          className="text-blue-400 hover:text-blue-300 transition-colors"
-                          title="Ver detalles"
-                        >
-                          <EyeIcon className="h-5 w-5" />
-                        </button>
-                        
-                        <button
-                          onClick={() => {
-                            setSelectedUser(adminUser);
-                            setShowEditModal(true);
-                          }}
-                          className="text-yellow-400 hover:text-yellow-300 transition-colors"
-                          title="Editar"
-                        >
-                          <PencilIcon className="h-5 w-5" />
-                        </button>
-                        
-                        {/* No permitir desactivar al usuario actual */}
-                        {adminUser.user_id !== user?.user_id && adminUser.is_active && (
-                          <button
-                            onClick={() => handleDeactivateUser(adminUser.user_id, `${adminUser.first_name} ${adminUser.last_name}`)}
-                            className="text-red-400 hover:text-red-300 transition-colors"
-                            title="Desactivar"
-                          >
-                            <TrashIcon className="h-5 w-5" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          
-          {filteredUsers.length === 0 && (
-            <div className="text-center py-12">
-              <UserIcon className="mx-auto h-12 w-12 text-slate-600" />
-              <h3 className="mt-2 text-sm font-medium text-slate-300">No hay usuarios</h3>
-              <p className="mt-1 text-sm text-slate-500">
-                {searchTerm || statusFilter !== 'all' || roleFilter !== 'all' 
-                  ? 'No se encontraron usuarios con los filtros aplicados.'
-                  : 'Comienza creando tu primer usuario SuperAdmin.'
-                }
-              </p>
-            </div>
-          )}
-        </div>
+        <SuperAdminTable
+          columns={tableColumns}
+          data={filteredUsers}
+          loading={loading}
+          emptyState={{
+            icon: UserIcon,
+            title: "No hay usuarios",
+            description: searchTerm || statusFilter !== 'all' || roleFilter !== 'all' 
+              ? 'No se encontraron usuarios con los filtros aplicados.'
+              : 'Comienza creando tu primer usuario SuperAdmin.'
+          }}
+        />
       </div>
 
       {/* Modals placeholder */}

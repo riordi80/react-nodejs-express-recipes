@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { 
   ArrowLeft, 
@@ -24,7 +24,7 @@ import AddIngredientToRecipeModal from '@/components/modals/AddIngredientToRecip
 import EditRecipeIngredientModal from '@/components/modals/EditRecipeIngredientModal'
 import ManageSectionsModal from '@/components/modals/ManageSectionsModal'
 import ConfirmModal from '@/components/ui/ConfirmModal'
-import Modal from '@/components/ui/Modal'
+// import Modal from '@/components/ui/Modal' // Currently unused
 import { useToastHelpers } from '@/context/ToastContext'
 import UnifiedTabs from '@/components/ui/DetailTabs'
 import { useUnsavedChanges } from '@/hooks/useUnsavedChangesSimple'
@@ -153,7 +153,7 @@ export default function RecipeDetailPage() {
     }
     loadAvailableCategories()
     loadRestaurantSettings()
-  }, [recipeId, isNewRecipe]) // Dependencies are intentionally limited to avoid infinite loops
+  }, [recipeId, isNewRecipe, loadRecipeData]) // Dependencies included for proper effect
 
   // Handle URL hash for direct tab navigation
   useEffect(() => {
@@ -185,16 +185,7 @@ export default function RecipeDetailPage() {
     setAllergens([])
     setLoading(false)
     
-    // Guardar valores iniciales para nueva receta
-    const initialData = {
-      ...defaultRecipeValues,
-      difficulty: '',
-      price_per_serving: '',
-      calories: '',
-      protein: '',
-      carbs: '',
-      fat: ''
-    }
+    // Initial data setup for new recipe is handled by default values
     
   }
 
@@ -228,7 +219,7 @@ export default function RecipeDetailPage() {
     }
   }
 
-  const loadRecipeData = async () => {
+  const loadRecipeData = useCallback(async () => {
     try {
       setLoading(true)
       
@@ -286,7 +277,7 @@ export default function RecipeDetailPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [recipeId, showError])
 
   const loadAdditionalData = async () => {
     // Load nutrition

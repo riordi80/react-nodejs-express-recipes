@@ -115,8 +115,8 @@ export function SuperAdminSidebar() {
               </div>
             </div>
             <div className="ml-3">
-              <h1 className={`text-xl font-bold ${themeClasses.text}`}>SuperAdmin</h1>
-              <p className={`text-xs ${themeClasses.textSecondary}`}>Console</p>
+              <h1 className={`text-xl font-bold ${themeClasses.text}`}>Console</h1>
+              <p className={`text-xs ${themeClasses.textSecondary}`}>RecipesAPI</p>
             </div>
           </div>
         </div>

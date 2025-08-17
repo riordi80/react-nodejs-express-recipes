@@ -73,7 +73,7 @@ export function SuperAdminHeader() {
             </button>
 
             {/* Breadcrumb/Page title */}
-            <div className="ml-4 flex items-center">
+            {/* <div className="ml-4 flex items-center">
               <h1 className={`text-xl font-semibold ${themeClasses.text}`}>
                 Panel de Administración
               </h1>
@@ -83,7 +83,7 @@ export function SuperAdminHeader() {
                   Full Access
                 </span>
               )}
-            </div>
+            </div> */}
           </div>
 
           {/* Right side */}

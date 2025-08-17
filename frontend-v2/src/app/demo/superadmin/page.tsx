@@ -7,7 +7,6 @@ import {
   Select, 
   TextArea, 
   Chips,
-  Loading, 
   ConfirmModal,
   Modal,
   Badge,
@@ -32,13 +31,10 @@ import {
   Settings,
   Package,
   Users,
-  ChevronDown,
-  BookOpen,
   Shield,
   Activity,
   DollarSign,
   TrendingUp,
-  TrendingDown,
   AlertTriangle,
   CheckCircle,
   XCircle,
@@ -50,46 +46,32 @@ import {
   Zap,
   Globe,
   Lock,
-  Unlock,
   UserCheck,
-  UserX,
   Crown,
   BarChart3,
-  PieChart,
-  LineChart,
-  Filter,
   Download,
   Upload,
   RefreshCw,
-  Calendar,
-  MapPin,
-  Phone,
   Building,
   CreditCard,
   AlertCircle,
   Info,
-  ExternalLink,
-  Copy,
   Archive,
   Ban,
-  Play,
-  Pause,
-  StopCircle
+  Pause
 } from 'lucide-react'
 
 export default function SuperAdminDemoPage() {
-  const [loading, setLoading] = useState(false)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
   const [showBasicModal, setShowBasicModal] = useState(false)
   
   // Toast hooks
-  const { showToast, clearAllToasts } = useToast()
+  const { clearAllToasts } = useToast()
   const { success, error, warning, info } = useToastHelpers()
   
   // States para diferentes componentes
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedFilters, setSelectedFilters] = useState<string[]>([])
-  const [selectedStatus, setSelectedStatus] = useState<string[]>([])
 
   // Datos simulados para el demo
   const mockTenants = [
@@ -155,7 +137,6 @@ export default function SuperAdminDemoPage() {
   }
 
   const filterOptions = ['Activos', 'Trial', 'Suspendidos', 'Cancelados', 'Premium', 'Basic', 'Free']
-  const statusOptions = ['active', 'trial', 'suspended', 'cancelled']
   
   const planOptions = [
     { value: 'free', label: 'Gratuito' },

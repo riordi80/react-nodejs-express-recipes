@@ -3,6 +3,7 @@
 import React from 'react'
 import { clsx } from 'clsx'
 import { User } from 'lucide-react'
+import Image from 'next/image'
 
 interface AvatarProps {
   src?: string
@@ -69,9 +70,11 @@ const Avatar = ({
 
   if (src) {
     return (
-      <img
+      <Image
         src={src}
         alt={alt || name || 'Avatar'}
+        width={48}
+        height={48}
         className={clsx(
           baseClasses,
           sizeClasses[size],
