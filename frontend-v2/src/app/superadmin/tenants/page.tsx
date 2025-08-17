@@ -1453,7 +1453,7 @@ Para confirmar, escribe exactamente "ELIMINAR":`,
                     onChange={(e) => handleCreateFormChange('subdomain', e.target.value)}
                     className={`flex-1 ${themeClasses.bgSecondary} border ${themeClasses.border} rounded-l-lg px-3 py-2.5 ${themeClasses.text} focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors`}
                     placeholder="mirestaurante"
-                    pattern="[a-z0-9-]+"
+                    pattern="[a-z0-9\-]+"
                   />
                   <div className={`flex items-center px-3 py-2.5 ${themeClasses.bgSecondary} border-t border-r border-b ${themeClasses.border} rounded-r-lg ${themeClasses.textSecondary} text-sm bg-opacity-50`}>
                     .{baseDomain}
