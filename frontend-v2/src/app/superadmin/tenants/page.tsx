@@ -4,27 +4,38 @@ import React, { useState, useEffect } from 'react';
 import { 
   PlusIcon, 
   EyeIcon, 
+  PencilIcon,
   PlayIcon,
   PauseIcon,
   UserIcon,
   BuildingOfficeIcon,
-  ChartBarIcon
+  ChartBarIcon,
+  ArrowDownTrayIcon,
+  DocumentTextIcon
 } from '@heroicons/react/24/outline';
 import { useSuperAdmin } from '@/context/SuperAdminContext';
 import { useSuperAdminTheme } from '@/context/SuperAdminThemeContext';
-import { SuperAdminStatsCards, SuperAdminFilters, SuperAdminTable, ThemedModal, ConfirmModal, PromptModal, MessageModal } from '@/components/superadmin';
+import { SuperAdminStatsCards, SuperAdminFilters, SuperAdminTable, ThemedModal, ConfirmModal, PromptModal, MessageModal, TenantDetailModal, TenantEditModal } from '@/components/superadmin';
+import { useBulkSelection } from '@/hooks/useBulkSelection';
+import { useExport } from '@/hooks/useExport';
+import { useAdvancedFilters } from '@/hooks/useAdvancedFilters';
+import BulkActionsBar from '@/components/ui/BulkActionsBar';
+import AdvancedFilters from '@/components/ui/AdvancedFilters';
 
 interface Tenant {
   tenant_id: string;
   subdomain: string;
+  database_name: string;
   business_name: string;
   admin_email: string;
   subscription_plan: 'free' | 'basic' | 'premium' | 'enterprise';
   subscription_status: 'active' | 'suspended' | 'cancelled' | 'trial';
   max_users: number;
   max_recipes: number;
+  max_events?: number;
   created_at: string;
-  last_activity_at: string;
+  updated_at?: string;
+  last_activity_at?: string;
   is_active: boolean;
 }
 
@@ -42,12 +53,56 @@ export default function TenantsPage() {
   const themeClasses = getThemeClasses();
   const [stats, setStats] = useState<TenantStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [planFilter, setPlanFilter] = useState<string>('all');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+
+  // Advanced filters hook
+  const advancedFilters = useAdvancedFilters({
+    items: tenants,
+    searchFields: ['business_name', 'subdomain', 'admin_email'],
+    getItemDate: (tenant) => tenant.created_at,
+    getItemLastActivity: (tenant) => tenant.last_activity_at
+  });
+
+  // Set custom filters for status and plan
+  React.useEffect(() => {
+    advancedFilters.setCustomFilter('subscription_status', statusFilter);
+  }, [statusFilter]);
+
+  React.useEffect(() => {
+    advancedFilters.setCustomFilter('subscription_plan', planFilter);
+  }, [planFilter]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  // This will be initialized after filteredTenants is calculated
+  let bulkSelection: ReturnType<typeof useBulkSelection<Tenant>>;
+
+  // Export hook with tenant-specific configuration
+  const exportHook = useExport<Tenant>({
+    filename: 'tenants_export',
+    fields: [
+      { key: 'subdomain', label: 'Subdominio' },
+      { key: 'business_name', label: 'Nombre del Negocio' },
+      { key: 'admin_email', label: 'Email Administrador' },
+      { key: 'subscription_plan', label: 'Plan', format: (value) => value.toUpperCase() },
+      { key: 'subscription_status', label: 'Estado', format: (value) => value.toUpperCase() },
+      { key: 'max_users', label: 'Máximo Usuarios' },
+      { key: 'max_recipes', label: 'Máximo Recetas' },
+      { 
+        key: 'created_at', 
+        label: 'Fecha Creación', 
+        format: (value) => new Date(value).toLocaleDateString('es-ES')
+      },
+      {
+        key: 'last_activity_at',
+        label: 'Última Actividad',
+        format: (value: string | undefined) => value ? new Date(value).toLocaleDateString('es-ES') : 'N/A'
+      }
+    ]
+  });
   
   // Estados para las nuevas modales
   const [confirmModal, setConfirmModal] = useState<{
@@ -335,6 +390,62 @@ export default function TenantsPage() {
     }
   };
 
+  // Función para guardar cambios del tenant editado
+  const handleSaveTenant = async (updatedData: any) => {
+    if (!selectedTenant) return;
+
+    try {
+      const response = await fetch(`/api/superadmin/tenants/${selectedTenant.tenant_id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(updatedData)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.success) {
+          setMessageModal({
+            isOpen: true,
+            title: 'Tenant actualizado',
+            message: 'Los cambios se han guardado correctamente.',
+            type: 'success'
+          });
+
+          // Recargar la lista de tenants
+          loadTenants();
+          loadStats();
+        } else {
+          setMessageModal({
+            isOpen: true,
+            title: 'Error al actualizar',
+            message: data.error || 'Error desconocido',
+            type: 'error'
+          });
+        }
+      } else {
+        const errorData = await response.json();
+        setMessageModal({
+          isOpen: true,
+          title: 'Error al actualizar',
+          message: errorData.error || 'Error desconocido',
+          type: 'error'
+        });
+      }
+    } catch (error) {
+      console.error('Error updating tenant:', error);
+      setMessageModal({
+        isOpen: true,
+        title: 'Error de conexión',
+        message: 'Error al actualizar el tenant. Verifica tu conexión.',
+        type: 'error'
+      });
+    }
+  };
+
   // Funciones del modal crear tenant
   const resetCreateModal = () => {
     setCreateStep(1);
@@ -529,19 +640,16 @@ export default function TenantsPage() {
   };
 
 
-  // Filtrar tenants usando useMemo para forzar recálculo
+  // Use the filtered tenants from the advanced filters hook
   const filteredTenants = React.useMemo(() => {
-    return tenants.filter(tenant => {
-      const matchesSearch = tenant.business_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           tenant.subdomain.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           tenant.admin_email.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesStatus = statusFilter === 'all' || tenant.subscription_status === statusFilter;
-      const matchesPlan = planFilter === 'all' || tenant.subscription_plan === planFilter;
-      
-      return matchesSearch && matchesStatus && matchesPlan;
-    });
-  }, [tenants, searchTerm, statusFilter, planFilter, tableKey]);
+    return advancedFilters.filteredItems;
+  }, [advancedFilters.filteredItems, tableKey]);
+
+  // Initialize bulk selection after filteredTenants is available
+  bulkSelection = useBulkSelection({
+    items: filteredTenants,
+    getItemId: (tenant) => tenant.tenant_id
+  });
 
 
   const getStatusBadge = (status: string) => {
@@ -584,8 +692,196 @@ export default function TenantsPage() {
     }
   };
 
+  // Bulk actions handlers
+  const handleBulkSuspend = () => {
+    if (bulkSelection.selectedCount === 0) return;
+
+    setPromptModal({
+      isOpen: true,
+      title: `Suspender ${bulkSelection.selectedCount} tenant${bulkSelection.selectedCount > 1 ? 's' : ''}`,
+      message: 'Por favor, indica la razón de la suspensión para todos los tenants seleccionados:',
+      type: 'warning',
+      placeholder: 'Ej: Incumplimiento de términos, pago pendiente...',
+      onConfirm: async (reason: string) => {
+        setPromptModal(prev => ({ ...prev, loading: true }));
+        
+        try {
+          const promises = bulkSelection.selectedItems.map(tenant => 
+            fetch(`/api/superadmin/tenants/${tenant.tenant_id}/suspend`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({ reason: reason.trim() })
+            })
+          );
+          
+          const results = await Promise.allSettled(promises);
+          const successes = results.filter(r => r.status === 'fulfilled').length;
+          const failures = results.filter(r => r.status === 'rejected').length;
+          
+          setMessageModal({
+            isOpen: true,
+            title: 'Operación completada',
+            message: `${successes} tenant${successes > 1 ? 's' : ''} suspendido${successes > 1 ? 's' : ''} correctamente${failures > 0 ? `. ${failures} fallaron.` : '.'}`,
+            type: failures > 0 ? 'warning' : 'success'
+          });
+          
+          bulkSelection.clearSelection();
+          loadTenants();
+          loadStats();
+        } catch (error) {
+          setMessageModal({
+            isOpen: true,
+            title: 'Error en operación masiva',
+            message: 'Error al suspender los tenants seleccionados.',
+            type: 'error'
+          });
+        } finally {
+          setPromptModal(prev => ({ ...prev, isOpen: false, loading: false }));
+        }
+      }
+    });
+  };
+
+  const handleBulkActivate = () => {
+    if (bulkSelection.selectedCount === 0) return;
+
+    setConfirmModal({
+      isOpen: true,
+      title: `Activar ${bulkSelection.selectedCount} tenant${bulkSelection.selectedCount > 1 ? 's' : ''}`,
+      message: `¿Estás seguro de que quieres activar ${bulkSelection.selectedCount} tenant${bulkSelection.selectedCount > 1 ? 's' : ''}? Los usuarios podrán acceder inmediatamente.`,
+      type: 'success',
+      confirmText: 'Activar todos',
+      onConfirm: async () => {
+        setConfirmModal(prev => ({ ...prev, loading: true }));
+        
+        try {
+          const promises = bulkSelection.selectedItems.map(tenant => 
+            fetch(`/api/superadmin/tenants/${tenant.tenant_id}/activate`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include'
+            })
+          );
+          
+          const results = await Promise.allSettled(promises);
+          const successes = results.filter(r => r.status === 'fulfilled').length;
+          const failures = results.filter(r => r.status === 'rejected').length;
+          
+          setMessageModal({
+            isOpen: true,
+            title: 'Operación completada',
+            message: `${successes} tenant${successes > 1 ? 's' : ''} activado${successes > 1 ? 's' : ''} correctamente${failures > 0 ? `. ${failures} fallaron.` : '.'}`,
+            type: failures > 0 ? 'warning' : 'success'
+          });
+          
+          bulkSelection.clearSelection();
+          loadTenants();
+          loadStats();
+        } catch (error) {
+          setMessageModal({
+            isOpen: true,
+            title: 'Error en operación masiva',
+            message: 'Error al activar los tenants seleccionados.',
+            type: 'error'
+          });
+        } finally {
+          setConfirmModal(prev => ({ ...prev, isOpen: false, loading: false }));
+        }
+      }
+    });
+  };
+
+  const handleBulkExport = async (format: 'csv' | 'json') => {
+    if (bulkSelection.selectedCount === 0) return;
+    
+    const success = format === 'csv' 
+      ? await exportHook.exportToCSV(bulkSelection.selectedItems)
+      : await exportHook.exportToJSON(bulkSelection.selectedItems);
+    
+    if (success) {
+      setMessageModal({
+        isOpen: true,
+        title: 'Exportación completada',
+        message: `${bulkSelection.selectedCount} tenant${bulkSelection.selectedCount > 1 ? 's' : ''} exportado${bulkSelection.selectedCount > 1 ? 's' : ''} en formato ${format.toUpperCase()}.`,
+        type: 'success'
+      });
+    } else {
+      setMessageModal({
+        isOpen: true,
+        title: 'Error de exportación',
+        message: 'No se pudo completar la exportación.',
+        type: 'error'
+      });
+    }
+  };
+
+  // Define bulk actions
+  const bulkActions = [
+    {
+      id: 'suspend',
+      label: 'Suspender',
+      icon: <PauseIcon className="w-4 h-4" />,
+      variant: 'danger' as const,
+      onClick: handleBulkSuspend,
+      disabled: bulkSelection.selectedItems.every(t => t.subscription_status === 'suspended')
+    },
+    {
+      id: 'activate',
+      label: 'Activar',
+      icon: <PlayIcon className="w-4 h-4" />,
+      variant: 'success' as const,
+      onClick: handleBulkActivate,
+      disabled: bulkSelection.selectedItems.every(t => t.subscription_status === 'active')
+    },
+    {
+      id: 'export-csv',
+      label: 'CSV',
+      icon: <DocumentTextIcon className="w-4 h-4" />,
+      variant: 'secondary' as const,
+      onClick: () => handleBulkExport('csv'),
+      disabled: exportHook.exporting
+    },
+    {
+      id: 'export-json',
+      label: 'JSON',
+      icon: <ArrowDownTrayIcon className="w-4 h-4" />,
+      variant: 'secondary' as const,
+      onClick: () => handleBulkExport('json'),
+      disabled: exportHook.exporting
+    }
+  ];
+
   // Configuración de columnas para la tabla
   const tableColumns = [
+    {
+      key: 'selection',
+      label: '',
+      width: '50px',
+      headerRender: () => (
+        <div className="flex justify-center">
+          <input
+            type="checkbox"
+            checked={bulkSelection.isAllSelected}
+            ref={(input) => {
+              if (input) input.indeterminate = bulkSelection.isIndeterminate;
+            }}
+            onChange={(e) => bulkSelection.handleSelectAll(e.target.checked)}
+            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          />
+        </div>
+      ),
+      render: (_: any, tenant: Tenant) => (
+        <div className="flex justify-center">
+          <input
+            type="checkbox"
+            checked={bulkSelection.selectedIds.has(tenant.tenant_id)}
+            onChange={(e) => bulkSelection.handleSelectItem(tenant.tenant_id, e.target.checked)}
+            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          />
+        </div>
+      )
+    },
     {
       key: 'tenant_info',
       label: 'Tenant',
@@ -648,6 +944,17 @@ export default function TenantsPage() {
             title="Ver detalles"
           >
             <EyeIcon className="h-5 w-5" />
+          </button>
+
+          <button
+            onClick={() => {
+              setSelectedTenant(tenant);
+              setShowEditModal(true);
+            }}
+            className="text-orange-400 hover:text-orange-300 transition-colors"
+            title="Editar tenant"
+          >
+            <PencilIcon className="h-5 w-5" />
           </button>
           
           <button
@@ -737,8 +1044,8 @@ export default function TenantsPage() {
 
         {/* Filters and Search */}
         <SuperAdminFilters
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
+          searchTerm={advancedFilters.searchTerm}
+          onSearchChange={advancedFilters.setSearchTerm}
           searchPlaceholder="Buscar por nombre, subdominio o email..."
           filters={[
             {
@@ -775,19 +1082,45 @@ export default function TenantsPage() {
           }}
         />
 
+        {/* Advanced Filters */}
+        <AdvancedFilters
+          dateFilter={advancedFilters.dateFilter}
+          onDateFilterChange={advancedFilters.setDateFilter}
+          activityFilter={advancedFilters.activityFilter}
+          onActivityFilterChange={advancedFilters.setActivityFilter}
+          dateRange={advancedFilters.dateRange}
+          onDateRangeChange={advancedFilters.setDateRange}
+          onClearFilters={() => {
+            setStatusFilter('all');
+            setPlanFilter('all');
+            advancedFilters.clearAllFilters();
+          }}
+          isOpen={showAdvancedFilters}
+          onToggle={() => setShowAdvancedFilters(!showAdvancedFilters)}
+          isDark={isDark}
+        />
+
         {/* Tenants Table */}
         <SuperAdminTable
-          columns={tableColumns}
+          columns={tableColumns as any}
           data={filteredTenants}
           loading={loading}
           tableKey={tableKey}
           emptyState={{
             icon: BuildingOfficeIcon,
             title: "No hay tenants",
-            description: searchTerm || statusFilter !== 'all' || planFilter !== 'all' 
+            description: advancedFilters.hasActiveFilters || statusFilter !== 'all' || planFilter !== 'all'
               ? 'No se encontraron tenants con los filtros aplicados.'
               : 'Comienza creando tu primer tenant.'
           }}
+        />
+
+        {/* Bulk Actions Bar */}
+        <BulkActionsBar
+          selectedCount={bulkSelection.selectedCount}
+          onClearSelection={bulkSelection.clearSelection}
+          actions={bulkActions}
+          isDark={isDark}
         />
       </div>
 
@@ -1260,78 +1593,12 @@ export default function TenantsPage() {
         </div>
       </ThemedModal>
 
-      {/* Modal de Detalles del Tenant */}
-      <ThemedModal
-        isOpen={showDetailsModal && !!selectedTenant}
+      {/* Modal de Detalles del Tenant - Expandido con Tabs */}
+      <TenantDetailModal
+        isOpen={showDetailsModal}
         onClose={() => setShowDetailsModal(false)}
-        title="Detalles del Tenant"
-        size="lg"
-        footer={
-          <div className="flex items-center justify-end">
-            <button
-              onClick={() => setShowDetailsModal(false)}
-              className={`w-full sm:w-auto px-4 py-2 border ${themeClasses.border} ${themeClasses.textSecondary} rounded-lg ${themeClasses.buttonHover} transition-colors text-sm`}
-            >
-              Cerrar
-            </button>
-          </div>
-        }
-      >
-        {selectedTenant && (
-          <div className="space-y-4 sm:space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-              <div>
-                <label className={`block text-sm font-medium ${themeClasses.textSecondary} mb-2`}>Nombre del Negocio</label>
-                <p className={`text-base sm:text-lg ${themeClasses.text}`}>{selectedTenant.business_name}</p>
-              </div>
-              <div>
-                <label className={`block text-sm font-medium ${themeClasses.textSecondary} mb-2`}>Subdominio</label>
-                <p className={`text-base sm:text-lg ${themeClasses.text} break-all`}>{selectedTenant.subdomain}</p>
-              </div>
-            </div>
-            
-            <div>
-              <label className={`block text-sm font-medium ${themeClasses.textSecondary} mb-2`}>Email Administrador</label>
-              <p className={`text-base sm:text-lg ${themeClasses.text} break-all`}>{selectedTenant.admin_email}</p>
-            </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-              <div>
-                <label className={`block text-sm font-medium ${themeClasses.textSecondary} mb-2`}>Plan</label>
-                <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getPlanBadge(selectedTenant.subscription_plan)}`}>
-                  {selectedTenant.subscription_plan}
-                </span>
-              </div>
-              <div>
-                <label className={`block text-sm font-medium ${themeClasses.textSecondary} mb-2`}>Estado</label>
-                <span className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${getStatusBadge(selectedTenant.subscription_status)}`}>
-                  {selectedTenant.subscription_status}
-                </span>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-              <div>
-                <label className={`block text-sm font-medium ${themeClasses.textSecondary} mb-2`}>Límites</label>
-                <div className={`text-sm ${themeClasses.text}`}>
-                  <div>Usuarios: {selectedTenant.max_users}</div>
-                  <div>Recetas: {selectedTenant.max_recipes}</div>
-                </div>
-              </div>
-              <div>
-                <label className={`block text-sm font-medium ${themeClasses.textSecondary} mb-2`}>Creado</label>
-                <p className={`text-sm ${themeClasses.text}`}>
-                  {new Date(selectedTenant.created_at).toLocaleDateString('es-ES', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  })}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-      </ThemedModal>
+        tenant={selectedTenant}
+      />
 
       {/* Modales de acción */}
       <ConfirmModal
@@ -1362,6 +1629,14 @@ export default function TenantsPage() {
         title={messageModal.title}
         message={messageModal.message}
         type={messageModal.type}
+      />
+
+      {/* Modal de Edición de Tenant */}
+      <TenantEditModal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        tenant={selectedTenant}
+        onSave={handleSaveTenant}
       />
     </div>
   );

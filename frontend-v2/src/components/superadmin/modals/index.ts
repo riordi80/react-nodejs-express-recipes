@@ -3,3 +3,5 @@ export { default as ThemedModal } from './ThemedModal';
 export { default as ConfirmModal } from './ConfirmModal';
 export { default as PromptModal } from './PromptModal';
 export { default as MessageModal } from './MessageModal';
+export { default as TenantDetailModal } from './TenantDetailModal';
+export { default as TenantEditModal } from './TenantEditModal';
