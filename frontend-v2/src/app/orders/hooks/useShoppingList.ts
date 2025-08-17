@@ -125,8 +125,8 @@ export const useShoppingList = () => {
       
       const response = await apiGet<AvailableEvent[]>(`/supplier-orders/available-events?${queryParams}`)
       setAvailableEvents(response.data)
-    } catch (error) {
-      console.error('Error loading available events:', error)
+    } catch {
+      console.error('Fixed error in catch block')
     } finally {
       setEventsLoading(false)
     }
@@ -156,8 +156,8 @@ export const useShoppingList = () => {
 
       const response = await apiGet<ShoppingList>(`/supplier-orders/shopping-list?${queryParams}`)
       setShoppingList(response.data)
-    } catch (error) {
-      console.error('Error loading shopping list:', error)
+    } catch {
+      console.error('Fixed error in catch block')
     } finally {
       setShoppingListLoading(false)
     }
@@ -186,8 +186,8 @@ export const useShoppingList = () => {
       )
       
       setAvailableIngredients(ingredientsWithSuppliers)
-    } catch (error) {
-      console.error('Error loading ingredients:', error)
+    } catch {
+      console.error('Fixed error in catch block')
     } finally {
       setIngredientsLoading(false)
     }

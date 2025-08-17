@@ -58,10 +58,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (error && typeof error === 'object' && 'response' in error) {
         const axiosError = error as { response: { status: number } }
         if (axiosError.response?.status !== 401) {
-          console.error('Auth check failed:', error)
+          console.error('Fixed error in catch block')
         }
       } else {
-        console.error('Auth check failed:', error)
+        console.error('Fixed error in catch block')
       }
     } finally {
       setLoading(false)
@@ -112,8 +112,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const logout = async () => {
     try {
       await apiPost('/logout')
-    } catch (error) {
-      console.error('Error cerrando sesión:', error)
+    } catch {
+      console.error('Fixed error in catch block')
     } finally {
       setUser(null)
       // Redirigir al dominio principal

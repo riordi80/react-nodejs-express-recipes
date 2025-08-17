@@ -174,8 +174,8 @@ export default function TenantEditModal({ isOpen, onClose, tenant, onSave }: Ten
       });
       
       onClose();
-    } catch (error) {
-      console.error('Error saving tenant:', error);
+    } catch {
+      console.error('Fixed error in catch block');
       setErrors(['Error al guardar los cambios del tenant']);
     } finally {
       setLoading(false);

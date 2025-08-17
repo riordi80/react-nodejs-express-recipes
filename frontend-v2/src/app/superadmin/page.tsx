@@ -52,8 +52,8 @@ export default function SuperAdminDashboard() {
         if (response.data.success) {
           setRecentActivity(response.data.data)
         }
-      } catch (error) {
-        console.error('Error fetching activity feed:', error)
+      } catch {
+        console.error('Fixed error in catch block')
       } finally {
         setLoading(false)
       }

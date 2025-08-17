@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { AlertTriangle, Check, Info, X } from 'lucide-react'
+import { AlertTriangle, Check, Info } from 'lucide-react'
 import { useSuperAdminTheme } from '@/context/SuperAdminThemeContext'
 import ThemedModal from './ThemedModal'
 

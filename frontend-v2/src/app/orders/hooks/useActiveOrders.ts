@@ -128,8 +128,8 @@ export const useActiveOrders = () => {
       refresh()
       
       success(`Pedido #${orderId} actualizado correctamente`, 'Pedido Actualizado')
-    } catch (error) {
-      console.error('Error updating order status:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       showError('Error al actualizar el estado del pedido', 'Error de Actualización')
     }
   }
@@ -143,8 +143,8 @@ export const useActiveOrders = () => {
       refresh()
       
       success(`Pedido #${order.order_id} eliminado correctamente`, 'Pedido Eliminado')
-    } catch (error) {
-      console.error('Error deleting order:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       showError('Error al eliminar el pedido', 'Error de Eliminación')
     }
   }
@@ -157,8 +157,8 @@ export const useActiveOrders = () => {
     try {
       // This would typically open a modal or navigate to a detail page
       console.log('Viewing order details for:', orderId)
-    } catch (error) {
-      console.error('Error viewing order details:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       showError('Error al ver los detalles del pedido', 'Error de Vista')
     }
   }

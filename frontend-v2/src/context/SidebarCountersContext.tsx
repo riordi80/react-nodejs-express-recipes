@@ -32,7 +32,7 @@ export const SidebarCountersProvider: React.FC<SidebarCountersProviderProps> = (
         const activeCount = response.data.planned + response.data.confirmed
         setActiveEventsCount(activeCount)
         return
-      } catch (optimizedErr) {
+      } catch (_optimizedErr) {
         // Endpoint específico no disponible, usar fallback
       }
       

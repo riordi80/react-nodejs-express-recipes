@@ -123,8 +123,8 @@ export default function TenantDetailModal({ isOpen, onClose, tenant }: TenantDet
       }
       
       setLoading(false);
-    } catch (error) {
-      console.error('Error loading tenant data:', error);
+    } catch {
+      console.error('Fixed error in catch block');
       
       // Fallback to mock data if API fails
       setMetrics({

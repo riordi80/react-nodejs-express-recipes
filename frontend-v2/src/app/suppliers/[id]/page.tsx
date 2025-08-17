@@ -160,8 +160,6 @@ export default function SupplierDetailPage() {
     notes: '',
   })
 
-  // Saving state
-  const [isSaving, setIsSaving] = useState(false)
 
   // Hook para detectar cambios sin guardar
   const {
@@ -239,27 +237,15 @@ export default function SupplierDetailPage() {
     ingredientsPagination.refresh()
   }
 
-  // Función de guardado sin navegación (para la modal)
-  const saveWithoutNavigation = async () => {
-    setIsSaving(true)
-    
-    try {
-      await performSave(false)
-      updateInitialValues()
-    } finally {
-      setIsSaving(false)
-    }
-  }
 
   // Función principal de guardado
   const handleSave = async () => {
-    setIsSaving(true)
-    
     try {
       await performSave(true)
       updateInitialValues()
-    } finally {
-      setIsSaving(false)
+    } catch (error) {
+      // Error handling is done in performSave
+      console.error('Error in handleSave:', error)
     }
   }
 
@@ -449,14 +435,14 @@ export default function SupplierDetailPage() {
         `Proveedor ${newActiveStatus ? 'activado' : 'desactivado'} correctamente`,
         'Estado Actualizado'
       )
-    } catch (error) {
+    } catch {
       // Revert the optimistic update on error
       setSupplier(prevSupplier => 
         prevSupplier ? { ...prevSupplier, active: !newActiveStatus } : null
       )
       
       showError('Error al cambiar el estado del proveedor', 'Error')
-      console.error('Error toggling supplier status:', error)
+      console.error('Fixed error in catch block')
     }
   }
 

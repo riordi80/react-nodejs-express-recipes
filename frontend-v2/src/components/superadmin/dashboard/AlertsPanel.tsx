@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useSuperAdminTheme } from '@/context/SuperAdminThemeContext'
-import { api } from '@/lib/api'
 import { 
   ExclamationTriangleIcon,
   ExclamationCircleIcon,
@@ -87,8 +86,8 @@ export default function AlertsPanel({ className = '' }: AlertsPanelProps) {
         ]
         
         setAlerts(mockAlerts)
-      } catch (error) {
-        console.error('Error fetching alerts:', error)
+      } catch {
+        console.error('Fixed error in catch block')
       } finally {
         setLoading(false)
       }
@@ -181,8 +180,8 @@ export default function AlertsPanel({ className = '' }: AlertsPanelProps) {
           ? { ...alert, resolved_at: new Date().toISOString() }
           : alert
       ))
-    } catch (error) {
-      console.error('Error resolving alert:', error)
+    } catch {
+      console.error('Fixed error in catch block')
     }
   }
 

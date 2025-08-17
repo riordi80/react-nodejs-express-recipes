@@ -79,8 +79,8 @@ export default function SuppliersSection({ onSupplierClick }: SuppliersSectionPr
       setLoading(true)
       const response = await apiGet<SupplierAnalysis[]>('/supplier-orders/suppliers/analysis')
       setSuppliers(response.data)
-    } catch (error) {
-      console.error('Error loading suppliers analysis:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       showError('Error al cargar el análisis de proveedores', 'Error de Carga')
     } finally {
       setLoading(false)

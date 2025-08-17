@@ -67,8 +67,8 @@ export const SettingsProvider = ({ children }: SettingsProviderProps) => {
       try {
         const parsed = JSON.parse(originalSettings)
         Object.assign(savedSettings, parsed)
-      } catch (error) {
-        console.error('Error parsing saved settings:', error)
+      } catch {
+        console.error('Fixed error in catch block')
       }
     }
     

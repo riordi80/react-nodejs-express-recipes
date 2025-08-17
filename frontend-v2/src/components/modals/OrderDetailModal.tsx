@@ -114,8 +114,8 @@ export default function OrderDetailModal({
       const response = await apiGet<OrderDetail>(`/supplier-orders/${orderId}`)
       setOrderDetail(response.data)
       setEditedItems(response.data.items || [])
-    } catch (error) {
-      console.error('Error loading order detail:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       showError('Error al cargar los detalles del pedido', 'Error de Carga')
     } finally {
       setLoading(false)
@@ -144,8 +144,8 @@ export default function OrderDetailModal({
       if (onOrderUpdated) {
         onOrderUpdated()
       }
-    } catch (error) {
-      console.error('Error saving order items:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       showError('Error al actualizar las cantidades', 'Error al Guardar')
     } finally {
       setSaving(false)
@@ -210,8 +210,8 @@ export default function OrderDetailModal({
       await loadOrderDetail() // Reload to get updated status
       setShowConfirmModal(false)
       if (onOrderUpdated) onOrderUpdated()
-    } catch (error) {
-      console.error('Error confirming order:', error)
+    } catch {
+      console.error('Fixed error in catch block')
     }
   }
 
@@ -222,8 +222,8 @@ export default function OrderDetailModal({
       await loadOrderDetail() // Reload to get updated status
       setShowDeliveredModal(false)
       if (onOrderUpdated) onOrderUpdated()
-    } catch (error) {
-      console.error('Error marking as delivered:', error)
+    } catch {
+      console.error('Fixed error in catch block')
     }
   }
 
@@ -234,8 +234,8 @@ export default function OrderDetailModal({
       await loadOrderDetail() // Reload to get updated status
       setShowCancelModal(false)
       if (onOrderUpdated) onOrderUpdated()
-    } catch (error) {
-      console.error('Error cancelling order:', error)
+    } catch {
+      console.error('Fixed error in catch block')
     }
   }
 
@@ -246,8 +246,8 @@ export default function OrderDetailModal({
       setShowDeleteModal(false)
       onClose() // Close the modal after deletion
       if (onOrderUpdated) onOrderUpdated()
-    } catch (error) {
-      console.error('Error deleting order:', error)
+    } catch {
+      console.error('Fixed error in catch block')
     }
   }
 

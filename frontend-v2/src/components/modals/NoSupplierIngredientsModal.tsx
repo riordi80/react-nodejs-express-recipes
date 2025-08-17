@@ -37,8 +37,8 @@ const NoSupplierIngredientsModal = ({ isOpen, onClose }: NoSupplierIngredientsMo
       const response = await apiGet<NoSupplierIngredient[]>('/ingredients/no-suppliers/all')
       console.log('Respuesta de la API:', response.data)
       setIngredients(response.data || [])
-    } catch (error) {
-      console.error('Error loading no supplier ingredients:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       // Intentar con endpoint alternativo si el primero falla
       try {
         console.log('Intentando endpoint alternativo...')

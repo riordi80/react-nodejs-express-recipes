@@ -84,7 +84,7 @@ export default function RecipesPage() {
   const { success, error: showError } = useToastHelpers()
   
   // Settings context
-  const { settings } = useSettings()
+  const {} = useSettings()
   
   // Page-specific pageSize with localStorage persistence
   const { pageSize, setPageSize } = usePageSize('recipes')
@@ -160,7 +160,6 @@ export default function RecipesPage() {
   // Use paginated table hook
   const {
     sortedData: sortedRecipes,
-    isLoading: loading,
     pagination,
     sortConfig,
     handlePageChange,
@@ -187,8 +186,8 @@ export default function RecipesPage() {
 
         // Load filter options
         await loadFilterOptions()
-      } catch (error) {
-        console.error('Error initializing app:', error)
+      } catch {
+        console.error('Fixed error in catch block')
       } finally {
         setIsInitialized(true)
       }
@@ -226,8 +225,8 @@ export default function RecipesPage() {
         allergens: (allergensRes.data.data || allergensRes.data || []).map((a: Allergen) => a.name || a),
         ingredients: (ingredientsRes.data.data || ingredientsRes.data || []).map((i: Ingredient) => i.name || i)
       })
-    } catch (error) {
-      console.error('Error loading filter options:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       // Fallback to empty arrays
       setFilterOptions({
         categories: [],
@@ -302,8 +301,8 @@ export default function RecipesPage() {
       
       // Show success toast
       success(`Receta "${currentRecipe.name}" eliminada correctamente`, 'Receta Eliminada')
-    } catch (error) {
-      console.error('Error al eliminar receta:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       // Show error toast
       showError('No se pudo eliminar la receta. Intente nuevamente.', 'Error al Eliminar')
       // Keep modal open on error

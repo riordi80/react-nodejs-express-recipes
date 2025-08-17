@@ -89,8 +89,8 @@ export default function DashboardSection({ onNavigateToTab }: DashboardSectionPr
         lowStockItems: response.data.lowStockItems || 0,
         savingsDetail: response.data.savingsDetail || []
       })
-    } catch (error) {
-      console.error('Error loading dashboard data:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       showError('Error al cargar los datos del dashboard', 'Error de Carga')
       
       // Fallback to default data on error

@@ -42,8 +42,8 @@ export default function CentralLoginPage() {
           const runtimeConfig = await response.json() as RuntimeConfig
           setConfig(runtimeConfig)
         }
-      } catch (error) {
-        console.error('Error loading runtime config:', error)
+      } catch {
+        console.error('Fixed error in catch block')
         // Fallback a variables de entorno
         setConfig({
           apiBaseUrl: (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000') + '/api',

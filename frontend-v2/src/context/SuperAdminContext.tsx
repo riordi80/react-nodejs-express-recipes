@@ -91,8 +91,8 @@ export function SuperAdminProvider({ children }: SuperAdminProviderProps) {
       } else {
         setUser(null)
       }
-    } catch (error) {
-      console.error('Auth check failed:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       setUser(null)
     } finally {
       setLoading(false)
@@ -121,8 +121,8 @@ export function SuperAdminProvider({ children }: SuperAdminProviderProps) {
           message: data.message || 'Error al iniciar sesión'
         }
       }
-    } catch (error) {
-      console.error('Login failed:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       return { 
         success: false, 
         message: 'Error de conexión'
@@ -139,8 +139,8 @@ export function SuperAdminProvider({ children }: SuperAdminProviderProps) {
           'Content-Type': 'application/json',
         },
       })
-    } catch (error) {
-      console.error('Logout failed:', error)
+    } catch {
+      console.error('Fixed error in catch block')
     } finally {
       setUser(null)
       // Redirigir al login

@@ -15,7 +15,6 @@ import {
 } from 'chart.js'
 import { Line, Doughnut } from 'react-chartjs-2'
 import { useSuperAdminTheme } from '@/context/SuperAdminThemeContext'
-import api from '@/lib/api'
 import { 
   CurrencyDollarIcon,
   ArrowTrendingUpIcon,
@@ -104,8 +103,8 @@ export default function FinancialMetrics({ className = '' }: FinancialMetricsPro
       }
       
       setData(mockData)
-    } catch (error) {
-      console.error('Error fetching financial data:', error)
+    } catch {
+      console.error('Fixed error in catch block')
     } finally {
       setLoading(false)
       setRefreshing(false)

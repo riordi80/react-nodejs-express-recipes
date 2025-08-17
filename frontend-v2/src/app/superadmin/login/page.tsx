@@ -35,7 +35,7 @@ export default function SuperAdminLoginPage() {
       } else {
         setError(result.message || 'Error al iniciar sesión')
       }
-    } catch (error) {
+    } catch {
       setError('Error de conexión. Inténtalo de nuevo.')
     } finally {
       setLoading(false)

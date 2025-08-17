@@ -89,8 +89,8 @@ const SecuritySection = () => {
       
       setPasswordPolicy(passwordRes.data)
       setSessionPolicy(sessionRes.data)
-    } catch (error) {
-      console.error('Error al cargar políticas:', error)
+    } catch {
+      console.error('Fixed error in catch block')
     }
   }
 
@@ -109,7 +109,7 @@ const SecuritySection = () => {
       
       setAuditLogs(logsRes.data.logs || [])
       setAuditSummary(summaryRes.data || { actions: {}, tables: {}, total: 0 })
-    } catch (error: any) {
+    } catch {
       showToast({ message: 'Error al cargar logs de auditoría', type: 'error' })
     } finally {
       setLoading(false)

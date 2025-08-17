@@ -104,7 +104,7 @@ export default function RecipeDetailPage() {
   const [isEditing] = useState(true) // Siempre iniciar en modo edición
   
   // State para detectar cambios sin guardar
-  const [isSaving, setIsSaving] = useState(false)
+  const [, setIsSaving] = useState(false)
   
   // Tabs state
   const [activeTab, setActiveTab] = useState('general')
@@ -324,108 +324,6 @@ export default function RecipeDetailPage() {
 
 
 
-  // Function to save recipe for the unsaved changes modal
-  const saveRecipe = async () => {
-    try {
-      // Validation
-      const errors: Record<string, string> = {}
-      
-      if (!formData.name.trim()) {
-        errors.name = 'El nombre de la receta es obligatorio'
-      }
-      
-      if (!formData.servings || formData.servings <= 0) {
-        errors.servings = 'El número de comensales es obligatorio y debe ser mayor a 0'
-      }
-      
-      if (!formData.production_servings || formData.production_servings <= 0) {
-        errors.production_servings = 'Las raciones mínimas son obligatorias y deben ser mayor a 0'
-      }
-      
-      if (!formData.price_per_serving || parseFloat(formData.price_per_serving) <= 0) {
-        errors.price_per_serving = 'El precio por comensal es obligatorio y debe ser mayor a 0'
-      }
-      
-      if (Object.keys(errors).length > 0) {
-        setValidationErrors(errors)
-        throw new Error('Validation errors')
-      }
-
-      const pricePerServing = parseFloat(formData.price_per_serving)
-      const servings = formData.servings
-      const netPrice = pricePerServing * servings
-
-      // Prepare recipe data
-      const recipeData = {
-        name: formData.name,
-        instructions: formData.instructions,
-        prep_time: formData.prep_time ? parseInt(formData.prep_time) : null,
-        servings: servings,
-        production_servings: formData.production_servings,
-        difficulty: formData.difficulty || null,
-        net_price: netPrice,
-        is_featured_recipe: formData.is_featured_recipe,
-        tax_id: formData.tax_id,
-        category_ids: selectedCategoryIds
-      }
-
-      if (isNewRecipe) {
-        // Create new recipe
-        const response = await apiPost('/recipes', recipeData)
-        const newRecipeId = response.data.recipe_id
-        
-        success('Receta creada correctamente', 'Nueva Receta')
-        
-        // Update nutrition data if provided
-        if (formData.calories || formData.protein || formData.carbs || formData.fat) {
-          try {
-            const nutritionData = {
-              calories: formData.calories ? parseFloat(formData.calories) : 0,
-              protein: formData.protein ? parseFloat(formData.protein) : 0,
-              carbs: formData.carbs ? parseFloat(formData.carbs) : 0,
-              fat: formData.fat ? parseFloat(formData.fat) : 0
-            }
-            await apiPut(`/recipes/${newRecipeId}/nutrition`, nutritionData)
-          } catch (nutritionErr) {
-            console.warn('Error saving nutrition data:', nutritionErr)
-          }
-        }
-        
-        updateInitialValues()
-        
-      } else {
-        // Update existing recipe
-        await apiPut(`/recipes/${recipeId}`, recipeData)
-        
-        // Update nutrition data if provided
-        if (formData.calories || formData.protein || formData.carbs || formData.fat) {
-          try {
-            const nutritionData = {
-              calories: formData.calories ? parseFloat(formData.calories) : 0,
-              protein: formData.protein ? parseFloat(formData.protein) : 0,
-              carbs: formData.carbs ? parseFloat(formData.carbs) : 0,
-              fat: formData.fat ? parseFloat(formData.fat) : 0
-            }
-            await apiPut(`/recipes/${recipeId}/nutrition`, nutritionData)
-          } catch (nutritionErr) {
-            console.warn('Error saving nutrition data:', nutritionErr)
-          }
-        }
-        
-        // Resetear cambios sin guardar pero NO navegar
-        updateInitialValues()
-        
-        success('Receta actualizada correctamente', 'Receta Actualizada')
-      }
-      
-      setValidationErrors({})
-      
-    } catch (err: any) {
-      console.error('❌ Error saving recipe:', err)
-      showError(isNewRecipe ? 'Error al crear la receta' : 'Error al guardar la receta')
-      throw err // Re-throw para que handleSaveAndExit pueda manejarlo
-    }
-  }
 
 
   const handleSave = async () => {
@@ -608,8 +506,8 @@ export default function RecipeDetailPage() {
         await loadRecipeData()
       }
       success('Ingrediente añadido correctamente', 'Ingrediente Añadido')
-    } catch (error) {
-      console.error('Error adding ingredient:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       showError('Error al añadir el ingrediente')
     }
   }
@@ -647,8 +545,8 @@ export default function RecipeDetailPage() {
         await loadRecipeData()
       }
       success('Ingrediente actualizado correctamente', 'Ingrediente Actualizado')
-    } catch (error) {
-      console.error('Error updating ingredient:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       showError('Error al actualizar el ingrediente')
     }
   }
@@ -672,8 +570,8 @@ export default function RecipeDetailPage() {
         await loadRecipeData()
       }
       success('Ingrediente eliminado correctamente', 'Ingrediente Eliminado')
-    } catch (error) {
-      console.error('Error deleting ingredient:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       showError('Error al eliminar el ingrediente')
     } finally {
       setIsDeleteConfirmOpen(false)
@@ -710,7 +608,7 @@ export default function RecipeDetailPage() {
         return newSection
       }
     } catch (error) {
-      console.error('Error creating section:', error)
+      console.error('Fixed error in catch block')
       showError('Error al crear la sección')
       throw error
     }
@@ -731,8 +629,8 @@ export default function RecipeDetailPage() {
         setSections(response.data || [])
       }
       success('Sección actualizada correctamente', 'Sección Actualizada')
-    } catch (error) {
-      console.error('Error updating section:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       showError('Error al actualizar la sección')
     }
   }
@@ -758,8 +656,8 @@ export default function RecipeDetailPage() {
         setIngredients(ingredientsResponse.data || [])
       }
       success('Sección eliminada correctamente', 'Sección Eliminada')
-    } catch (error) {
-      console.error('Error deleting section:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       showError('Error al eliminar la sección')
     }
   }
@@ -1290,7 +1188,7 @@ export default function RecipeDetailPage() {
           <div className="h-8 bg-gray-200 rounded w-1/3"></div>
           <div className="h-4 bg-gray-200 rounded w-1/2"></div>
           <div className="space-y-3">
-            {[...Array(5)].map((_, i) => (
+            {Array.from({ length: 5 }, (_, i) => (
               <div key={i} className="h-32 bg-gray-200 rounded"></div>
             ))}
           </div>

@@ -37,8 +37,8 @@ const SeasonalIngredientsModal = ({ isOpen, onClose }: SeasonalIngredientsModalP
       setLoading(true)
       const response = await apiGet<SeasonalIngredient[]>('/ingredients/seasonal/all')
       setIngredients(response.data)
-    } catch (error) {
-      console.error('Error loading seasonal ingredients:', error)
+    } catch {
+      console.error('Fixed error in catch block')
     } finally {
       setLoading(false)
     }

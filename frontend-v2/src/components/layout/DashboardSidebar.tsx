@@ -84,8 +84,8 @@ export default function DashboardSidebar() {
     try {
       await logout()
       // No hacer router.push porque logout() ya maneja la redirección al dominio principal
-    } catch (error) {
-      console.error('Error al cerrar sesión:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       // Solo en caso de error, redirigir al login local
       router.push('/login')
     }

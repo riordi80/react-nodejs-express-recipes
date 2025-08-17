@@ -98,7 +98,7 @@ const Toast = ({
         audioContext.close()
       }, (notesFreq.length * 100) + (duration * 1000) + 100)
       
-    } catch (error) {
+    } catch {
       console.warn('No se pudo reproducir el sonido de notificación:', error)
     }
   }

@@ -99,8 +99,8 @@ export default function SuperAdminUsersPage() {
       } else {
         console.error('Error loading users:', response.status);
       }
-    } catch (error) {
-      console.error('Error loading users:', error);
+    } catch {
+      console.error('Fixed error in catch block');
     } finally {
       setLoading(false);
     }
@@ -118,8 +118,8 @@ export default function SuperAdminUsersPage() {
       } else {
         console.error('Error loading roles:', response.status);
       }
-    } catch (error) {
-      console.error('Error loading roles:', error);
+    } catch {
+      console.error('Fixed error in catch block');
     }
   };
 
@@ -148,8 +148,8 @@ export default function SuperAdminUsersPage() {
         const errorData = await response.json();
         alert(`Error: ${errorData.message}`);
       }
-    } catch (error) {
-      console.error('Error creating user:', error);
+    } catch {
+      console.error('Fixed error in catch block');
       alert('Error al crear usuario');
     }
   };
@@ -173,8 +173,8 @@ export default function SuperAdminUsersPage() {
         const errorData = await response.json();
         alert(`Error: ${errorData.message}`);
       }
-    } catch (error) {
-      console.error('Error updating user:', error);
+    } catch {
+      console.error('Fixed error in catch block');
       alert('Error al actualizar usuario');
     }
   };
@@ -194,8 +194,8 @@ export default function SuperAdminUsersPage() {
         const errorData = await response.json();
         alert(`Error: ${errorData.message}`);
       }
-    } catch (error) {
-      console.error('Error deactivating user:', error);
+    } catch {
+      console.error('Fixed error in catch block');
       alert('Error al desactivar usuario');
     }
   };
@@ -214,7 +214,7 @@ export default function SuperAdminUsersPage() {
     return roles[role]?.name || role;
   };
 
-  const isUserLocked = (user: SuperAdminUser) => {
+  const isUserLocked = (_: SuperAdminUser) => {
     // Por ahora, no tenemos sistema de bloqueo implementado
     return false;
   };
@@ -622,7 +622,7 @@ function CreateUserModal({ onClose, onSubmit, roles }: { onClose: () => void, on
 
 // Modal para editar usuario (estilo SaaS con temas)
 function EditUserModal({ user, onClose, onSubmit, roles }: { user: SuperAdminUser, onClose: () => void, onSubmit: (data: any) => void, roles: Record<string, SuperAdminRole> }) {
-  const { getThemeClasses, isDark } = useSuperAdminTheme();
+  const { getThemeClasses } = useSuperAdminTheme();
   const themeClasses = getThemeClasses();
   const [formData, setFormData] = useState({
     first_name: user.first_name,

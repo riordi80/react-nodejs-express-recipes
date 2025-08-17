@@ -83,7 +83,7 @@ const navigation: NavItem[] = [
 
 export function SuperAdminSidebar() {
   const pathname = usePathname()
-  const { user, hasPermission, isFullAdmin } = useSuperAdmin()
+  const { user, hasPermission } = useSuperAdmin()
   const { getThemeClasses, isDark } = useSuperAdminTheme()
   const themeClasses = getThemeClasses()
 

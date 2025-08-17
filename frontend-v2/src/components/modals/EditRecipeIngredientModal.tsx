@@ -68,8 +68,8 @@ export default function EditRecipeIngredientModal({
       // Limpiar y cerrar el formulario de nueva sección
       setNewSectionName('')
       setIsCreatingSection(false)
-    } catch (error) {
-      console.error('Error creating section:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       alert('Error al crear la sección')
     } finally {
       setCreatingSection(false)

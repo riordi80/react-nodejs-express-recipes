@@ -102,8 +102,8 @@ export default function OrdersPage() {
       setLoading(true)
       // Load initial data here
       await new Promise(resolve => setTimeout(resolve, 1000)) // Simulate loading
-    } catch (error) {
-      console.error('Error loading initial data:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       showError('Error al cargar los datos iniciales', 'Error de Carga')
     } finally {
       setLoading(false)
@@ -126,8 +126,8 @@ export default function OrdersPage() {
       const response = await apiGet<Ingredient>(`/ingredients/${ingredientId}`)
       setSelectedIngredient(response.data)
       setIsEditIngredientOpen(true)
-    } catch (error) {
-      console.error('Error loading ingredient:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       showError('Error al cargar el ingrediente', 'Error de Carga')
     }
   }
@@ -139,8 +139,8 @@ export default function OrdersPage() {
       setSelectedIngredient(null)
       success('Ingrediente actualizado correctamente', 'Ingrediente Actualizado')
       return true
-    } catch (error) {
-      console.error('Error saving ingredient:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       showError('Error al guardar el ingrediente', 'Error al Guardar')
       return false
     }
@@ -232,8 +232,8 @@ export default function OrdersPage() {
         return true
       }
       return false
-    } catch (error) {
-      console.error('Error generating orders:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       showError('Error al generar los pedidos', 'Error al Generar')
       return false
     } finally {

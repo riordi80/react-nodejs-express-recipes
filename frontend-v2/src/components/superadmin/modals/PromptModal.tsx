@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { AlertTriangle, Check, Info, MessageSquare } from 'lucide-react'
+import { AlertTriangle, Check, MessageSquare } from 'lucide-react'
 import { useSuperAdminTheme } from '@/context/SuperAdminThemeContext'
 import ThemedModal from './ThemedModal'
 

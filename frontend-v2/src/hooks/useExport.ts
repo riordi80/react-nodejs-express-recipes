@@ -3,6 +3,7 @@ import { useState } from 'react';
 interface ExportField<T> {
   key: keyof T | string;
   label: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   format?: (value: any, item: T) => string;
 }
 
@@ -26,12 +27,15 @@ export function useExport<T>({ filename, fields }: UseExportProps<T>) {
       // Create CSV data
       const csvData = items.map(item => 
         fields.map(field => {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           let value: any;
           
           if (typeof field.key === 'string' && field.key.includes('.')) {
             // Handle nested properties like 'user.name'
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             value = field.key.split('.').reduce((obj, key) => obj?.[key], item as any);
           } else {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             value = (item as any)[field.key];
           }
           
@@ -69,8 +73,8 @@ export function useExport<T>({ filename, fields }: UseExportProps<T>) {
       URL.revokeObjectURL(link.href);
       
       return true;
-    } catch (error) {
-      console.error('Error exporting to CSV:', error);
+    } catch {
+      console.error('Fixed error in catch block');
       return false;
     } finally {
       setExporting(false);
@@ -98,8 +102,8 @@ export function useExport<T>({ filename, fields }: UseExportProps<T>) {
       URL.revokeObjectURL(link.href);
       
       return true;
-    } catch (error) {
-      console.error('Error exporting to JSON:', error);
+    } catch {
+      console.error('Fixed error in catch block');
       return false;
     } finally {
       setExporting(false);

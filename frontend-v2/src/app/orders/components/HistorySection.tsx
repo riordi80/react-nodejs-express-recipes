@@ -146,8 +146,8 @@ export default function HistorySection({ onOrderClick }: HistorySectionProps) {
 
       const response = await apiGet<HistoryResponse>(`/supplier-orders/history?${params.toString()}`)
       setHistoryData(response.data)
-    } catch (error) {
-      console.error('Error loading history:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       showError('Error al cargar el historial de pedidos', 'Error de Carga')
     } finally {
       setLoading(false)
@@ -174,8 +174,8 @@ export default function HistorySection({ onOrderClick }: HistorySectionProps) {
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
-    } catch (error) {
-      console.error('Error exporting history:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       showError('Error al exportar el historial', 'Error de Exportación')
     }
   }

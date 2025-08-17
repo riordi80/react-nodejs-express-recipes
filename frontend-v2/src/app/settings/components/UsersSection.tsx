@@ -68,7 +68,7 @@ const UsersSection = () => {
       setLoading(true)
       const response = await api.get('/users')
       setUsers(response.data)
-    } catch (error: any) {
+    } catch {
       showToast({ message: 'Error al cargar los usuarios', type: 'error' })
     } finally {
       setLoading(false)

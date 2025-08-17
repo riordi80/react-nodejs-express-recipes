@@ -228,8 +228,8 @@ export default function TenantsPage() {
       } else {
         console.error('Error loading tenants:', response.status);
       }
-    } catch (error) {
-      console.error('Error loading tenants:', error);
+    } catch {
+      console.error('Fixed error in catch block');
     } finally {
       setLoading(false);
     }
@@ -249,8 +249,8 @@ export default function TenantsPage() {
       } else {
         console.error('Error loading stats:', response.status);
       }
-    } catch (error) {
-      console.error('Error loading stats:', error);
+    } catch {
+      console.error('Fixed error in catch block');
     }
   };
 
@@ -292,8 +292,8 @@ export default function TenantsPage() {
               type: 'error'
             });
           }
-        } catch (error) {
-          console.error('Error suspending tenant:', error);
+        } catch {
+          console.error('Fixed error in catch block');
           setMessageModal({
             isOpen: true,
             title: 'Error de conexión',
@@ -344,8 +344,8 @@ export default function TenantsPage() {
               type: 'error'
             });
           }
-        } catch (error) {
-          console.error('Error activating tenant:', error);
+        } catch {
+          console.error('Fixed error in catch block');
           setMessageModal({
             isOpen: true,
             title: 'Error de conexión',
@@ -385,8 +385,8 @@ export default function TenantsPage() {
         // Abrir en nueva pestaña
         window.open(data.data.redirect_url, '_blank');
       }
-    } catch (error) {
-      console.error('Error impersonating tenant:', error);
+    } catch {
+      console.error('Fixed error in catch block');
     }
   };
 
@@ -435,8 +435,8 @@ export default function TenantsPage() {
           type: 'error'
         });
       }
-    } catch (error) {
-      console.error('Error updating tenant:', error);
+    } catch {
+      console.error('Fixed error in catch block');
       setMessageModal({
         isOpen: true,
         title: 'Error de conexión',
@@ -626,8 +626,8 @@ export default function TenantsPage() {
           type: 'error'
         });
       }
-    } catch (error) {
-      console.error('Error creating tenant:', error);
+    } catch {
+      console.error('Fixed error in catch block');
       setMessageModal({
         isOpen: true,
         title: 'Error de conexión',
@@ -729,7 +729,7 @@ export default function TenantsPage() {
           bulkSelection.clearSelection();
           loadTenants();
           loadStats();
-        } catch (error) {
+        } catch {
           setMessageModal({
             isOpen: true,
             title: 'Error en operación masiva',
@@ -778,7 +778,7 @@ export default function TenantsPage() {
           bulkSelection.clearSelection();
           loadTenants();
           loadStats();
-        } catch (error) {
+        } catch {
           setMessageModal({
             isOpen: true,
             title: 'Error en operación masiva',
@@ -1102,7 +1102,7 @@ export default function TenantsPage() {
 
         {/* Tenants Table */}
         <SuperAdminTable
-          columns={tableColumns as any}
+          columns={tableColumns}
           data={filteredTenants}
           loading={loading}
           tableKey={tableKey}

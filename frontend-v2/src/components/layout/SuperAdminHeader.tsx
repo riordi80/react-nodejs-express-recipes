@@ -10,7 +10,6 @@ import {
   UserCircleIcon,
   ArrowRightOnRectangleIcon,
   CogIcon,
-  ShieldCheckIcon,
   SunIcon,
   MoonIcon
 } from '@heroicons/react/24/outline'
@@ -18,7 +17,7 @@ import {
 export function SuperAdminHeader() {
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
-  const { user, logout, isFullAdmin } = useSuperAdmin()
+  const { user, logout } = useSuperAdmin()
   const { toggleTheme, isDark, getThemeClasses } = useSuperAdminTheme()
   const router = useRouter()
   const themeClasses = getThemeClasses()

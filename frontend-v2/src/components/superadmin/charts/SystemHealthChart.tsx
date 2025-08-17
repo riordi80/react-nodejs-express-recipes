@@ -95,13 +95,8 @@ export default function SystemHealthChart({ className = '' }: SystemHealthChartP
     return isDark ? '#ef4444' : '#dc2626' // rojo
   }
 
-  const getUsageColorBg = (usage: number) => {
-    if (usage < 50) return isDark ? '#10b98120' : '#05966920' // verde
-    if (usage < 80) return isDark ? '#f59e0b20' : '#d9770620' // amarillo
-    return isDark ? '#ef444420' : '#dc262620' // rojo
-  }
 
-  const createDoughnutData = (usage: number, label: string) => ({
+  const createDoughnutData = (usage: number, _label: string) => ({
     labels: ['Usado', 'Libre'],
     datasets: [
       {

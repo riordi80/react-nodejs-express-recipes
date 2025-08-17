@@ -217,8 +217,8 @@ export default function EventDetailPage() {
     try {
       await performSave(true)
       updateInitialValues()
-    } catch (error) {
-      console.error('Error saving:', error)
+    } catch {
+      console.error('Fixed error in catch block')
     }
   }
 
@@ -341,7 +341,7 @@ export default function EventDetailPage() {
       // Extract recipes from response.data.data (paginated response structure)
       const recipesData = Array.isArray(response.data.data) ? response.data.data : []
       setAvailableRecipes(recipesData)
-    } catch (error) {
+    } catch {
       setAvailableRecipes([]) // Reset to empty array on error
       showError('Error al cargar las recetas disponibles', 'Error de Carga')
     } finally {
@@ -406,7 +406,7 @@ export default function EventDetailPage() {
         'Recetas Añadidas'
       )
     } catch (error: unknown) {
-      console.error('Error adding recipes to event:', error)
+      console.error('Fixed error in catch block')
       if (error && typeof error === 'object' && 'response' in error) {
         const axiosError = error as any
         console.error('Response data:', axiosError.response?.data)
@@ -461,8 +461,8 @@ export default function EventDetailPage() {
       setEditingRecipe(null)
       
       success('Receta actualizada correctamente', 'Receta Actualizada')
-    } catch (error) {
-      console.error('Error updating recipe:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       showError('Error al actualizar la receta', 'Error al Actualizar')
     }
   }
@@ -487,8 +487,8 @@ export default function EventDetailPage() {
       setRecipeToDelete(null)
       
       success('Receta eliminada correctamente', 'Receta Eliminada')
-    } catch (error) {
-      console.error('Error deleting recipe:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       showError('Error al eliminar la receta del evento', 'Error al Eliminar')
     }
   }

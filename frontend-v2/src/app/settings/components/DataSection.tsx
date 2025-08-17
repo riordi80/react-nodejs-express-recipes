@@ -75,8 +75,8 @@ const DataSection = () => {
           next_backup: response.data.next_backup || ''
         })
       }
-    } catch (error) {
-      console.error('Error al cargar estado de backups:', error)
+    } catch {
+      console.error('Fixed error in catch block')
     }
   }
 
