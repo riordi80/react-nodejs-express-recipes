@@ -6,6 +6,8 @@ import {
   EyeIcon, 
   PencilIcon, 
   TrashIcon,
+  PlayIcon,
+  PauseIcon,
   UserIcon,
   ShieldCheckIcon,
   LockClosedIcon,
@@ -16,6 +18,11 @@ import {
 import { useSuperAdmin } from '@/context/SuperAdminContext';
 import { useSuperAdminTheme } from '@/context/SuperAdminThemeContext';
 import { SuperAdminStatsCards, SuperAdminFilters, SuperAdminTable } from '@/components/superadmin';
+import ConfirmModal from '@/components/superadmin/modals/ConfirmModal';
+import MessageModal from '@/components/superadmin/modals/MessageModal';
+import PromptModal from '@/components/superadmin/modals/PromptModal';
+import BulkActionsBar from '@/components/ui/BulkActionsBar';
+import { useBulkSelection } from '@/hooks/useBulkSelection';
 
 interface SuperAdminUser {
   user_id: number;
@@ -73,6 +80,29 @@ export default function SuperAdminUsersPage() {
   const [selectedUser, setSelectedUser] = useState<SuperAdminUser | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [confirmModal, setConfirmModal] = useState<{ 
+    isOpen: boolean; 
+    title: string; 
+    message: string; 
+    type: 'danger' | 'warning' | 'info' | 'success'; 
+    onConfirm: () => void;
+  }>({ isOpen: false, title: '', message: '', type: 'info', onConfirm: () => {} });
+  
+  const [messageModal, setMessageModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type: 'error' | 'warning' | 'info' | 'success';
+  }>({ isOpen: false, title: '', message: '', type: 'info' });
+
+  const [promptModal, setPromptModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    placeholder: string;
+    expectedText: string;
+    onConfirm: (inputText: string) => void;
+  }>({ isOpen: false, title: '', message: '', placeholder: '', expectedText: '', onConfirm: () => {} });
 
   useEffect(() => {
     if (!isLoading && user) {
@@ -142,15 +172,32 @@ export default function SuperAdminUsersPage() {
       });
 
       if (response.ok) {
+        const result = await response.json();
+        setMessageModal({
+          isOpen: true,
+          title: 'Usuario Creado',
+          message: `El usuario "${userData.first_name} ${userData.last_name}" ha sido creado correctamente.`,
+          type: 'success'
+        });
         loadUsers();
         setShowCreateModal(false);
       } else {
         const errorData = await response.json();
-        alert(`Error: ${errorData.message}`);
+        setMessageModal({
+          isOpen: true,
+          title: 'Error al Crear Usuario',
+          message: errorData.message || 'Error al crear usuario SuperAdmin',
+          type: 'error'
+        });
       }
-    } catch {
-      console.error('Fixed error in catch block');
-      alert('Error al crear usuario');
+    } catch (error) {
+      console.error('Error creando usuario:', error);
+      setMessageModal({
+        isOpen: true,
+        title: 'Error',
+        message: 'Error de conexión al crear usuario',
+        type: 'error'
+      });
     }
   };
 
@@ -166,47 +213,94 @@ export default function SuperAdminUsersPage() {
       });
 
       if (response.ok) {
+        setMessageModal({
+          isOpen: true,
+          title: 'Usuario Actualizado',
+          message: 'El usuario ha sido actualizado correctamente.',
+          type: 'success'
+        });
         loadUsers();
         setShowEditModal(false);
         setSelectedUser(null);
       } else {
         const errorData = await response.json();
-        alert(`Error: ${errorData.message}`);
+        setMessageModal({
+          isOpen: true,
+          title: 'Error al Actualizar',
+          message: errorData.message || 'Error al actualizar usuario',
+          type: 'error'
+        });
       }
-    } catch {
-      console.error('Fixed error in catch block');
-      alert('Error al actualizar usuario');
+    } catch (error) {
+      console.error('Error actualizando usuario:', error);
+      setMessageModal({
+        isOpen: true,
+        title: 'Error',
+        message: 'Error de conexión al actualizar usuario',
+        type: 'error'
+      });
     }
   };
 
   const handleDeactivateUser = async (userId: number, userName: string) => {
-    if (!confirm(`¿Estás seguro de que quieres desactivar al usuario "${userName}"?`)) return;
-    
-    try {
-      const response = await fetch(`/api/superadmin/users/${userId}`, {
-        method: 'DELETE',
-        credentials: 'include'
-      });
+    setConfirmModal({
+      isOpen: true,
+      title: 'Confirmar Desactivación',
+      message: `¿Estás seguro de que quieres desactivar al usuario "${userName}"? Podrá ser reactivado posteriormente.`,
+      type: 'warning',
+      onConfirm: async () => {
+        try {
+          const response = await fetch(`/api/superadmin/users/${userId}`, {
+            method: 'DELETE',
+            credentials: 'include'
+          });
 
-      if (response.ok) {
-        loadUsers();
-      } else {
-        const errorData = await response.json();
-        alert(`Error: ${errorData.message}`);
+          if (response.ok) {
+            setMessageModal({
+              isOpen: true,
+              title: 'Usuario Desactivado',
+              message: `El usuario "${userName}" ha sido desactivado correctamente.`,
+              type: 'success'
+            });
+            loadUsers();
+          } else {
+            const errorData = await response.json();
+            setMessageModal({
+              isOpen: true,
+              title: 'Error al Desactivar',
+              message: errorData.message || 'Error al desactivar usuario',
+              type: 'error'
+            });
+          }
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        } catch (error) {
+          console.error('Error desactivando usuario:', error);
+          setMessageModal({
+            isOpen: true,
+            title: 'Error',
+            message: 'Error de conexión al desactivar usuario',
+            type: 'error'
+          });
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        }
       }
-    } catch {
-      console.error('Fixed error in catch block');
-      alert('Error al desactivar usuario');
-    }
+    });
   };
 
   // Filtrar usuarios
   const filteredUsers = users.filter(user => {
-    const matchesSearch = user.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = !searchTerm || 
+      user.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchTerm.toLowerCase());
     
-    return matchesSearch;
+    const matchesStatus = statusFilter === 'all' || 
+      (statusFilter === 'active' && user.is_active) ||
+      (statusFilter === 'inactive' && !user.is_active);
+    
+    const matchesRole = roleFilter === 'all' || user.superadmin_role === roleFilter;
+    
+    return matchesSearch && matchesStatus && matchesRole;
   });
 
 
@@ -217,6 +311,112 @@ export default function SuperAdminUsersPage() {
   const isUserLocked = (_: SuperAdminUser) => {
     // Por ahora, no tenemos sistema de bloqueo implementado
     return false;
+  };
+
+  const handleActivateUser = async (userId: number, userName: string) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Confirmar Reactivación',
+      message: `¿Estás seguro de que quieres reactivar a "${userName}"? Podrá acceder inmediatamente al panel.`,
+      type: 'success',
+      onConfirm: async () => {
+        try {
+          const response = await fetch(`/api/superadmin/users/${userId}/activate`, {
+            method: 'PUT',
+            credentials: 'include'
+          });
+
+          if (response.ok) {
+            setMessageModal({
+              isOpen: true,
+              title: 'Usuario Reactivado',
+              message: `El usuario "${userName}" ha sido reactivado correctamente.`,
+              type: 'success'
+            });
+            loadUsers();
+          } else {
+            const errorData = await response.json();
+            setMessageModal({
+              isOpen: true,
+              title: 'Error al Reactivar',
+              message: errorData.message || 'Error al reactivar usuario',
+              type: 'error'
+            });
+          }
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        } catch (error) {
+          console.error('Error reactivando usuario:', error);
+          setMessageModal({
+            isOpen: true,
+            title: 'Error',
+            message: 'Error de conexión al reactivar usuario',
+            type: 'error'
+          });
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        }
+      }
+    });
+  };
+
+  const handleDeleteUser = async (userId: number, userName: string) => {
+    setPromptModal({
+      isOpen: true,
+      title: 'Eliminar Usuario Permanentemente',
+      message: `Esta acción ELIMINARÁ PERMANENTEMENTE a "${userName}" y no se puede deshacer.\n\nEscribe "${userName}" para confirmar:`,
+      placeholder: `Escribe: ${userName}`,
+      expectedText: userName,
+      onConfirm: async (inputText: string) => {
+        // Verificar que el texto ingresado coincida exactamente
+        if (inputText !== userName) {
+          setMessageModal({
+            isOpen: true,
+            title: 'Confirmación Incorrecta',
+            message: `Debes escribir exactamente "${userName}" para confirmar la eliminación.`,
+            type: 'error'
+          });
+          setPromptModal(prev => ({ ...prev, isOpen: false }));
+          return;
+        }
+
+        try {
+          const response = await fetch(`/api/superadmin/users/${userId}/permanent`, {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+            body: JSON.stringify({ confirmation: inputText })
+          });
+
+          if (response.ok) {
+            setMessageModal({
+              isOpen: true,
+              title: 'Usuario Eliminado',
+              message: `El usuario "${userName}" ha sido eliminado permanentemente.`,
+              type: 'success'
+            });
+            loadUsers();
+          } else {
+            const errorData = await response.json();
+            setMessageModal({
+              isOpen: true,
+              title: 'Error al Eliminar',
+              message: errorData.message || 'Error al eliminar el usuario',
+              type: 'error'
+            });
+          }
+          setPromptModal(prev => ({ ...prev, isOpen: false }));
+        } catch (error) {
+          setMessageModal({
+            isOpen: true,
+            title: 'Error',
+            message: 'Error al eliminar el usuario',
+            type: 'error'
+          });
+          setPromptModal(prev => ({ ...prev, isOpen: false }));
+        }
+      }
+    });
   };
 
   const formatLastLogin = (lastLogin: string | null) => {
@@ -238,6 +438,7 @@ export default function SuperAdminUsersPage() {
         edit: 'text-orange-400 hover:text-orange-300',
         deactivate: 'text-red-400 hover:text-red-300',
         activate: 'text-green-400 hover:text-green-300',
+        delete: 'text-red-500 hover:text-red-400',
         statusActive: 'text-green-400',
         statusLocked: 'text-red-400',
         statusIndicator: 'bg-green-400'
@@ -248,6 +449,7 @@ export default function SuperAdminUsersPage() {
         edit: 'text-orange-600 hover:text-orange-700',
         deactivate: 'text-red-600 hover:text-red-700',
         activate: 'text-green-600 hover:text-green-700',
+        delete: 'text-red-700 hover:text-red-800',
         statusActive: 'text-green-600',
         statusLocked: 'text-red-600',
         statusIndicator: 'bg-green-600'
@@ -259,6 +461,34 @@ export default function SuperAdminUsersPage() {
 
   // Configuración de columnas para la tabla
   const tableColumns = [
+    {
+      key: 'selection',
+      label: '',
+      width: '50px',
+      headerRender: () => (
+        <div className="flex justify-center">
+          <input
+            type="checkbox"
+            checked={bulkSelection.isAllSelected}
+            ref={(input) => {
+              if (input) input.indeterminate = bulkSelection.isIndeterminate;
+            }}
+            onChange={(e) => bulkSelection.handleSelectAll(e.target.checked)}
+            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          />
+        </div>
+      ),
+      render: (_: any, adminUser: SuperAdminUser) => (
+        <div className="flex justify-center">
+          <input
+            type="checkbox"
+            checked={bulkSelection.selectedIds.has(adminUser.user_id.toString())}
+            onChange={(e) => bulkSelection.handleSelectItem(adminUser.user_id.toString(), e.target.checked)}
+            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          />
+        </div>
+      )
+    },
     {
       key: 'user_info',
       label: 'Usuario',
@@ -352,17 +582,218 @@ export default function SuperAdminUsersPage() {
             <PencilIcon className="h-5 w-5" />
           </button>
           
-          {adminUser.user_id !== user?.user_id && adminUser.is_active && (
+          {adminUser.user_id !== user?.user_id && (
+            adminUser.is_active ? (
+              <button
+                onClick={() => handleDeactivateUser(adminUser.user_id, `${adminUser.first_name} ${adminUser.last_name}`)}
+                className={`${iconColors.deactivate} transition-colors`}
+                title="Desactivar"
+              >
+                <PauseIcon className="h-5 w-5" />
+              </button>
+            ) : (
+              <button
+                onClick={() => handleActivateUser(adminUser.user_id, `${adminUser.first_name} ${adminUser.last_name}`)}
+                className={`${iconColors.activate} transition-colors`}
+                title="Reactivar"
+              >
+                <PlayIcon className="h-5 w-5" />
+              </button>
+            )
+          )}
+          
+          {/* Botón de eliminación permanente - solo para usuarios que no son el usuario actual */}
+          {adminUser.user_id !== user?.user_id && (
             <button
-              onClick={() => handleDeactivateUser(adminUser.user_id, `${adminUser.first_name} ${adminUser.last_name}`)}
-              className={`${iconColors.deactivate} transition-colors`}
-              title="Desactivar"
+              onClick={() => handleDeleteUser(adminUser.user_id, `${adminUser.first_name} ${adminUser.last_name}`)}
+              className={`${iconColors.delete} transition-colors`}
+              title="Eliminar Permanentemente"
             >
               <TrashIcon className="h-5 w-5" />
             </button>
           )}
         </div>
       )
+    }
+  ];
+
+
+  // Initialize bulk selection
+  const bulkSelection = useBulkSelection({
+    items: filteredUsers,
+    getItemId: (user) => user.user_id.toString()
+  });
+
+  // Bulk actions handlers
+  const handleBulkDeactivate = () => {
+    if (bulkSelection.selectedCount === 0) return;
+
+    setConfirmModal({
+      isOpen: true,
+      title: `Desactivar ${bulkSelection.selectedCount} usuario${bulkSelection.selectedCount > 1 ? 's' : ''}`,
+      message: `¿Estás seguro de que quieres desactivar ${bulkSelection.selectedCount} usuario${bulkSelection.selectedCount > 1 ? 's' : ''}? No podrán acceder al panel SuperAdmin.`,
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          const promises = bulkSelection.selectedItems
+            .filter(u => u.user_id !== user?.user_id) // No deactivate self
+            .map(selectedUser => 
+              fetch(`/api/superadmin/users/${selectedUser.user_id}`, {
+                method: 'DELETE',
+                credentials: 'include'
+              })
+            );
+
+          await Promise.all(promises);
+          
+          setMessageModal({
+            isOpen: true,
+            title: 'Usuarios desactivados',
+            message: `${promises.length} usuario${promises.length !== 1 ? 's' : ''} desactivado${promises.length !== 1 ? 's' : ''} correctamente.`,
+            type: 'success'
+          });
+          
+          bulkSelection.clearSelection();
+          loadUsers();
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        } catch (error) {
+          setMessageModal({
+            isOpen: true,
+            title: 'Error',
+            message: 'Error al desactivar algunos usuarios.',
+            type: 'error'
+          });
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        }
+      }
+    });
+  };
+
+  const handleBulkActivate = () => {
+    if (bulkSelection.selectedCount === 0) return;
+
+    setConfirmModal({
+      isOpen: true,
+      title: `Activar ${bulkSelection.selectedCount} usuario${bulkSelection.selectedCount > 1 ? 's' : ''}`,
+      message: `¿Estás seguro de que quieres activar ${bulkSelection.selectedCount} usuario${bulkSelection.selectedCount > 1 ? 's' : ''}? Podrán acceder inmediatamente.`,
+      type: 'success',
+      onConfirm: async () => {
+        try {
+          const promises = bulkSelection.selectedItems.map(selectedUser => 
+            fetch(`/api/superadmin/users/${selectedUser.user_id}/activate`, {
+              method: 'PUT',
+              credentials: 'include'
+            })
+          );
+
+          await Promise.all(promises);
+          
+          setMessageModal({
+            isOpen: true,
+            title: 'Usuarios activados',
+            message: `${promises.length} usuario${promises.length !== 1 ? 's' : ''} activado${promises.length !== 1 ? 's' : ''} correctamente.`,
+            type: 'success'
+          });
+          
+          bulkSelection.clearSelection();
+          loadUsers();
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        } catch (error) {
+          setMessageModal({
+            isOpen: true,
+            title: 'Error',
+            message: 'Error al activar algunos usuarios.',
+            type: 'error'
+          });
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        }
+      }
+    });
+  };
+
+  const handleBulkDelete = () => {
+    if (bulkSelection.selectedCount === 0) return;
+
+    const eligibleUsers = bulkSelection.selectedItems.filter(u => u.user_id !== user?.user_id);
+    
+    if (eligibleUsers.length === 0) {
+      setMessageModal({
+        isOpen: true,
+        title: 'No se puede proceder',
+        message: 'No puedes eliminarte a ti mismo.',
+        type: 'error'
+      });
+      return;
+    }
+
+    setConfirmModal({
+      isOpen: true,
+      title: `Eliminar ${eligibleUsers.length} usuario${eligibleUsers.length > 1 ? 's' : ''} permanentemente`,
+      message: `Esta acción ELIMINARÁ PERMANENTEMENTE ${eligibleUsers.length} usuario${eligibleUsers.length > 1 ? 's' : ''} y no se puede deshacer. Esta operación es irreversible.`,
+      type: 'danger',
+      onConfirm: async () => {
+        try {
+          const promises = eligibleUsers.map(selectedUser => 
+            fetch(`/api/superadmin/users/${selectedUser.user_id}/permanent`, {
+              method: 'DELETE',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              credentials: 'include',
+              body: JSON.stringify({ confirmation: `${selectedUser.first_name} ${selectedUser.last_name}` })
+            })
+          );
+
+          await Promise.all(promises);
+          
+          setMessageModal({
+            isOpen: true,
+            title: 'Usuarios Eliminados',
+            message: `${eligibleUsers.length} usuario${eligibleUsers.length !== 1 ? 's' : ''} eliminado${eligibleUsers.length !== 1 ? 's' : ''} permanentemente.`,
+            type: 'success'
+          });
+          
+          bulkSelection.clearSelection();
+          loadUsers();
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        } catch (error) {
+          setMessageModal({
+            isOpen: true,
+            title: 'Error',
+            message: 'Error al eliminar algunos usuarios.',
+            type: 'error'
+          });
+          setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        }
+      }
+    });
+  };
+
+  // Define bulk actions
+  const bulkActions = [
+    {
+      id: 'deactivate',
+      label: 'Desactivar',
+      icon: <PauseIcon className="w-4 h-4" />,
+      variant: 'danger' as const,
+      onClick: handleBulkDeactivate,
+      disabled: bulkSelection.selectedItems.every(u => !u.is_active || u.user_id === user?.user_id)
+    },
+    {
+      id: 'activate',
+      label: 'Activar',
+      icon: <PlayIcon className="w-4 h-4" />,
+      variant: 'success' as const,
+      onClick: handleBulkActivate,
+      disabled: bulkSelection.selectedItems.every(u => u.is_active)
+    },
+    {
+      id: 'delete',
+      label: 'Eliminar Permanentemente',
+      icon: <TrashIcon className="w-4 h-4" />,
+      variant: 'danger' as const,
+      onClick: handleBulkDelete,
+      disabled: bulkSelection.selectedItems.every(u => u.user_id === user?.user_id)
     }
   ];
 
@@ -449,6 +880,14 @@ export default function SuperAdminUsersPage() {
           }}
         />
 
+        {/* Bulk Actions Bar */}
+        <BulkActionsBar
+          selectedCount={bulkSelection.selectedCount}
+          onClearSelection={bulkSelection.clearSelection}
+          actions={bulkActions}
+          isDark={isDark}
+        />
+
         {/* Users Table */}
         <SuperAdminTable
           columns={tableColumns}
@@ -495,6 +934,36 @@ export default function SuperAdminUsersPage() {
           roles={roles}
         />
       )}
+
+      {/* Confirm Modal */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={confirmModal.onConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        type={confirmModal.type}
+      />
+
+      {/* Message Modal */}
+      <MessageModal
+        isOpen={messageModal.isOpen}
+        onClose={() => setMessageModal(prev => ({ ...prev, isOpen: false }))}
+        title={messageModal.title}
+        message={messageModal.message}
+        type={messageModal.type}
+      />
+
+      {/* Prompt Modal */}
+      <PromptModal
+        isOpen={promptModal.isOpen}
+        onClose={() => setPromptModal(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={promptModal.onConfirm}
+        title={promptModal.title}
+        message={promptModal.message}
+        placeholder={promptModal.placeholder}
+        type="danger"
+      />
     </div>
   );
 }

@@ -236,11 +236,11 @@ router.post('/', requirePermission('manage_superadmins'), auditLog('create_super
         // Insertar permisos usando query directo
         if (finalPermissions.length > 0) {
             const permissionValues = finalPermissions.map(permission => 
-                `(${newUserId}, '${permission.replace(/'/g, "''")}')`
+                `(${newUserId}, '${permission.replace(/'/g, "''")}', ${req.superAdmin.user_id})`
             ).join(', ');
 
             await masterPool.query(`
-                INSERT INTO SUPERADMIN_PERMISSIONS (user_id, permission_type)
+                INSERT INTO SUPERADMIN_PERMISSIONS (user_id, permission_type, granted_by)
                 VALUES ${permissionValues}
             `);
         }
@@ -406,11 +406,11 @@ router.put('/:userId', requirePermission('manage_superadmins'), auditLog('update
 
             if (finalPermissions.length > 0) {
                 const permissionValues = finalPermissions.map(permission => 
-                    `(${parseInt(userId)}, '${permission.replace(/'/g, "''")}')`
+                    `(${parseInt(userId)}, '${permission.replace(/'/g, "''")}', ${req.superAdmin.user_id})`
                 ).join(', ');
 
                 await masterPool.query(`
-                    INSERT INTO SUPERADMIN_PERMISSIONS (user_id, permission_type)
+                    INSERT INTO SUPERADMIN_PERMISSIONS (user_id, permission_type, granted_by)
                     VALUES ${permissionValues}
                 `);
             }
@@ -478,6 +478,123 @@ router.delete('/:userId', requirePermission('manage_superadmins'), auditLog('dea
         res.status(500).json({
             error: 'Error del servidor',
             message: 'Error al desactivar usuario'
+        });
+    }
+});
+
+/**
+ * PUT /api/superadmin/users/:userId/activate
+ * Reactivar un usuario SuperAdmin
+ */
+router.put('/:userId/activate', requirePermission('manage_superadmins'), auditLog('activate_superadmin'), async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        // Verificar que el usuario existe y está inactivo
+        const [existingUser] = await masterPool.execute(
+            'SELECT user_id, email, first_name, last_name, is_active FROM MASTER_USERS WHERE user_id = ? AND superadmin_role IS NOT NULL',
+            [userId]
+        );
+
+        if (existingUser.length === 0) {
+            return res.status(404).json({
+                error: 'Usuario SuperAdmin no encontrado'
+            });
+        }
+
+        if (existingUser[0].is_active) {
+            return res.status(400).json({
+                error: 'El usuario ya está activo'
+            });
+        }
+
+        // Reactivar usuario
+        await masterPool.execute(
+            'UPDATE MASTER_USERS SET is_active = TRUE, updated_at = CURRENT_TIMESTAMP WHERE user_id = ?',
+            [userId]
+        );
+
+        res.json({
+            success: true,
+            message: 'Usuario reactivado correctamente',
+            data: {
+                user_id: userId,
+                email: existingUser[0].email,
+                first_name: existingUser[0].first_name,
+                last_name: existingUser[0].last_name
+            }
+        });
+
+    } catch (error) {
+        console.error('Error reactivando usuario SuperAdmin:', error);
+        res.status(500).json({
+            error: 'Error del servidor',
+            message: 'Error al reactivar usuario'
+        });
+    }
+});
+
+/**
+ * DELETE /api/superadmin/users/:userId/permanent
+ * Eliminar permanentemente un usuario SuperAdmin
+ */
+router.delete('/:userId/permanent', requirePermission('manage_superadmins'), auditLog('delete_superadmin_permanent'), async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { confirmation } = req.body;
+
+        // No permitir eliminarse a sí mismo
+        if (req.superAdmin.user_id == userId) {
+            return res.status(400).json({
+                error: 'No puedes eliminarte a ti mismo'
+            });
+        }
+
+        // Verificar que el usuario existe
+        const [existingUser] = await masterPool.execute(
+            'SELECT user_id, email, first_name, last_name FROM MASTER_USERS WHERE user_id = ? AND superadmin_role IS NOT NULL',
+            [userId]
+        );
+
+        if (existingUser.length === 0) {
+            return res.status(404).json({
+                error: 'Usuario SuperAdmin no encontrado'
+            });
+        }
+
+        const user = existingUser[0];
+        const expectedConfirmation = `${user.first_name} ${user.last_name}`;
+
+        // Verificar confirmación (nombre completo del usuario)
+        if (!confirmation || confirmation !== expectedConfirmation) {
+            return res.status(400).json({
+                error: 'Confirmación incorrecta',
+                message: `Debes escribir "${expectedConfirmation}" para confirmar la eliminación`
+            });
+        }
+
+        // Eliminar permisos asociados primero
+        await masterPool.execute(
+            'DELETE FROM SUPERADMIN_PERMISSIONS WHERE user_id = ?',
+            [userId]
+        );
+
+        // Eliminar usuario permanentemente
+        await masterPool.execute(
+            'DELETE FROM MASTER_USERS WHERE user_id = ?',
+            [userId]
+        );
+
+        res.json({
+            success: true,
+            message: 'Usuario eliminado permanentemente'
+        });
+
+    } catch (error) {
+        console.error('Error eliminando usuario SuperAdmin:', error);
+        res.status(500).json({
+            error: 'Error del servidor',
+            message: 'Error al eliminar usuario'
         });
     }
 });

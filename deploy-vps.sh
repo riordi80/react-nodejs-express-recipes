@@ -135,6 +135,39 @@ deploy_frontend() {
     fi
 }
 
+# Función para subir carpeta database
+deploy_database() {
+    show_message "Subiendo archivos SQL y scripts de database..."
+    
+    # Verificar que existe la carpeta database
+    if [ ! -d "./database" ]; then
+        show_warning "No se encontró la carpeta ./database, saltando subida de archivos SQL"
+        return 0
+    fi
+    
+    # Crear directorio database en VPS si no existe
+    run_vps_command "mkdir -p $VPS_PATH/database"
+    
+    # Subir archivos de database excluyendo temporales y backups
+    rsync -avz --progress \
+        -e "ssh $SSH_OPTS" \
+        --exclude 'temp_*.sql' \
+        --exclude '*.backup' \
+        --exclude '*.dump' \
+        --exclude '*.log' \
+        --include '*.sql' \
+        --include '*.js' \
+        --include '*.md' \
+        ./database/ $VPS_USER@$VPS_IP:$VPS_PATH/database/
+    
+    if [ $? -eq 0 ]; then
+        show_success "Archivos SQL y scripts subidos exitosamente"
+        show_message "✅ Esquemas, scripts y documentación disponibles en servidor"
+    else
+        show_warning "Error al subir archivos SQL (no crítico)"
+    fi
+}
+
 # Función para instalar dependencias en VPS
 install_dependencies() {
     show_message "Instalando dependencias en VPS..."
@@ -205,8 +238,9 @@ show_help() {
     echo ""
     echo "Opciones:"
     echo "  full        Despliegue completo (por defecto)"
-    echo "  backend     Solo desplegar backend"
-    echo "  frontend    Solo desplegar frontend"
+    echo "  backend     Solo backend + archivos SQL"
+    echo "  frontend    Solo frontend + archivos SQL"
+    echo "  database    Solo subir archivos SQL y scripts"
     echo "  quick       Despliegue rápido (sin reinstalar dependencias)"
     echo "  logs        Ver logs de la aplicación"
     echo "  status      Ver estado de servicios"
@@ -215,7 +249,8 @@ show_help() {
     echo ""
     echo "Ejemplos:"
     echo "  ./deploy-vps.sh              # Despliegue completo"
-    echo "  ./deploy-vps.sh frontend     # Solo frontend"
+    echo "  ./deploy-vps.sh frontend     # Solo frontend + archivos SQL"
+    echo "  ./deploy-vps.sh database     # Solo subir archivos SQL"
     echo "  ./deploy-vps.sh quick        # Sin reinstalar dependencias"
     echo ""
     echo "📋 CONFIGURACIÓN REQUERIDA:"
@@ -266,6 +301,7 @@ main() {
             check_vps_connection
             setup_local_env
             deploy_backend
+            deploy_database
             restart_services
             test_deployment
             ;;
@@ -273,15 +309,21 @@ main() {
             check_vps_connection
             setup_local_env
             deploy_frontend
+            deploy_database
             install_dependencies
             restart_services
             test_deployment
+            ;;
+        "database")
+            check_vps_connection
+            deploy_database
             ;;
         "quick")
             check_vps_connection
             setup_local_env
             deploy_backend
             deploy_frontend
+            deploy_database
             restart_services
             test_deployment
             ;;
@@ -290,6 +332,7 @@ main() {
             setup_local_env
             deploy_backend
             deploy_frontend
+            deploy_database
             install_dependencies
             restart_services
             test_deployment

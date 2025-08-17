@@ -221,12 +221,19 @@ async function logAuditAction(req, actionType, responseBody) {
             return;
         }
 
+        // Crear detalles de acción más compactos para audit log
         const actionDetails = {
             method: req.method,
             path: req.path,
             query: req.query,
-            body: req.body,
-            response: responseBody
+            // Solo incluir campos relevantes del body, no toda la respuesta
+            body_summary: {
+                action: actionType,
+                target: req.params.userId || req.params.tenantId || 'N/A',
+                timestamp: new Date().toISOString()
+            },
+            // No incluir toda la respuesta para ahorrar espacio
+            success: responseBody?.success || (res.statusCode < 400)
         };
 
         // Extraer IDs del request si están disponibles
