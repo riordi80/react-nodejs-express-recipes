@@ -40,7 +40,7 @@ const navigation: NavItem[] = [
     name: 'Usuarios',
     href: '/superadmin/users',
     icon: UsersIcon,
-    permission: 'manage_users'
+    permission: 'manage_superadmins'
   },
   {
     name: 'Facturación',
@@ -58,7 +58,7 @@ const navigation: NavItem[] = [
     name: 'Monitoreo',
     href: '/superadmin/monitoring',
     icon: ExclamationTriangleIcon,
-    permission: 'view_system_health'
+    permission: 'access_monitoring'
   },
   {
     name: 'Configuración',
@@ -115,8 +115,8 @@ export function SuperAdminSidebar() {
               </div>
             </div>
             <div className="ml-3">
-              <h1 className={`text-xl font-bold ${themeClasses.text}`}>Console</h1>
-              <p className={`text-xs ${themeClasses.textSecondary}`}>RecipesAPI</p>
+              <h1 className={`text-xl font-bold ${themeClasses.text}`}>RecipesAPI</h1>
+              <p className={`text-xs ${themeClasses.textSecondary}`}>Console</p>
             </div>
           </div>
         </div>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useSuperAdminTheme } from '@/context/SuperAdminThemeContext'
 import { useSuperAdmin } from '@/context/SuperAdminContext'
+import api from '@/lib/api'
 import { 
   BuildingOfficeIcon,
   CurrencyDollarIcon,
@@ -160,46 +161,53 @@ export default function MetricsGrid() {
         setLoading(true)
         setError(null)
         
-        // Temporalmente usar datos mock hasta que los endpoints estén listos
-        await new Promise(resolve => setTimeout(resolve, 1000)) // Simular delay
+        // Llamar al endpoint real del backend
+        const response = await api.get('/superadmin/dashboard/metrics')
         
-        const mockData: DashboardMetrics = {
-          tenants: {
-            total_tenants: 127,
-            active_tenants: 119,
-            trial_tenants: 5,
-            suspended_tenants: 3,
-            cancelled_tenants: 0,
-            new_today: 2
-          },
-          revenue: {
-            mrr: 24750,
-            arr: 297000,
-            paying_tenants: 119
-          },
-          system: {
-            total_api_calls: 45000,
-            avg_response_time_ms: 145,
-            total_database_size_mb: 2048
-          },
-          alerts: {
-            critical_alerts: 1
+        if (response.data.success) {
+          const data = response.data.data
+          
+          // Adaptar la estructura de datos del backend al frontend
+          const adaptedMetrics: DashboardMetrics = {
+            tenants: {
+              total_tenants: data.tenants.total_tenants || 0,
+              active_tenants: data.tenants.active_tenants || 0,
+              trial_tenants: data.tenants.trial_tenants || 0,
+              suspended_tenants: data.tenants.suspended_tenants || 0,
+              cancelled_tenants: data.tenants.cancelled_tenants || 0,
+              new_today: data.tenants.new_today || 0
+            },
+            revenue: {
+              mrr: data.revenue.mrr || 0,
+              arr: data.revenue.arr || 0,
+              paying_tenants: data.revenue.paying_tenants || 0
+            },
+            system: {
+              total_api_calls: data.system.total_api_calls || 0,
+              avg_response_time_ms: data.system.avg_response_time_ms || 0,
+              total_database_size_mb: data.system.total_database_size_mb || 0
+            },
+            alerts: {
+              critical_alerts: data.alerts.critical_alerts || 0
+            }
           }
+          
+          setMetrics(adaptedMetrics)
+        } else {
+          setError('Error al cargar métricas del servidor')
         }
-        
-        setMetrics(mockData)
-        
-        // TODO: Cuando los endpoints estén listos, descomentar esta línea:
-        // const response = await api.get('/superadmin/dashboard/metrics')
-        // if (response.data.success) {
-        //   setMetrics(response.data.data)
-        // } else {
-        //   setError('Error al cargar métricas')
-        // }
         
       } catch (err) {
         console.error('Error fetching dashboard metrics:', err)
-        setError('Error de conexión')
+        setError('Error de conexión con el servidor')
+        
+        // Fallback a datos básicos en caso de error
+        setMetrics({
+          tenants: { total_tenants: 0, active_tenants: 0, trial_tenants: 0, suspended_tenants: 0, cancelled_tenants: 0, new_today: 0 },
+          revenue: { mrr: 0, arr: 0, paying_tenants: 0 },
+          system: { total_api_calls: 0, avg_response_time_ms: 0, total_database_size_mb: 0 },
+          alerts: { critical_alerts: 0 }
+        })
       } finally {
         setLoading(false)
       }

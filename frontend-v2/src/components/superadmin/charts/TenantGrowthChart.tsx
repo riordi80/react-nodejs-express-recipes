@@ -16,6 +16,7 @@ import { Line } from 'react-chartjs-2'
 import { format, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { useSuperAdminTheme } from '@/context/SuperAdminThemeContext'
+import api from '@/lib/api'
 
 ChartJS.register(
   CategoryScale,
@@ -51,38 +52,21 @@ export default function TenantGrowthChart({ period = 30, className = '' }: Tenan
         setLoading(true)
         setError(null)
         
-        // Temporalmente usar datos mock hasta que el endpoint esté listo
-        await new Promise(resolve => setTimeout(resolve, 800)) // Simular delay
+        // Llamar al endpoint real del backend
+        const response = await api.get(`/superadmin/dashboard/charts/growth?period=${period}`)
         
-        // Generar datos mock dinámicos basados en el período
-        const mockData: GrowthDataPoint[] = []
-        const now = new Date()
-        
-        for (let i = period - 1; i >= 0; i--) {
-          const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000)
-          const newTenants = Math.floor(Math.random() * 3) + (i < 7 ? 1 : 0) // Más recientes tienen más
-          const cumulative = 127 - Math.floor(Math.random() * (i * 0.5)) // Total acumulado
-          
-          mockData.push({
-            date: date.toISOString().split('T')[0],
-            new_tenants: newTenants,
-            cumulative_tenants: Math.max(100, cumulative)
-          })
+        if (response.data.success) {
+          setData(response.data.data)
+        } else {
+          setError('Error al cargar datos de crecimiento del servidor')
         }
-        
-        setData(mockData)
-        
-        // TODO: Cuando el endpoint esté listo, descomentar:
-        // const response = await api.get(`/superadmin/dashboard/charts/growth?period=${period}`)
-        // if (response.data.success) {
-        //   setData(response.data.data)
-        // } else {
-        //   setError('Error al cargar datos de crecimiento')
-        // }
         
       } catch (err) {
         console.error('Error fetching growth data:', err)
-        setError('Error de conexión')
+        setError('Error de conexión con el servidor')
+        
+        // Fallback a datos vacíos en caso de error
+        setData([])
       } finally {
         setLoading(false)
       }

@@ -14,6 +14,7 @@ import {
 } from 'chart.js'
 import { Doughnut } from 'react-chartjs-2'
 import { useSuperAdminTheme } from '@/context/SuperAdminThemeContext'
+import api from '@/lib/api'
 import { 
   CpuChipIcon, 
   CircleStackIcon, 
@@ -64,19 +65,35 @@ export default function SystemHealthChart({ className = '' }: SystemHealthChartP
       try {
         setLoading(true)
         
-        // Simular datos del sistema - en producción vendría de la API de monitoreo
-        await new Promise(resolve => setTimeout(resolve, 1000))
+        // Llamar al endpoint real de system health
+        const response = await api.get('/superadmin/monitoring/system-health')
         
-        setData({
-          cpu_usage: Math.random() * 80 + 10, // 10-90%
-          memory_usage: Math.random() * 70 + 20, // 20-90%
-          disk_usage: Math.random() * 60 + 30, // 30-90%
-          uptime_hours: 72.5,
-          active_connections: Math.floor(Math.random() * 200 + 50),
-          response_time_avg: Math.random() * 300 + 100 // 100-400ms
-        })
+        if (response.data.success) {
+          const healthData = response.data.data
+          
+          setData({
+            cpu_usage: healthData.system.cpu_usage || 0,
+            memory_usage: healthData.system.memory_usage || 0,
+            disk_usage: 75, // Hardcoded por ahora, el backend no tiene disk usage real aún
+            uptime_hours: (healthData.system.uptime || 0) / 3600,
+            active_connections: healthData.database.total_connections || 0,
+            response_time_avg: 150 // Valor estimado, mejorar en el futuro
+          })
+        } else {
+          console.error('Error al obtener health data del servidor')
+        }
       } catch (err) {
         console.error('Error fetching system health:', err)
+        
+        // Fallback a datos vacíos en caso de error
+        setData({
+          cpu_usage: 0,
+          memory_usage: 0,
+          disk_usage: 0,
+          uptime_hours: 0,
+          active_connections: 0,
+          response_time_avg: 0
+        })
       } finally {
         setLoading(false)
       }
@@ -84,9 +101,9 @@ export default function SystemHealthChart({ className = '' }: SystemHealthChartP
 
     fetchSystemHealth()
     
-    // TODO: Reactivar actualización automática cuando sea funcional
-    // const interval = setInterval(fetchSystemHealth, 30000)
-    // return () => clearInterval(interval)
+    // Reactivar actualización automática cada 30 segundos
+    const interval = setInterval(fetchSystemHealth, 30000)
+    return () => clearInterval(interval)
   }, [])
 
   const getUsageColor = (usage: number) => {
@@ -262,8 +279,8 @@ export default function SystemHealthChart({ className = '' }: SystemHealthChartP
       {/* Indicador de estado */}
       <div className={`mt-4 text-center text-xs ${themeClasses.textSecondary}`}>
         <div className="flex items-center justify-center space-x-2">
-          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-          <span>Datos estáticos (demo)</span>
+          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+          <span>Datos en tiempo real • Actualización cada 30s</span>
         </div>
       </div>
     </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useSuperAdminTheme } from '@/context/SuperAdminThemeContext'
+import api from '@/lib/api'
 import { 
   ExclamationTriangleIcon,
   ExclamationCircleIcon,
@@ -38,54 +39,14 @@ export default function AlertsPanel({ className = '' }: AlertsPanelProps) {
       try {
         setLoading(true)
         
-        // Simular datos de alertas - en producción vendría de la API
-        await new Promise(resolve => setTimeout(resolve, 1000))
+        // Llamar al endpoint real de alertas del sistema de monitoreo
+        const response = await api.get('/superadmin/monitoring/alerts?filter=unresolved&limit=5')
         
-        const mockAlerts: SystemAlert[] = [
-          {
-            alert_id: '1',
-            type: 'critical',
-            title: 'Alto uso de CPU en servidor principal',
-            message: 'El servidor DB-01 está experimentando un uso de CPU del 89% durante los últimos 15 minutos.',
-            created_at: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30 min ago
-            action_required: true,
-            affected_tenants: ['tenant-restaurant-abc', 'tenant-pizzeria-roma']
-          },
-          {
-            alert_id: '2',
-            type: 'warning',
-            title: 'Tenant con pagos pendientes',
-            message: 'El tenant "restaurant-moroso" tiene 3 intentos de pago fallidos.',
-            created_at: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
-            action_required: true,
-            affected_tenants: ['tenant-restaurant-moroso']
-          },
-          {
-            alert_id: '3',
-            type: 'info',
-            title: 'Backup programado completado',
-            message: 'El backup diario de todas las bases de datos se completó exitosamente.',
-            created_at: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString(), // 6 hours ago
-            resolved_at: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString(),
-          },
-          {
-            alert_id: '4',
-            type: 'warning',
-            title: 'Límite de almacenamiento próximo',
-            message: 'El almacenamiento total está al 82% de capacidad. Considerar expansión.',
-            created_at: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(), // 12 hours ago
-          },
-          {
-            alert_id: '5',
-            type: 'success',
-            title: 'Actualización del sistema completada',
-            message: 'La actualización de seguridad v2.1.4 se instaló correctamente en todos los servidores.',
-            created_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 day ago
-            resolved_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-          }
-        ]
-        
-        setAlerts(mockAlerts)
+        if (response.data.success) {
+          setAlerts(response.data.data)
+        } else {
+          setError('Error al cargar alertas del servidor')
+        }
       } catch {
         console.error('Fixed error in catch block')
       } finally {

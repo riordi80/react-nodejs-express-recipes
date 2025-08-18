@@ -16,6 +16,7 @@ import { Bar } from 'react-chartjs-2'
 import { format } from 'date-fns'
 import { es } from 'date-fns/locale'
 import { useSuperAdminTheme } from '@/context/SuperAdminThemeContext'
+import api from '@/lib/api'
 
 ChartJS.register(
   CategoryScale,
@@ -51,40 +52,21 @@ export default function RevenueChart({ period = 12, className = '' }: RevenueCha
         setLoading(true)
         setError(null)
         
-        // Temporalmente usar datos mock hasta que el endpoint esté listo
-        await new Promise(resolve => setTimeout(resolve, 1200)) // Simular delay
+        // Llamar al endpoint real del backend
+        const response = await api.get(`/superadmin/dashboard/charts/revenue?period=${period}`)
         
-        // Generar datos mock de ingresos para los últimos 12 meses
-        const mockData: RevenueDataPoint[] = []
-        const now = new Date()
-        
-        for (let i = period - 1; i >= 0; i--) {
-          const date = new Date(now.getFullYear(), now.getMonth() - i, 1)
-          const baseRevenue = 18000 + (period - i - 1) * 1200 // Crecimiento gradual
-          const variance = Math.random() * 2000 - 1000 // Variación aleatoria
-          const revenue = Math.max(15000, baseRevenue + variance)
-          const newSubscribers = Math.floor(Math.random() * 15) + 8
-          
-          mockData.push({
-            month: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`,
-            monthly_revenue: Math.round(revenue),
-            new_subscribers: newSubscribers
-          })
+        if (response.data.success) {
+          setData(response.data.data)
+        } else {
+          setError('Error al cargar datos de ingresos del servidor')
         }
-        
-        setData(mockData)
-        
-        // TODO: Cuando el endpoint esté listo, descomentar:
-        // const response = await api.get(`/superadmin/dashboard/charts/revenue?period=${period}`)
-        // if (response.data.success) {
-        //   setData(response.data.data)
-        // } else {
-        //   setError('Error al cargar datos de ingresos')
-        // }
         
       } catch (err) {
         console.error('Error fetching revenue data:', err)
-        setError('Error de conexión')
+        setError('Error de conexión con el servidor')
+        
+        // Fallback a datos vacíos en caso de error
+        setData([])
       } finally {
         setLoading(false)
       }
