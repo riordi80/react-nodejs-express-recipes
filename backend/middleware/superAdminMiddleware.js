@@ -322,10 +322,10 @@ function hasPermission(superAdminUser, permission) {
  */
 function getPermissionsByRole(role) {
     const rolePermissions = {
-        'super_admin_full': ['create_tenants', 'delete_tenants', 'manage_billing', 'access_monitoring', 'manage_superadmins', 'impersonate_tenants', 'configure_system'],
+        'super_admin_full': ['create_tenants', 'delete_tenants', 'manage_billing', 'access_monitoring', 'manage_superadmins', 'configure_system'],
         'super_admin_read': ['access_monitoring'],
         'super_admin_billing': ['manage_billing'],
-        'super_admin_support': ['impersonate_tenants', 'access_monitoring'],
+        'super_admin_support': ['access_monitoring'],
         'super_admin_dev': ['access_monitoring', 'configure_system']
     };
 

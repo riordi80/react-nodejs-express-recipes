@@ -360,36 +360,6 @@ export default function TenantsPage() {
     });
   };
 
-  const handleImpersonate = async (tenant: Tenant) => {
-    setConfirmModal({
-      isOpen: true,
-      title: 'Acceder como Administrador',
-      message: `¿Quieres acceder como administrador al tenant "${tenant.business_name}"?`,
-      type: 'info',
-      confirmText: 'Acceder',
-      onConfirm: async () => {
-        // Continúa con el resto de la función original
-        handleImpersonateExecution(tenant);
-      }
-    });
-  };
-
-  const handleImpersonateExecution = async (tenant: Tenant) => {
-    
-    try {
-      const response = await fetch(`/api/superadmin/tenants/${tenant.tenant_id}/impersonate`, {
-        method: 'POST',
-        credentials: 'include'
-      });
-      if (response.ok) {
-        const data = await response.json();
-        // Abrir en nueva pestaña
-        window.open(data.data.redirect_url, '_blank');
-      }
-    } catch {
-      console.error('Fixed error in catch block');
-    }
-  };
 
   const handleDeleteTenant = async (tenantId: string) => {
     // Encontrar el tenant por ID para obtener el subdomain
@@ -785,7 +755,6 @@ Eliminado:
       return {
         view: 'text-blue-400 hover:text-blue-300',
         edit: 'text-orange-400 hover:text-orange-300',
-        impersonate: 'text-green-400 hover:text-green-300',
         delete: 'text-red-600 hover:text-red-500',
         suspend: 'text-red-400 hover:text-red-300',
         activate: 'text-green-400 hover:text-green-300'
@@ -794,7 +763,6 @@ Eliminado:
       return {
         view: 'text-blue-600 hover:text-blue-700',
         edit: 'text-orange-600 hover:text-orange-700',
-        impersonate: 'text-green-600 hover:text-green-700',
         delete: 'text-red-600 hover:text-red-700',
         suspend: 'text-red-600 hover:text-red-700',
         activate: 'text-green-600 hover:text-green-700'
@@ -1164,13 +1132,6 @@ Para confirmar, escribe exactamente "ELIMINAR":`,
             <PencilIcon className="h-5 w-5" />
           </button>
           
-          <button
-            onClick={() => handleImpersonate(tenant)}
-            className={`${iconColors.impersonate} transition-colors`}
-            title="Impersonar"
-          >
-            <UserIcon className="h-5 w-5" />
-          </button>
 
           <button
             onClick={() => handleDeleteTenant(tenant.tenant_id)}

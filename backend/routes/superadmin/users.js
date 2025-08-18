@@ -127,7 +127,7 @@ router.get('/roles', requirePermission('manage_superadmins'), async (req, res) =
             'super_admin_full': {
                 name: 'SuperAdmin Completo',
                 description: 'Acceso completo a todas las funciones del sistema',
-                permissions: ['create_tenants', 'delete_tenants', 'manage_billing', 'access_monitoring', 'manage_superadmins', 'impersonate_tenants', 'configure_system']
+                permissions: ['create_tenants', 'delete_tenants', 'manage_billing', 'access_monitoring', 'manage_superadmins', 'configure_system']
             },
             'super_admin_read': {
                 name: 'SuperAdmin Solo Lectura',
@@ -141,8 +141,8 @@ router.get('/roles', requirePermission('manage_superadmins'), async (req, res) =
             },
             'super_admin_support': {
                 name: 'SuperAdmin Soporte',
-                description: 'Acceso para impersonar tenants y ver monitoreo',
-                permissions: ['impersonate_tenants', 'access_monitoring']
+                description: 'Acceso a monitoreo y soporte',
+                permissions: ['access_monitoring']
             },
             'super_admin_dev': {
                 name: 'SuperAdmin Desarrollo',

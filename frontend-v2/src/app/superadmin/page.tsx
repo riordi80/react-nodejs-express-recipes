@@ -8,7 +8,6 @@ import {
   ChartBarIcon,
   ExclamationTriangleIcon,
   ClockIcon,
-  EyeIcon,
   CogIcon
 } from '@heroicons/react/24/outline'
 
@@ -77,8 +76,6 @@ export default function SuperAdminDashboard() {
         return <ChartBarIcon className="h-5 w-5" />
       case 'suspend_tenant':
         return <ExclamationTriangleIcon className="h-5 w-5" />
-      case 'impersonate_tenant':
-        return <EyeIcon className="h-5 w-5" />
       case 'update_tenant':
         return <CogIcon className="h-5 w-5" />
       default:
@@ -128,8 +125,6 @@ export default function SuperAdminDashboard() {
         return `${userName} suspendió el tenant "${tenantName}"`
       case 'update_tenant':
         return `${userName} actualizó el tenant "${tenantName}"`
-      case 'impersonate_tenant':
-        return `${userName} accedió al panel del tenant "${tenantName}"`
       default:
         return `${userName} realizó: ${activity.action_type}`
     }

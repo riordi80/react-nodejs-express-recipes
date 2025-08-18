@@ -442,15 +442,14 @@ export default function SuperAdminDemoPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex items-center justify-end space-x-1">
-                          <Button size="sm" variant="ghost" icon={Eye} />
-                          <Button size="sm" variant="ghost" icon={Edit} />
+                          <Button size="sm" variant="ghost" icon={Eye}>Ver</Button>
+                          <Button size="sm" variant="ghost" icon={Edit}>Editar</Button>
                           <Dropdown
-                            trigger={<Button size="sm" variant="ghost" icon={Settings} />}
+                            trigger={<Button size="sm" variant="ghost" icon={Settings}>Opciones</Button>}
                             items={[
                               { label: 'Ver detalles', value: 'view', icon: Eye },
                               { label: 'Editar', value: 'edit', icon: Edit },
                               { label: 'Suspender', value: 'suspend', icon: Ban },
-                              { label: 'Acceder como admin', value: 'impersonate', icon: Crown },
                               { label: 'Eliminar', value: 'delete', icon: Trash2 }
                             ]}
                             onSelect={(item) => info(`Acción seleccionada: ${item.label} para ${tenant.business_name}`)}
@@ -650,7 +649,6 @@ export default function SuperAdminDemoPage() {
                       { value: 'create_tenants', label: 'Crear Tenants' },
                       { value: 'manage_billing', label: 'Gestionar Facturación' },
                       { value: 'access_monitoring', label: 'Acceso a Monitoreo' },
-                      { value: 'impersonate_tenants', label: 'Acceder como Tenant' }
                     ]}
                     selected={['access_monitoring']}
                     onChange={() => {}}
@@ -684,7 +682,7 @@ export default function SuperAdminDemoPage() {
                   <Button variant="outline" icon={Crown} size="sm" fullWidth>
                     Acceder como Admin
                   </Button>
-                  <Button variant="warning" icon={Pause} size="sm" fullWidth>
+                  <Button variant="outline" icon={Pause} size="sm" fullWidth>
                     Suspender Cuenta
                   </Button>
                   <Button variant="danger" icon={Ban} size="sm" fullWidth>
@@ -773,7 +771,7 @@ export default function SuperAdminDemoPage() {
                     5 tenants con trial expirando en los próximos 3 días. Se recomienda seguimiento comercial.
                   </p>
                   <div className="flex gap-2 mt-3">
-                    <Button size="sm" variant="warning">
+                    <Button size="sm" variant="outline">
                       Ver Lista
                     </Button>
                     <Button size="sm" variant="outline">
