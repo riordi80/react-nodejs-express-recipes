@@ -15,6 +15,29 @@ export default function SuperAdminLoginPage() {
   const { user, login } = useSuperAdmin()
   const router = useRouter()
 
+  // Función para obtener URL del dominio principal
+  const getMainDomainUrl = () => {
+    if (typeof window === 'undefined') return '/'
+    
+    // Usar variable de entorno si está disponible
+    const clientUrl = process.env.NEXT_PUBLIC_CLIENT_URL
+    if (clientUrl) {
+      return clientUrl
+    }
+    
+    // Fallback: construir desde hostname actual
+    const hostname = window.location.hostname
+    if (hostname.includes('.')) {
+      const parts = hostname.split('.')
+      if (parts.length >= 2) {
+        const baseDomain = parts.slice(-2).join('.')
+        return `${window.location.protocol}//recipes.${baseDomain}`
+      }
+    }
+    
+    return '/'
+  }
+
   // Redirigir si ya está autenticado
   useEffect(() => {
     if (user) {
@@ -52,9 +75,12 @@ export default function SuperAdminLoginPage() {
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div>
-          <div className="mx-auto h-16 w-16 bg-blue-600 rounded-xl flex items-center justify-center">
+          <a 
+            href={getMainDomainUrl()} 
+            className="mx-auto h-16 w-16 bg-blue-600 rounded-xl flex items-center justify-center hover:bg-blue-700 transition-colors"
+          >
             <ShieldCheckIcon className="h-10 w-10 text-white" />
-          </div>
+          </a>
           <h2 className="mt-6 text-center text-3xl font-bold text-white">
             SuperAdmin Console
           </h2>

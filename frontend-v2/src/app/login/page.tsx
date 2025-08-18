@@ -33,6 +33,32 @@ export default function CentralLoginPage() {
   const [animatingOut, setAnimatingOut] = useState(false)
   const [currentStep, setCurrentStep] = useState<'email' | 'found' | 'login'>('email')
 
+  // Función para obtener URL del dominio principal
+  const getMainDomainUrl = () => {
+    if (typeof window === 'undefined') return '/'
+    
+    // Usar variable de entorno si está disponible
+    const clientUrl = process.env.NEXT_PUBLIC_CLIENT_URL
+    if (clientUrl) {
+      return clientUrl
+    }
+    
+    if (config?.multitenant) {
+      // En multi-tenant, redirigir al dominio principal
+      const hostname = window.location.hostname
+      if (hostname.includes('.')) {
+        const parts = hostname.split('.')
+        if (parts.length >= 2) {
+          const baseDomain = parts.slice(-2).join('.')
+          return `${window.location.protocol}//recipes.${baseDomain}`
+        }
+      }
+    }
+    
+    // Fallback a home relativa
+    return '/'
+  }
+
   // Cargar configuración runtime al montar el componente
   useEffect(() => {
     const loadConfig = async () => {
@@ -265,10 +291,13 @@ export default function CentralLoginPage() {
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
-          <Link href="/" className="flex items-center justify-center space-x-2 mb-6">
+          <a 
+            href={getMainDomainUrl()} 
+            className="flex items-center justify-center space-x-2 mb-6 hover:opacity-80 transition-opacity"
+          >
             <ChefHat className="h-10 w-10 text-orange-600" />
             <span className="text-2xl font-bold text-gray-900">RecetasAPI</span>
-          </Link>
+          </a>
           <h2 className="text-3xl font-bold text-gray-900">
             Acceso al Sistema
           </h2>
