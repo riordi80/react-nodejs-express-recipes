@@ -371,7 +371,7 @@ router.get('/tenants-health', requirePermission('access_monitoring'), async (req
         const [tenants] = await masterPool.execute(`
             SELECT tenant_id, subdomain, business_name, subscription_status, created_at
             FROM TENANTS 
-            WHERE status = 'active'
+            WHERE is_active = TRUE
             ORDER BY business_name
         `);
 
