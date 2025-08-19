@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { 
   ArrowLeft, 
@@ -173,7 +173,7 @@ export default function EventDetailPage() {
   })
 
   // Load event data
-  const loadEventData = useCallback(async () => {
+  const loadEventData = async () => {
     try {
       setLoading(true)
       const eventResponse = await apiGet<Event & { menu?: EventRecipe[] }>(`/events/${eventId}`)
@@ -181,8 +181,6 @@ export default function EventDetailPage() {
       const eventData = eventResponse.data
       setEvent(eventData)
       setEventRecipes(eventData.menu || [])
-      
-      
       
       // Set form data
       setFormData({
@@ -202,7 +200,7 @@ export default function EventDetailPage() {
     } finally {
       setLoading(false)
     }
-  }, [eventId, showError])
+  }
 
   useEffect(() => {
     if (!isNewEvent) {
@@ -210,7 +208,7 @@ export default function EventDetailPage() {
     } else {
       setLoading(false)
     }
-  }, [eventId, isNewEvent, loadEventData])
+  }, [eventId, isNewEvent]) // Removed loadEventData from dependencies
 
   // Función principal de guardado
   const handleSave = async () => {
@@ -501,6 +499,92 @@ export default function EventDetailPage() {
   }
 
   // Tab content renderers
+  const renderMenuTab = () => (
+    <div className="space-y-6">
+      {/* Menu */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <div className="bg-orange-100 p-2 rounded-lg">
+              <Utensils className="h-5 w-5 text-orange-600" />
+            </div>
+            Menú del Evento
+          </h3>
+          <button 
+            onClick={openAddRecipeModal}
+            className="inline-flex items-center text-orange-600 hover:text-orange-700 text-sm font-medium transition-colors"
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Añadir
+          </button>
+        </div>
+        
+        <div>
+          {eventRecipes.length > 0 ? (
+            <div className="space-y-4">
+              {eventRecipes.map((recipe) => (
+                <div key={recipe.recipe_id} className="group relative flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors overflow-hidden">
+                  <div className="flex items-center space-x-3">
+                    <div className="bg-orange-100 p-2 rounded-full">
+                      <ChefHat className="h-4 w-4 text-orange-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">{recipe.recipe_name}</p>
+                      <p className="text-sm text-gray-500">
+                        {courseTypeLabels[recipe.course_type]} • {recipe.portions} raciones
+                      </p>
+                      {recipe.notes && (
+                        <p className="text-xs text-gray-400 mt-1 italic">{recipe.notes}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3 flex-shrink-0 min-w-0">
+                    <div className="text-right">
+                      <p className="text-sm font-medium text-gray-900">
+                        €{calculateRecipeCost(recipe).toLocaleString('es-ES', { 
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2 
+                        })}
+                      </p>
+                    </div>
+                    {/* Actions buttons - always visible on mobile, hover on desktop */}
+                    <div className="flex items-center space-x-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex-shrink-0">
+                      <button
+                        onClick={() => openEditRecipeModal(recipe)}
+                        className="p-1.5 md:p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded transition-colors"
+                        title="Editar receta"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => openDeleteRecipeModal(recipe)}
+                        className="p-1.5 md:p-1 text-red-600 hover:text-red-800 hover:bg-red-100 rounded transition-colors"
+                        title="Eliminar receta"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Utensils className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+              <p className="text-gray-500">No hay recetas en el menú</p>
+              <button 
+                onClick={openAddRecipeModal}
+                className="mt-2 text-orange-600 hover:text-orange-700 transition-colors"
+              >
+                Añadir primera receta
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+
   const renderGeneralTab = () => (
     <div className="space-y-6">
       {/* Event Details */}
@@ -695,91 +779,6 @@ export default function EventDetailPage() {
     </div>
   )
 
-  const renderMenuTab = () => (
-    <div className="space-y-6">
-      {/* Menu */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-            <div className="bg-orange-100 p-2 rounded-lg">
-              <Utensils className="h-5 w-5 text-orange-600" />
-            </div>
-            Menú del Evento
-          </h3>
-          <button 
-            onClick={openAddRecipeModal}
-            className="inline-flex items-center text-orange-600 hover:text-orange-700 text-sm font-medium transition-colors"
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            Añadir
-          </button>
-        </div>
-        
-        <div>
-          {eventRecipes.length > 0 ? (
-            <div className="space-y-4">
-              {eventRecipes.map((recipe) => (
-                <div key={recipe.recipe_id} className="group relative flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors overflow-hidden">
-                  <div className="flex items-center space-x-3">
-                    <div className="bg-orange-100 p-2 rounded-full">
-                      <ChefHat className="h-4 w-4 text-orange-600" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900">{recipe.recipe_name}</p>
-                      <p className="text-sm text-gray-500">
-                        {courseTypeLabels[recipe.course_type]} • {recipe.portions} raciones
-                      </p>
-                      {recipe.notes && (
-                        <p className="text-xs text-gray-400 mt-1 italic">{recipe.notes}</p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3 flex-shrink-0 min-w-0">
-                    <div className="text-right">
-                      <p className="text-sm font-medium text-gray-900">
-                        €{calculateRecipeCost(recipe).toLocaleString('es-ES', { 
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2 
-                        })}
-                      </p>
-                    </div>
-                    {/* Actions buttons - always visible on mobile, hover on desktop */}
-                    <div className="flex items-center space-x-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex-shrink-0">
-                      <button
-                        onClick={() => openEditRecipeModal(recipe)}
-                        className="p-1.5 md:p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded transition-colors"
-                        title="Editar receta"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => openDeleteRecipeModal(recipe)}
-                        className="p-1.5 md:p-1 text-red-600 hover:text-red-800 hover:bg-red-100 rounded transition-colors"
-                        title="Eliminar receta"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <Utensils className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-              <p className="text-gray-500">No hay recetas en el menú</p>
-              <button 
-                onClick={openAddRecipeModal}
-                className="mt-2 text-orange-600 hover:text-orange-700 transition-colors"
-              >
-                Añadir primera receta
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
 
   if (loading) {
     return (
@@ -1024,23 +1023,118 @@ export default function EventDetailPage() {
       {/* Main Content with Tabs */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
-          <UnifiedTabs
-            variant="detail"
-            mobileStyle="orange"
-            tabs={[
-              { id: 'general', label: 'Información General', icon: Info },
-              { id: 'menu', label: 'Menú del Evento', icon: Utensils }
-            ]}
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-          >
-            {activeTab === 'general' && renderGeneralTab()}
-            {activeTab === 'menu' && renderMenuTab()}
-          </UnifiedTabs>
+          {!isNewEvent ? (
+            <UnifiedTabs
+              variant="detail"
+              mobileStyle="orange"
+              tabs={[
+                { id: 'general', label: 'Información General', icon: Info },
+                { id: 'menu', label: 'Menú del Evento', icon: Utensils }
+              ]}
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+            >
+              {activeTab === 'general' && renderGeneralTab()}
+              {activeTab === 'menu' && renderMenuTab()}
+            </UnifiedTabs>
+          ) : (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              {renderGeneralTab()}
+            </div>
+          )}
         </div>
 
         {/* Sidebar */}
         <div className="space-y-6">
+          
+          {/* Menu Section - Moved from tabs */}
+          {
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <div className="bg-orange-100 p-2 rounded-lg">
+                    <Utensils className="h-5 w-5 text-orange-600" />
+                  </div>
+                  Menú del Evento
+                </h3>
+                {!isNewEvent && (
+                  <button 
+                    onClick={openAddRecipeModal}
+                    className="inline-flex items-center text-orange-600 hover:text-orange-700 text-sm font-medium transition-colors"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Añadir
+                  </button>
+                )}
+              </div>
+              
+              <div>
+                {eventRecipes.length > 0 ? (
+                  <div className="space-y-3">
+                    {eventRecipes.map((recipe) => (
+                      <div key={recipe.recipe_id} className="group relative flex flex-col p-3 border border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors">
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center space-x-2 flex-1 min-w-0">
+                            <div className="bg-orange-100 p-1.5 rounded-full flex-shrink-0">
+                              <ChefHat className="h-3 w-3 text-orange-600" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium text-gray-900 text-sm truncate">{recipe.recipe_name}</p>
+                              <p className="text-xs text-gray-500">
+                                {courseTypeLabels[recipe.course_type]} • {recipe.portions} raciones
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center space-x-1 flex-shrink-0">
+                            <button
+                              onClick={() => openEditRecipeModal(recipe)}
+                              className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded transition-colors opacity-0 group-hover:opacity-100"
+                              title="Editar receta"
+                            >
+                              <Edit className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={() => openDeleteRecipeModal(recipe)}
+                              className="p-1 text-red-600 hover:text-red-800 hover:bg-red-100 rounded transition-colors opacity-0 group-hover:opacity-100"
+                              title="Eliminar receta"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                        {recipe.notes && (
+                          <p className="text-xs text-gray-400 mt-2 italic pl-5">{recipe.notes}</p>
+                        )}
+                        <div className="text-right mt-2">
+                          <p className="text-sm font-medium text-gray-900">
+                            €{calculateRecipeCost(recipe).toLocaleString('es-ES', { 
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2 
+                            })}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <Utensils className="h-8 w-8 mx-auto text-gray-400 mb-3" />
+                    <p className="text-gray-500 text-sm">
+                      {isNewEvent ? 'Guarda el evento primero para añadir recetas' : 'No hay recetas en el menú'}
+                    </p>
+                    {!isNewEvent && (
+                      <button 
+                        onClick={openAddRecipeModal}
+                        className="mt-2 text-orange-600 hover:text-orange-700 transition-colors text-sm"
+                      >
+                        Añadir primera receta
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          }
 
           {/* Cost Analysis */}
           {event && (() => {

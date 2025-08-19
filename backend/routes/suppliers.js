@@ -160,7 +160,7 @@ router.get('/:id/ingredients', authenticateToken, authorizeRoles('admin', 'suppl
     // Obtener ingredientes paginados y ordenados
     const [rows] = await req.tenantDb.query(`
       SELECT si.ingredient_id, i.name as ingredient_name, si.price, si.delivery_time, si.is_preferred_supplier, 
-             si.package_size, si.package_unit, si.minimum_order_quantity, si.updated_at
+             si.package_size, si.package_unit, si.minimum_order_quantity
       FROM SUPPLIER_INGREDIENTS si
       JOIN INGREDIENTS i ON si.ingredient_id = i.ingredient_id
       WHERE si.supplier_id = ?
@@ -238,11 +238,30 @@ router.get('/:id/orders', authenticateToken, authorizeRoles('admin', 'supplier_m
         ORDER BY i.name
       `, [order.order_id]);
       
+      let sourceEvents = [];
+      try {
+        // Verificar si ya es un array (MySQL puede devolver JSON como objeto)
+        if (Array.isArray(order.source_events)) {
+          sourceEvents = order.source_events;
+        } else if (typeof order.source_events === 'string') {
+          sourceEvents = JSON.parse(order.source_events);
+        } else if (order.source_events) {
+          sourceEvents = order.source_events;
+        } else {
+          sourceEvents = [];
+        }
+      } catch (error) {
+        console.log('Error parsing source_events JSON for order', order.order_id, ':', error.message);
+        console.log('Type of source_events:', typeof order.source_events);
+        console.log('Raw source_events value:', JSON.stringify(order.source_events));
+        sourceEvents = [];
+      }
+
       return {
         ...order,
         items,
         created_by: `${order.first_name || ''} ${order.last_name || ''}`.trim(),
-        source_events: order.source_events ? JSON.parse(order.source_events) : []
+        source_events: sourceEvents
       };
     }));
     

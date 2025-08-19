@@ -476,12 +476,12 @@ export default function SupplierDetailPage() {
       {/* Main Content */}
       <div className="lg:col-span-2 space-y-6">
         {/* Basic Information */}
-        <div className="bg-gray-50 rounded-lg p-6">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <div className="bg-orange-100 p-2 rounded-lg">
               <Building className="h-5 w-5 text-orange-600" />
             </div>
-            Información Básica
+            Información General
           </h3>
           
           <div className="space-y-6">
@@ -640,7 +640,7 @@ export default function SupplierDetailPage() {
       <div className="space-y-6">
         {/* Contact Information */}
         {supplier && !isNewSupplier && (
-          <div className="bg-gray-50 rounded-lg p-6">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <div className="bg-orange-100 p-2 rounded-lg">
                 <Users className="h-5 w-5 text-orange-600" />
@@ -693,7 +693,7 @@ export default function SupplierDetailPage() {
         )}
 
         {/* Notes */}
-        <div className="bg-gray-50 rounded-lg p-6">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <div className="bg-orange-100 p-2 rounded-lg">
               <FileText className="h-5 w-5 text-orange-600" />
@@ -718,7 +718,7 @@ export default function SupplierDetailPage() {
 
         {/* Additional Info */}
         {supplier && !isEditing && (
-          <div className="bg-gray-50 rounded-lg p-6">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
               <div className="bg-orange-100 p-2 rounded-lg">
                 <Info className="h-5 w-5 text-orange-600" />
@@ -747,7 +747,7 @@ export default function SupplierDetailPage() {
 
   const renderIngredientsTab = () => (
     <div className="space-y-6">
-      <div className="bg-gray-50 rounded-lg p-6">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
             <div className="bg-orange-100 p-2 rounded-lg">
@@ -915,7 +915,7 @@ export default function SupplierDetailPage() {
 
     return (
       <div className="space-y-6">
-        <div className="bg-gray-50 rounded-lg p-6">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-6 flex items-center gap-2">
             <div className="bg-orange-100 p-2 rounded-lg">
               <History className="h-5 w-5 text-orange-600" />

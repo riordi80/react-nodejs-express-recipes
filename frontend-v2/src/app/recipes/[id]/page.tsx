@@ -20,14 +20,21 @@ import {
   BookOpen
 } from 'lucide-react'
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api'
+import { useToastHelpers } from '@/context/ToastContext'
+import { useUnsavedChanges } from '@/hooks/useUnsavedChangesSimple'
+import { 
+  difficultyOptions, 
+  difficultyTranslations, 
+  difficultyColors, 
+  defaultRecipeValues 
+} from '@/constants/forms'
+
+// Component imports
 import AddIngredientToRecipeModal from '@/components/modals/AddIngredientToRecipeModal'
 import EditRecipeIngredientModal from '@/components/modals/EditRecipeIngredientModal'
 import ManageSectionsModal from '@/components/modals/ManageSectionsModal'
 import ConfirmModal from '@/components/ui/ConfirmModal'
-// import Modal from '@/components/ui/Modal' // Currently unused
-import { useToastHelpers } from '@/context/ToastContext'
 import UnifiedTabs from '@/components/ui/DetailTabs'
-import { useUnsavedChanges } from '@/hooks/useUnsavedChangesSimple'
 
 interface Recipe {
   recipe_id: number
@@ -76,13 +83,6 @@ interface Section {
   section_id: number
   name: string
 }
-
-import { 
-  difficultyOptions, 
-  difficultyTranslations, 
-  difficultyColors, 
-  defaultRecipeValues 
-} from '@/constants/forms'
 
 export default function RecipeDetailPage() {
   const params = useParams()
@@ -144,6 +144,67 @@ export default function RecipeDetailPage() {
     isLoading: loading
   })
 
+  // Load recipe data function
+  const loadRecipeData = async () => {
+    try {
+      setLoading(true)
+      
+      // Load basic recipe data, ingredients, and sections
+      const [recipeResponse, ingredientsResponse, sectionsResponse] = await Promise.all([
+        apiGet<Recipe>(`/recipes/${recipeId}`),
+        apiGet<RecipeIngredient[]>(`/recipes/${recipeId}/ingredients`),
+        apiGet<Section[]>(`/recipes/${recipeId}/sections`)
+      ])
+      
+      const recipeData = recipeResponse.data
+      setRecipe(recipeData)
+      setIngredients(ingredientsResponse.data || [])
+      setSections(sectionsResponse.data || [])
+      
+      // Set form data
+      const newFormData = {
+        name: recipeData.name,
+        instructions: recipeData.instructions || '',
+        prep_time: recipeData.prep_time?.toString() || '',
+        servings: recipeData.servings,
+        production_servings: recipeData.production_servings,
+        difficulty: (recipeData.difficulty || '') as '' | 'easy' | 'medium' | 'hard',
+        net_price: recipeData.net_price.toString(),
+        price_per_serving: (recipeData.net_price / recipeData.servings).toString(),
+        is_featured_recipe: recipeData.is_featured_recipe,
+        tax_id: recipeData.tax_id,
+        // Campos nutricionales - se cargarán cuando esté disponible nutrition
+        calories: '',
+        protein: '',
+        carbs: '',
+        fat: ''
+      }
+      setFormData(newFormData)
+      
+      // Process categories from recipe data
+      if (recipeData.categories) {
+        const cats = typeof recipeData.categories === 'string' 
+          ? recipeData.categories.split(', ').map((cat: string) => cat.trim())
+          : Array.isArray(recipeData.categories) 
+          ? recipeData.categories 
+          : [recipeData.categories]
+        setCategories(cats)
+      } else {
+        setCategories([])
+      }
+      
+      // Load additional data (non-blocking)
+      loadAdditionalData()
+      
+      // Error cleared, no need for action with Toast system
+    } catch (err) {
+      showError('Error al cargar la receta')
+      console.error('Error loading recipe:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   // Load data
   useEffect(() => {
     if (!isNewRecipe) {
@@ -153,7 +214,7 @@ export default function RecipeDetailPage() {
     }
     loadAvailableCategories()
     loadRestaurantSettings()
-  }, [recipeId, isNewRecipe, loadRecipeData]) // Dependencies included for proper effect
+  }, [recipeId, isNewRecipe]) // Removed loadRecipeData from dependencies
 
   // Handle URL hash for direct tab navigation
   useEffect(() => {
@@ -218,66 +279,6 @@ export default function RecipeDetailPage() {
       setTargetFoodCostPercentage(30) // Fallback en caso de error
     }
   }
-
-  const loadRecipeData = useCallback(async () => {
-    try {
-      setLoading(true)
-      
-      // Load basic recipe data, ingredients, and sections
-      const [recipeResponse, ingredientsResponse, sectionsResponse] = await Promise.all([
-        apiGet<Recipe>(`/recipes/${recipeId}`),
-        apiGet<RecipeIngredient[]>(`/recipes/${recipeId}/ingredients`),
-        apiGet<Section[]>(`/recipes/${recipeId}/sections`)
-      ])
-      
-      const recipeData = recipeResponse.data
-      setRecipe(recipeData)
-      setIngredients(ingredientsResponse.data || [])
-      setSections(sectionsResponse.data || [])
-      
-      // Set form data
-      const newFormData = {
-        name: recipeData.name,
-        instructions: recipeData.instructions || '',
-        prep_time: recipeData.prep_time?.toString() || '',
-        servings: recipeData.servings,
-        production_servings: recipeData.production_servings,
-        difficulty: (recipeData.difficulty || '') as '' | 'easy' | 'medium' | 'hard',
-        net_price: recipeData.net_price.toString(),
-        price_per_serving: (recipeData.net_price / recipeData.servings).toString(),
-        is_featured_recipe: recipeData.is_featured_recipe,
-        tax_id: recipeData.tax_id,
-        // Campos nutricionales - se cargarán cuando esté disponible nutrition
-        calories: '',
-        protein: '',
-        carbs: '',
-        fat: ''
-      }
-      setFormData(newFormData)
-      
-      // Process categories from recipe data
-      if (recipeData.categories) {
-        const cats = typeof recipeData.categories === 'string' 
-          ? recipeData.categories.split(', ').map((cat: string) => cat.trim())
-          : Array.isArray(recipeData.categories) 
-          ? recipeData.categories 
-          : [recipeData.categories]
-        setCategories(cats)
-      } else {
-        setCategories([])
-      }
-      
-      // Load additional data (non-blocking)
-      loadAdditionalData()
-      
-      // Error cleared, no need for action with Toast system
-    } catch (err) {
-      showError('Error al cargar la receta')
-      console.error('Error loading recipe:', err)
-    } finally {
-      setLoading(false)
-    }
-  }, [recipeId, showError])
 
   const loadAdditionalData = async () => {
     // Load nutrition

@@ -97,7 +97,7 @@ export default function EventsPage() {
   const [allEvents, setAllEvents] = useState<Event[]>([])
 
   // Function to fetch ALL events for charts (no filters)
-  const fetchAllEventsForCharts = useCallback(async () => {
+  const fetchAllEventsForCharts = async () => {
     try {
       const searchParams = new URLSearchParams()
       
@@ -110,12 +110,11 @@ export default function EventsPage() {
     } catch {
       console.error('Fixed error in catch block')
       setAllEventsForCharts([])
-    } finally {
     }
-  }, [])
+  }
 
   // Function to fetch ALL events for metrics (with current filters)
-  const fetchAllEvents = useCallback(async () => {
+  const fetchAllEvents = async () => {
     try {
       const searchParams = new URLSearchParams()
       
@@ -138,9 +137,8 @@ export default function EventsPage() {
     } catch {
       console.error('Fixed error in catch block')
       setAllEvents([])
-    } finally {
     }
-  }, [searchTerm, statusFilter])
+  }
 
   // Function to fetch paginated events
   const fetchEvents = useCallback(async (params: { 
@@ -219,14 +217,19 @@ export default function EventsPage() {
     if (isInitialized) {
       fetchAllEventsForCharts()
     }
-  }, [isInitialized, fetchAllEventsForCharts])
+  }, [isInitialized]) // Removed fetchAllEventsForCharts from dependencies
 
-  // Load filtered events when filters change
+  // Load filtered events when filters change (with debounce for search)
   useEffect(() => {
-    if (isInitialized) {
+    if (!isInitialized) return
+
+    // Debounce search term changes
+    const timeoutId = setTimeout(() => {
       fetchAllEvents()
-    }
-  }, [isInitialized, fetchAllEvents])
+    }, searchTerm ? 300 : 0) // 300ms debounce for search, immediate for other filters
+
+    return () => clearTimeout(timeoutId)
+  }, [isInitialized, searchTerm, statusFilter]) // Use actual dependencies instead of function
 
   // Autofocus search input after initialization (desktop only)
   useEffect(() => {
@@ -271,7 +274,7 @@ export default function EventsPage() {
   }
 
 
-  // Calculate temporal metrics (using ALL events, not paginated ones)
+  // Calculate temporal metrics (using ALL events, not paginated ones) - memoized with specific dependencies
   const temporalMetrics = useMemo(() => {
     const now = new Date()
     const currentMonth = now.getMonth()
