@@ -9,6 +9,7 @@ const logAudit = require('../utils/audit');
 // Multi-tenant: usar req.tenantDb en lugar de pool estático
 // Nota: Los límites de conexión se manejan ahora en databaseManager.js
 
+
 // GET /supplier-orders/dashboard - Obtener métricas del dashboard
 router.get('/dashboard', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
   try {
@@ -37,9 +38,8 @@ router.get('/dashboard', authenticateToken, authorizeRoles('admin', 'chef'), asy
     `);
     
     // 4. Calcular ahorro potencial por consolidación de pedidos
-
-
-    // Consulta detallada para mostrar información de debug
+    
+    // Consulta detallada para mostrar información de ahorro
     const [savingsDetailResult] = await req.tenantDb.query(`
       WITH pedidos_pendientes AS (
         -- Obtener pedidos pendientes con source_events
@@ -101,26 +101,25 @@ router.get('/dashboard', authenticateToken, authorizeRoles('admin', 'chef'), asy
         JOIN SUPPLIER_ORDER_ITEMS soi ON pp.order_id = soi.order_id
       ),
       analisis_por_ingrediente AS (
-        -- Combinar cantidades reales y pedidas por ingrediente
+        -- Consolidar por ingrediente a través de TODOS los pedidos (basado en cantidades reales)
         SELECT 
           crp.ingredient_name,
           crp.ingredient_id,
           COUNT(DISTINCT crp.order_id) as num_pedidos,
           GROUP_CONCAT(DISTINCT CONCAT('Pedido #', crp.order_id, ' (', COALESCE(crp.supplier_name, 'Sin proveedor'), ')') SEPARATOR ', ') as pedidos_afectados,
           SUM(crp.cantidad_real_necesaria) as cantidad_total_necesaria,
-          SUM(cpp.cantidad_pedida) as cantidad_total_pedida,
-          MAX(crp.package_size) as package_size,  -- Usar MAX en lugar de AVG
+          SUM(crp.cantidad_real_necesaria) as cantidad_total_pedida,  -- Usar cantidad real en lugar de pedida
+          MAX(crp.package_size) as package_size,
           MAX(crp.package_unit) as package_unit,
-          AVG(COALESCE(cpp.unit_price, crp.supplier_price)) as precio_promedio,
+          AVG(crp.supplier_price) as precio_promedio,
           -- Calcular paquetes necesarios por separado vs consolidado
           SUM(CEIL(crp.cantidad_real_necesaria / crp.package_size)) as paquetes_separados,
           CEIL(SUM(crp.cantidad_real_necesaria) / MAX(crp.package_size)) as paquetes_consolidados,
           -- Ahorro en paquetes y en cantidad
           SUM(CEIL(crp.cantidad_real_necesaria / crp.package_size)) - CEIL(SUM(crp.cantidad_real_necesaria) / MAX(crp.package_size)) as paquetes_ahorrados,
           (SUM(CEIL(crp.cantidad_real_necesaria / crp.package_size)) - CEIL(SUM(crp.cantidad_real_necesaria) / MAX(crp.package_size))) * MAX(crp.package_size) as cantidad_ahorrada,
-          (SUM(CEIL(crp.cantidad_real_necesaria / crp.package_size)) - CEIL(SUM(crp.cantidad_real_necesaria) / MAX(crp.package_size))) * AVG(COALESCE(cpp.unit_price, crp.supplier_price)) as ahorro_euros
+          (SUM(CEIL(crp.cantidad_real_necesaria / crp.package_size)) - CEIL(SUM(crp.cantidad_real_necesaria) / MAX(crp.package_size))) * AVG(crp.supplier_price) as ahorro_euros
         FROM cantidades_reales_por_pedido crp
-        JOIN cantidades_pedidas_por_pedido cpp ON crp.order_id = cpp.order_id AND crp.ingredient_id = cpp.ingredient_id
         GROUP BY crp.ingredient_id, crp.ingredient_name
         HAVING COUNT(DISTINCT crp.order_id) > 1  -- Solo ingredientes que están en múltiples pedidos
           AND SUM(CEIL(crp.cantidad_real_necesaria / crp.package_size)) > CEIL(SUM(crp.cantidad_real_necesaria) / MAX(crp.package_size))  -- Solo donde hay ahorro de paquetes
@@ -198,19 +197,20 @@ router.get('/dashboard', authenticateToken, authorizeRoles('admin', 'chef'), asy
         JOIN SUPPLIER_ORDER_ITEMS soi ON pp.order_id = soi.order_id
       ),
       analisis_por_ingrediente AS (
-        -- Combinar cantidades reales y pedidas por ingrediente
+        -- Consolidar por ingrediente a través de TODOS los pedidos (basado en cantidades reales)
         SELECT 
           crp.ingredient_id,
           COUNT(DISTINCT crp.order_id) as num_pedidos,
           SUM(crp.cantidad_real_necesaria) as cantidad_total_necesaria,
-          AVG(COALESCE(cpp.unit_price, crp.supplier_price)) as precio_promedio,
+          AVG(crp.supplier_price) as precio_promedio,
+          MAX(crp.package_size) as package_size,
           -- Calcular ahorro por consolidación de paquetes
-          SUM(CEIL(crp.cantidad_real_necesaria / crp.package_size)) - CEIL(SUM(crp.cantidad_real_necesaria) / AVG(crp.package_size)) as paquetes_ahorrados
+          SUM(CEIL(crp.cantidad_real_necesaria / crp.package_size)) - CEIL(SUM(crp.cantidad_real_necesaria) / MAX(crp.package_size)) as paquetes_ahorrados
         FROM cantidades_reales_por_pedido crp
-        JOIN cantidades_pedidas_por_pedido cpp ON crp.order_id = cpp.order_id AND crp.ingredient_id = cpp.ingredient_id
         GROUP BY crp.ingredient_id
         HAVING COUNT(DISTINCT crp.order_id) > 1  -- Solo ingredientes que están en múltiples pedidos
           AND SUM(CEIL(crp.cantidad_real_necesaria / crp.package_size)) > CEIL(SUM(crp.cantidad_real_necesaria) / MAX(crp.package_size))  -- Solo donde hay ahorro de paquetes
+          AND MAX(crp.package_size) > 0  -- Asegurar que package_size es válido
       )
       SELECT 
         COALESCE(
@@ -221,6 +221,7 @@ router.get('/dashboard', authenticateToken, authorizeRoles('admin', 'chef'), asy
     `);
 
 
+    
     const dashboardData = {
       monthlySpending: parseFloat(monthlySpendingResult[0].monthly_spending) || 0,
       todayDeliveries: parseInt(todayDeliveriesResult[0].today_deliveries) || 0,
