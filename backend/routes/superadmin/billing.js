@@ -102,79 +102,110 @@ router.get('/overview', requirePermission('manage_billing'), async (req, res) =>
  */
 router.get('/plans', requirePermission('manage_billing'), async (req, res) => {
     try {
-        // Por ahora usamos los planes hardcoded hasta crear la tabla SUBSCRIPTION_PLANS correctamente
-        const plans = [
-            {
-                plan_id: 'free',
-                plan_name: 'Free',
-                plan_description: 'Plan gratuito con funcionalidades básicas',
-                monthly_price_cents: 0,
-                yearly_price_cents: 0,
-                max_users: 2,
-                max_recipes: 50,
-                max_events: 5,
-                features: ['Gestión básica de recetas', 'Hasta 2 usuarios', 'Soporte por email'],
-                is_active: true
-            },
-            {
-                plan_id: 'basic',
-                plan_name: 'Basic',
-                plan_description: 'Plan básico para restaurantes pequeños',
-                monthly_price_cents: 2500,
-                yearly_price_cents: 25000,
-                max_users: 5,
-                max_recipes: 200,
-                max_events: 20,
-                features: ['Hasta 5 usuarios', 'Gestión completa de inventario', 'Reportes básicos'],
-                is_active: true
-            },
-            {
-                plan_id: 'premium',
-                plan_name: 'Premium',
-                plan_description: 'Plan premium con funcionalidades avanzadas',
-                monthly_price_cents: 4900,
-                yearly_price_cents: 49000,
-                max_users: 15,
-                max_recipes: 500,
-                max_events: 50,
-                features: ['Hasta 15 usuarios', 'Análisis avanzado', 'Integración con proveedores', 'Soporte prioritario'],
-                is_active: true
-            },
-            {
-                plan_id: 'enterprise',
-                plan_name: 'Enterprise',
-                plan_description: 'Plan enterprise para cadenas de restaurantes',
-                monthly_price_cents: 9900,
-                yearly_price_cents: 99000,
-                max_users: -1, // Ilimitado
-                max_recipes: -1,
-                max_events: -1,
-                features: ['Usuarios ilimitados', 'White-label', 'API personalizada', 'Gestor de cuenta dedicado'],
-                is_active: true
-            }
-        ];
+        const { include_inactive = 'false' } = req.query;
+
+        // Obtener planes desde la base de datos
+        const whereClause = include_inactive === 'true' ? '' : 'WHERE is_active = TRUE';
+        
+        const [plans] = await masterPool.execute(`
+            SELECT 
+                plan_id,
+                plan_name,
+                plan_slug,
+                plan_description,
+                plan_color,
+                sort_order,
+                is_public,
+                is_popular,
+                monthly_price_cents,
+                yearly_price_cents,
+                yearly_discount_percentage,
+                max_users,
+                max_recipes,
+                max_events,
+                max_storage_mb,
+                max_api_calls_monthly,
+                support_level,
+                has_analytics,
+                has_multi_location,
+                has_custom_api,
+                has_white_label,
+                features,
+                is_active,
+                created_at,
+                updated_at
+            FROM SUBSCRIPTION_PLANS 
+            ${whereClause}
+            ORDER BY sort_order ASC, plan_id ASC
+        `);
 
         // Contar suscriptores activos por plan
+        const plansWithSubscribers = [];
         for (let plan of plans) {
-            const [subscribers] = await masterPool.execute(`
-                SELECT COUNT(*) as active_subscribers
-                FROM TENANTS 
-                WHERE subscription_plan = ? AND subscription_status = 'active' AND is_active = TRUE
-            `, [plan.plan_id]);
-            
-            plan.active_subscribers = subscribers[0].active_subscribers;
+            try {
+                // Intentar con plan_slug primero, luego con plan_name
+                const searchValue = plan.plan_slug || plan.plan_name.toLowerCase();
+                const [subscribers] = await masterPool.execute(`
+                    SELECT COUNT(*) as active_subscribers
+                    FROM TENANTS 
+                    WHERE subscription_plan = ? AND subscription_status = 'active' AND is_active = TRUE
+                `, [searchValue]);
+                
+                plansWithSubscribers.push({
+                    ...plan,
+                    price_monthly: (plan.monthly_price_cents || 0) / 100,
+                    price_yearly: (plan.yearly_price_cents || 0) / 100,
+                    yearly_savings: Math.round(
+                        ((plan.monthly_price_cents || 0) * 12 - (plan.yearly_price_cents || 0)) / 100
+                    ),
+                    features: JSON.parse(plan.features || '[]'),
+                    active_subscribers: subscribers[0].active_subscribers || 0,
+                    limits: {
+                        users: plan.max_users === -1 ? 'unlimited' : plan.max_users,
+                        recipes: plan.max_recipes === -1 ? 'unlimited' : plan.max_recipes,
+                        events: plan.max_events === -1 ? 'unlimited' : plan.max_events,
+                        storage_mb: plan.max_storage_mb || 1000,
+                        api_calls_monthly: plan.max_api_calls_monthly || 10000
+                    },
+                    capabilities: {
+                        analytics: !!plan.has_analytics,
+                        multi_location: !!plan.has_multi_location,
+                        custom_api: !!plan.has_custom_api,
+                        white_label: !!plan.has_white_label,
+                        support_level: plan.support_level || 'email'
+                    }
+                });
+            } catch (planError) {
+                console.error('Error procesando plan:', plan.plan_name, planError);
+                // Añadir plan con datos por defecto si hay error
+                plansWithSubscribers.push({
+                    ...plan,
+                    price_monthly: (plan.monthly_price_cents || 0) / 100,
+                    price_yearly: (plan.yearly_price_cents || 0) / 100,
+                    yearly_savings: 0,
+                    features: [],
+                    active_subscribers: 0,
+                    limits: {
+                        users: plan.max_users || 0,
+                        recipes: plan.max_recipes || 0,
+                        events: plan.max_events || 0,
+                        storage_mb: 1000,
+                        api_calls_monthly: 10000
+                    },
+                    capabilities: {
+                        analytics: false,
+                        multi_location: false,
+                        custom_api: false,
+                        white_label: false,
+                        support_level: 'email'
+                    }
+                });
+            }
         }
-
-        // Procesar precios y features
-        const processedPlans = plans.map(plan => ({
-            ...plan,
-            price_monthly: plan.monthly_price_cents / 100,
-            price_yearly: plan.yearly_price_cents / 100
-        }));
 
         res.json({
             success: true,
-            data: processedPlans
+            data: plansWithSubscribers
         });
 
     } catch (error) {
@@ -182,6 +213,237 @@ router.get('/plans', requirePermission('manage_billing'), async (req, res) => {
         res.status(500).json({
             error: 'Error del servidor',
             message: 'Error al obtener planes de suscripción'
+        });
+    }
+});
+
+/**
+ * POST /api/superadmin/billing/plans
+ * Crear nuevo plan de suscripción
+ */
+router.post('/plans', requirePermission('manage_billing'), auditLog('create_plan'), async (req, res) => {
+    try {
+        const {
+            plan_name, plan_slug, plan_description, plan_color = 'blue',
+            sort_order = 0, is_public = true, is_popular = false,
+            monthly_price_cents, yearly_price_cents, yearly_discount_percentage = 16.67,
+            max_users, max_recipes, max_events, max_storage_mb = 1000,
+            max_api_calls_monthly = 10000, support_level = 'email',
+            has_analytics = false, has_multi_location = false,
+            has_custom_api = false, has_white_label = false,
+            features = []
+        } = req.body;
+
+        // Validaciones básicas
+        if (!plan_name || !plan_slug || !monthly_price_cents) {
+            return res.status(400).json({
+                error: 'Datos incompletos',
+                message: 'plan_name, plan_slug y monthly_price_cents son requeridos'
+            });
+        }
+
+        // Verificar que el slug no exista
+        const [existingPlan] = await masterPool.execute(`
+            SELECT plan_id FROM SUBSCRIPTION_PLANS WHERE plan_slug = ?
+        `, [plan_slug]);
+
+        if (existingPlan.length > 0) {
+            return res.status(400).json({
+                error: 'Plan duplicado',
+                message: 'Ya existe un plan con ese slug'
+            });
+        }
+
+        // Crear el plan
+        const [result] = await masterPool.execute(`
+            INSERT INTO SUBSCRIPTION_PLANS (
+                plan_name, plan_slug, plan_description, plan_color, sort_order,
+                is_public, is_popular, monthly_price_cents, yearly_price_cents,
+                yearly_discount_percentage, max_users, max_recipes, max_events,
+                max_storage_mb, max_api_calls_monthly, support_level,
+                has_analytics, has_multi_location, has_custom_api, has_white_label,
+                features, is_active
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE)
+        `, [
+            plan_name, plan_slug, plan_description, plan_color, sort_order,
+            is_public, is_popular, monthly_price_cents, yearly_price_cents,
+            yearly_discount_percentage, max_users, max_recipes, max_events,
+            max_storage_mb, max_api_calls_monthly, support_level,
+            has_analytics, has_multi_location, has_custom_api, has_white_label,
+            JSON.stringify(features)
+        ]);
+
+        // Obtener el plan creado
+        const [newPlan] = await masterPool.execute(`
+            SELECT * FROM SUBSCRIPTION_PLANS WHERE plan_id = ?
+        `, [result.insertId]);
+
+        res.status(201).json({
+            success: true,
+            message: 'Plan creado exitosamente',
+            data: {
+                ...newPlan[0],
+                price_monthly: newPlan[0].monthly_price_cents / 100,
+                price_yearly: newPlan[0].yearly_price_cents / 100,
+                features: JSON.parse(newPlan[0].features || '[]')
+            }
+        });
+
+    } catch (error) {
+        console.error('Error creando plan:', error);
+        res.status(500).json({
+            error: 'Error del servidor',
+            message: 'Error al crear el plan de suscripción'
+        });
+    }
+});
+
+/**
+ * PUT /api/superadmin/billing/plans/:planId
+ * Actualizar plan de suscripción existente
+ */
+router.put('/plans/:planId', requirePermission('manage_billing'), auditLog('update_plan'), async (req, res) => {
+    try {
+        const { planId } = req.params;
+        const updateData = req.body;
+
+        // Verificar que el plan existe
+        const [existingPlan] = await masterPool.execute(`
+            SELECT plan_id FROM SUBSCRIPTION_PLANS WHERE plan_id = ?
+        `, [planId]);
+
+        if (existingPlan.length === 0) {
+            return res.status(404).json({
+                error: 'Plan no encontrado',
+                message: 'El plan especificado no existe'
+            });
+        }
+
+        // Si se está actualizando el slug, verificar que no exista otro plan con ese slug
+        if (updateData.plan_slug) {
+            const [slugExists] = await masterPool.execute(`
+                SELECT plan_id FROM SUBSCRIPTION_PLANS WHERE plan_slug = ? AND plan_id != ?
+            `, [updateData.plan_slug, planId]);
+
+            if (slugExists.length > 0) {
+                return res.status(400).json({
+                    error: 'Slug duplicado',
+                    message: 'Ya existe otro plan con ese slug'
+                });
+            }
+        }
+
+        // Preparar campos a actualizar
+        const allowedFields = [
+            'plan_name', 'plan_slug', 'plan_description', 'plan_color', 'sort_order',
+            'is_public', 'is_popular', 'monthly_price_cents', 'yearly_price_cents',
+            'yearly_discount_percentage', 'max_users', 'max_recipes', 'max_events',
+            'max_storage_mb', 'max_api_calls_monthly', 'support_level',
+            'has_analytics', 'has_multi_location', 'has_custom_api', 'has_white_label',
+            'features', 'is_active'
+        ];
+
+        const updateFields = [];
+        const updateValues = [];
+
+        for (const [key, value] of Object.entries(updateData)) {
+            if (allowedFields.includes(key)) {
+                updateFields.push(`${key} = ?`);
+                updateValues.push(key === 'features' ? JSON.stringify(value) : value);
+            }
+        }
+
+        if (updateFields.length === 0) {
+            return res.status(400).json({
+                error: 'Sin cambios',
+                message: 'No hay campos válidos para actualizar'
+            });
+        }
+
+        // Actualizar el plan
+        updateValues.push(planId);
+        await masterPool.execute(`
+            UPDATE SUBSCRIPTION_PLANS 
+            SET ${updateFields.join(', ')}, updated_at = NOW()
+            WHERE plan_id = ?
+        `, updateValues);
+
+        // Obtener el plan actualizado
+        const [updatedPlan] = await masterPool.execute(`
+            SELECT * FROM SUBSCRIPTION_PLANS WHERE plan_id = ?
+        `, [planId]);
+
+        res.json({
+            success: true,
+            message: 'Plan actualizado exitosamente',
+            data: {
+                ...updatedPlan[0],
+                price_monthly: updatedPlan[0].monthly_price_cents / 100,
+                price_yearly: updatedPlan[0].yearly_price_cents / 100,
+                features: JSON.parse(updatedPlan[0].features || '[]')
+            }
+        });
+
+    } catch (error) {
+        console.error('Error actualizando plan:', error);
+        res.status(500).json({
+            error: 'Error del servidor',
+            message: 'Error al actualizar el plan de suscripción'
+        });
+    }
+});
+
+/**
+ * DELETE /api/superadmin/billing/plans/:planId
+ * Eliminar plan de suscripción (soft delete)
+ */
+router.delete('/plans/:planId', requirePermission('manage_billing'), auditLog('delete_plan'), async (req, res) => {
+    try {
+        const { planId } = req.params;
+
+        // Verificar que el plan existe
+        const [existingPlan] = await masterPool.execute(`
+            SELECT plan_id, plan_name FROM SUBSCRIPTION_PLANS WHERE plan_id = ?
+        `, [planId]);
+
+        if (existingPlan.length === 0) {
+            return res.status(404).json({
+                error: 'Plan no encontrado',
+                message: 'El plan especificado no existe'
+            });
+        }
+
+        // Verificar si hay tenants usando este plan
+        const [activeTenants] = await masterPool.execute(`
+            SELECT COUNT(*) as tenant_count
+            FROM TENANTS 
+            WHERE subscription_plan = ? AND subscription_status = 'active' AND is_active = TRUE
+        `, [existingPlan[0].plan_name.toLowerCase()]);
+
+        if (activeTenants[0].tenant_count > 0) {
+            return res.status(400).json({
+                error: 'Plan en uso',
+                message: `No se puede eliminar el plan porque ${activeTenants[0].tenant_count} tenant(s) lo están usando actualmente`
+            });
+        }
+
+        // Soft delete - marcar como inactivo
+        await masterPool.execute(`
+            UPDATE SUBSCRIPTION_PLANS 
+            SET is_active = FALSE, updated_at = NOW()
+            WHERE plan_id = ?
+        `, [planId]);
+
+        res.json({
+            success: true,
+            message: 'Plan desactivado exitosamente'
+        });
+
+    } catch (error) {
+        console.error('Error eliminando plan:', error);
+        res.status(500).json({
+            error: 'Error del servidor',
+            message: 'Error al eliminar el plan de suscripción'
         });
     }
 });

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect } from 'react'
-import { notFound } from 'next/navigation'
+import { notFound, usePathname } from 'next/navigation'
 import { SuperAdminProvider } from '@/context/SuperAdminContext'
 import { SuperAdminThemeProvider, useSuperAdminTheme } from '@/context/SuperAdminThemeContext'
 import { SuperAdminAuthGuard } from '@/components/layout/SuperAdminAuthGuard'
@@ -10,7 +10,6 @@ import { SuperAdminHeader } from '@/components/layout/SuperAdminHeader'
 
 // Componente para verificar subdominio
 function SubdomainGuard({ children }: { children: React.ReactNode }) {
-  // Hook para verificar hostname inmediatamente
   const [isValidSubdomain, setIsValidSubdomain] = React.useState<boolean | null>(null)
 
   useEffect(() => {
@@ -37,11 +36,6 @@ function SubdomainGuard({ children }: { children: React.ReactNode }) {
     </div>
   }
 
-  // Si no es válido, ya se ejecutó notFound() en el useEffect
-  if (isValidSubdomain === false) {
-    return null // No debería llegar aquí, pero por si acaso
-  }
-
   // Si es válido, renderizar children
   return <>{children}</>
 }
@@ -54,9 +48,10 @@ interface SuperAdminLayoutProps {
 function SuperAdminLayoutContent({ children }: SuperAdminLayoutProps) {
   const { getThemeClasses } = useSuperAdminTheme()
   const themeClasses = getThemeClasses()
+  const pathname = usePathname()
   
   // Páginas que NO necesitan AuthGuard (páginas públicas del SuperAdmin)
-  const isPublicPage = typeof window !== 'undefined' && window.location.pathname === '/superadmin/login'
+  const isPublicPage = pathname === '/superadmin/login'
 
   if (isPublicPage) {
     return (

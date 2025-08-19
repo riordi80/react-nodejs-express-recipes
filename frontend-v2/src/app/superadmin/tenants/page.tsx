@@ -47,6 +47,35 @@ interface TenantStats {
   suspended_tenants: number;
 }
 
+interface SubscriptionPlan {
+  plan_id: string;
+  plan_name: string;
+  plan_slug: string;
+  plan_description: string;
+  plan_color: string;
+  sort_order: number;
+  is_public: boolean;
+  is_popular: boolean;
+  monthly_price_cents: number;
+  yearly_price_cents: number;
+  yearly_discount_percentage: number;
+  max_users: number;
+  max_recipes: number;
+  max_events: number;
+  max_storage_mb: number;
+  max_api_calls_monthly: number;
+  support_level: string;
+  has_analytics: boolean;
+  has_multi_location: boolean;
+  has_custom_api: boolean;
+  has_white_label: boolean;
+  features: string[];
+  is_active: boolean;
+  price_monthly: number;
+  price_yearly: number;
+  yearly_savings: number;
+}
+
 export default function TenantsPage() {
   const { user, loading: isLoading } = useSuperAdmin();
   const { getThemeClasses, isDark } = useSuperAdminTheme();
@@ -149,6 +178,10 @@ export default function TenantsPage() {
   const [createStep, setCreateStep] = useState(1);
   const [createLoading, setCreateLoading] = useState(false);
   
+  // Estados para los planes de suscripción
+  const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([]);
+  const [plansLoading, setPlansLoading] = useState(false);
+  
   // Key para forzar re-render de la tabla
   const [tableKey, setTableKey] = useState(0);
   
@@ -198,10 +231,36 @@ export default function TenantsPage() {
     notes: ''
   });
 
+  // Función para cargar planes de suscripción
+  const fetchSubscriptionPlans = async () => {
+    try {
+      setPlansLoading(true);
+      const response = await fetch('/api/public/plans');
+      
+      if (response.ok) {
+        const data = await response.json();
+        
+        if (data.success) {
+          // Filtrar planes activos y ordenarlos por sort_order
+          const activePlans = data.data
+            .filter((plan: SubscriptionPlan) => plan.is_active)
+            .sort((a: SubscriptionPlan, b: SubscriptionPlan) => a.sort_order - b.sort_order);
+          
+          setSubscriptionPlans(activePlans);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching subscription plans:', error);
+    } finally {
+      setPlansLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!isLoading && user) {
       loadTenants();
       loadStats();
+      fetchSubscriptionPlans();
     }
   }, [isLoading, user]);
 
@@ -1525,155 +1584,103 @@ Para confirmar, escribe exactamente "ELIMINAR":`,
 
           {createStep === 3 && (
             <div className="space-y-3">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {/* Plan Free */}
-                <div 
-                  className={`relative p-3 border-2 rounded-lg cursor-pointer transition-all ${
-                    createFormData.subscriptionPlan === 'free' 
-                      ? `border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/20` 
-                      : `${themeClasses.border} ${themeClasses.card} ${themeClasses.buttonHover}`
-                  }`}
-                  onClick={() => handleCreateFormChange('subscriptionPlan', 'free')}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <h5 className={`text-sm font-semibold ${themeClasses.text}`}>Free Trial</h5>
-                    <input
-                      type="radio"
-                      checked={createFormData.subscriptionPlan === 'free'}
-                      onChange={() => {}}
-                      className="text-blue-600"
-                    />
-                  </div>
-                  <p className={`text-xs ${themeClasses.textSecondary} mb-2`}>
-                    Perfecto para empezar y probar todas las funcionalidades
-                  </p>
-                  <div className="space-y-0.5 text-xs">
-                    <div className={`flex items-center ${themeClasses.text}`}>
-                      ✓ 30 días gratis
-                    </div>
-                    <div className={`flex items-center ${themeClasses.text}`}>
-                      ✓ Hasta 5 usuarios
-                    </div>
-                    <div className={`flex items-center ${themeClasses.text}`}>
-                      ✓ 100 recetas
-                    </div>
-                    <div className={`flex items-center ${themeClasses.text}`}>
-                      ✓ Soporte por email
-                    </div>
-                  </div>
+              {plansLoading ? (
+                <div className="flex justify-center items-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                  <span className={`ml-3 text-sm ${themeClasses.textSecondary}`}>Cargando planes...</span>
                 </div>
-
-                {/* Plan Basic */}
-                <div 
-                  className={`relative p-3 border-2 rounded-lg cursor-pointer transition-all ${
-                    createFormData.subscriptionPlan === 'basic' 
-                      ? `border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/20` 
-                      : `${themeClasses.border} ${themeClasses.card} ${themeClasses.buttonHover}`
-                  }`}
-                  onClick={() => handleCreateFormChange('subscriptionPlan', 'basic')}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <h5 className={`text-sm font-semibold ${themeClasses.text}`}>Basic</h5>
-                    <input
-                      type="radio"
-                      checked={createFormData.subscriptionPlan === 'basic'}
-                      onChange={() => {}}
-                      className="text-blue-600"
-                    />
-                  </div>
-                  <p className={`text-xs ${themeClasses.textSecondary} mb-2`}>
-                    Para restaurantes pequeños que buscan crecer
-                  </p>
-                  <div className="space-y-0.5 text-xs">
-                    <div className={`flex items-center ${themeClasses.text}`}>
-                      ✓ Hasta 20 usuarios
-                    </div>
-                    <div className={`flex items-center ${themeClasses.text}`}>
-                      ✓ 500 recetas
-                    </div>
-                    <div className={`flex items-center ${themeClasses.text}`}>
-                      ✓ Reportes básicos
-                    </div>
-                    <div className={`flex items-center ${themeClasses.text}`}>
-                      ✓ Soporte prioritario
-                    </div>
-                  </div>
+              ) : subscriptionPlans.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className={`text-sm ${themeClasses.textSecondary}`}>No hay planes disponibles</p>
                 </div>
-
-                {/* Plan Premium */}
-                <div 
-                  className={`relative p-3 border-2 rounded-lg cursor-pointer transition-all ${
-                    createFormData.subscriptionPlan === 'premium' 
-                      ? `border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/20` 
-                      : `${themeClasses.border} ${themeClasses.card} ${themeClasses.buttonHover}`
-                  }`}
-                  onClick={() => handleCreateFormChange('subscriptionPlan', 'premium')}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <h5 className={`text-sm font-semibold ${themeClasses.text}`}>Premium</h5>
-                    <input
-                      type="radio"
-                      checked={createFormData.subscriptionPlan === 'premium'}
-                      onChange={() => {}}
-                      className="text-blue-600"
-                    />
-                  </div>
-                  <p className={`text-xs ${themeClasses.textSecondary} mb-2`}>
-                    Para restaurantes medianos con operaciones complejas
-                  </p>
-                  <div className="space-y-0.5 text-xs">
-                    <div className={`flex items-center ${themeClasses.text}`}>
-                      ✓ Hasta 50 usuarios
+              ) : (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {subscriptionPlans.map((plan) => (
+                    <div
+                      key={plan.plan_id}
+                      className={`relative p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                        createFormData.subscriptionPlan === plan.plan_slug
+                          ? `border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/20`
+                          : `${themeClasses.border} ${themeClasses.card} ${themeClasses.buttonHover}`
+                      }`}
+                      onClick={() => handleCreateFormChange('subscriptionPlan', plan.plan_slug)}
+                    >
+                      {plan.is_popular && (
+                        <div className="absolute -top-2 -right-2">
+                          <span className="bg-orange-500 text-white px-2 py-1 rounded-full text-xs font-semibold">
+                            Popular
+                          </span>
+                        </div>
+                      )}
+                      
+                      <div className="flex items-center justify-between mb-2">
+                        <h5 className={`text-sm font-semibold ${themeClasses.text}`}>{plan.plan_name}</h5>
+                        <input
+                          type="radio"
+                          checked={createFormData.subscriptionPlan === plan.plan_slug}
+                          onChange={() => {}}
+                          className="text-blue-600"
+                        />
+                      </div>
+                      
+                      <p className={`text-xs ${themeClasses.textSecondary} mb-2`}>
+                        {plan.plan_description}
+                      </p>
+                      
+                      <div className="space-y-0.5 text-xs mb-3">
+                        <div className={`flex items-center justify-between ${themeClasses.text}`}>
+                          <span>Usuarios:</span>
+                          <span className="font-medium">
+                            {plan.max_users === -1 ? 'Ilimitados' : plan.max_users}
+                          </span>
+                        </div>
+                        <div className={`flex items-center justify-between ${themeClasses.text}`}>
+                          <span>Recetas:</span>
+                          <span className="font-medium">
+                            {plan.max_recipes === -1 ? 'Ilimitadas' : plan.max_recipes}
+                          </span>
+                        </div>
+                        <div className={`flex items-center justify-between ${themeClasses.text}`}>
+                          <span>Eventos:</span>
+                          <span className="font-medium">
+                            {plan.max_events === -1 ? 'Ilimitados' : plan.max_events}
+                          </span>
+                        </div>
+                        <div className={`flex items-center justify-between ${themeClasses.text}`}>
+                          <span>Soporte:</span>
+                          <span className="font-medium capitalize">
+                            {plan.support_level === 'email' ? 'Email' : 
+                             plan.support_level === 'priority' ? 'Prioritario' : '24/7'}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {plan.features.length > 0 && (
+                        <div className="space-y-0.5 text-xs">
+                          {plan.features.slice(0, 3).map((feature, index) => (
+                            <div key={index} className={`flex items-center ${themeClasses.text}`}>
+                              ✓ {feature}
+                            </div>
+                          ))}
+                          {plan.features.length > 3 && (
+                            <div className={`text-xs ${themeClasses.textSecondary} italic`}>
+                              +{plan.features.length - 3} características más
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      
+                      {plan.price_monthly > 0 && (
+                        <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-700">
+                          <div className={`text-center text-xs ${themeClasses.text}`}>
+                            <span className="font-bold">{plan.price_monthly}€</span>/mes
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <div className={`flex items-center ${themeClasses.text}`}>
-                      ✓ 1000 recetas
-                    </div>
-                    <div className={`flex items-center ${themeClasses.text}`}>
-                      ✓ Reportes avanzados
-                    </div>
-                    <div className={`flex items-center ${themeClasses.text}`}>
-                      ✓ Soporte prioritario
-                    </div>
-                  </div>
+                  ))}
                 </div>
-
-                {/* Plan Enterprise */}
-                <div 
-                  className={`relative p-3 border-2 rounded-lg cursor-pointer transition-all ${
-                    createFormData.subscriptionPlan === 'enterprise' 
-                      ? `border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/20` 
-                      : `${themeClasses.border} ${themeClasses.card} ${themeClasses.buttonHover}`
-                  }`}
-                  onClick={() => handleCreateFormChange('subscriptionPlan', 'enterprise')}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <h5 className={`text-sm font-semibold ${themeClasses.text}`}>Enterprise</h5>
-                    <input
-                      type="radio"
-                      checked={createFormData.subscriptionPlan === 'enterprise'}
-                      onChange={() => {}}
-                      className="text-blue-600"
-                    />
-                  </div>
-                  <p className={`text-xs ${themeClasses.textSecondary} mb-2`}>
-                    Para cadenas de restaurantes y grandes operaciones
-                  </p>
-                  <div className="space-y-0.5 text-xs">
-                    <div className={`flex items-center ${themeClasses.text}`}>
-                      ✓ Usuarios ilimitados
-                    </div>
-                    <div className={`flex items-center ${themeClasses.text}`}>
-                      ✓ Recetas ilimitadas
-                    </div>
-                    <div className={`flex items-center ${themeClasses.text}`}>
-                      ✓ Reportes personalizados
-                    </div>
-                    <div className={`flex items-center ${themeClasses.text}`}>
-                      ✓ Soporte dedicado
-                    </div>
-                  </div>
-                </div>
-              </div>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>

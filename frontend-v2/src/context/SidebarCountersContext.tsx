@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { apiGet } from '@/lib/api'
+import { useAuth } from '@/context/AuthContext'
 
 interface SidebarCountersContextType {
   activeEventsCount: number
@@ -17,11 +18,17 @@ interface SidebarCountersProviderProps {
 }
 
 export const SidebarCountersProvider: React.FC<SidebarCountersProviderProps> = ({ children }) => {
+  const { user, loading: authLoading } = useAuth()
   const [activeEventsCount, setActiveEventsCount] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const fetchActiveEventsCount = async () => {
+    // Solo hacer llamadas API si hay un usuario autenticado
+    if (!user) {
+      return
+    }
+    
     try {
       setIsLoading(true)
       setError(null)
@@ -57,16 +64,20 @@ export const SidebarCountersProvider: React.FC<SidebarCountersProviderProps> = (
     }
   }
 
-  // Cargar datos inicialmente
+  // Cargar datos inicialmente solo cuando hay usuario autenticado
   useEffect(() => {
-    fetchActiveEventsCount()
-  }, [])
+    if (!authLoading && user) {
+      fetchActiveEventsCount()
+    }
+  }, [user, authLoading])
 
-  // Auto-refrescar cada 5 minutos
+  // Auto-refrescar cada 5 minutos solo si hay usuario autenticado
   useEffect(() => {
+    if (!user) return
+    
     const interval = setInterval(fetchActiveEventsCount, 5 * 60 * 1000)
     return () => clearInterval(interval)
-  }, [])
+  }, [user])
 
   // Exponer función para refrescar manualmente
   const refetchActiveEvents = async () => {

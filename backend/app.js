@@ -95,7 +95,10 @@ app.use('/api', (req, res, next) => {
 const authRoutes = require('./routes/auth');
 app.use('/api', authRoutes);
 
-// 4c) Rutas de SuperAdmin - Sistema de administración (usa base de datos master)
+// 4c) Rutas públicas - no requieren autenticación
+app.use('/api/public', require('./routes/public-plans'));
+
+// 4d) Rutas de SuperAdmin - Sistema de administración (usa base de datos master)
 app.use('/api/superadmin', require('./routes/superadmin'));
 
 // 4d) Middleware de autenticación condicional - excluir rutas públicas

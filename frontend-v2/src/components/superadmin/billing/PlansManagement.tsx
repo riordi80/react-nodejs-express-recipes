@@ -9,18 +9,32 @@ import {
   PencilIcon,
   UsersIcon,
   ArrowPathIcon,
-  CurrencyEuroIcon
+  CurrencyEuroIcon,
+  PlusIcon
 } from '@heroicons/react/24/outline';
 
 interface SubscriptionPlan {
   plan_id: string;
   plan_name: string;
+  plan_slug?: string;
   plan_description: string;
+  plan_color?: string;
+  sort_order?: number;
+  is_public?: boolean;
+  is_popular?: boolean;
   monthly_price_cents: number;
   yearly_price_cents: number;
+  yearly_discount_percentage?: number;
   max_users: number;
   max_recipes: number;
   max_events: number;
+  max_storage_mb?: number;
+  max_api_calls_monthly?: number;
+  support_level?: string;
+  has_analytics?: boolean;
+  has_multi_location?: boolean;
+  has_custom_api?: boolean;
+  has_white_label?: boolean;
   features: string[];
   is_active: boolean;
   active_subscribers: number;
@@ -34,7 +48,12 @@ export default function PlansManagement() {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [editingPlan, setEditingPlan] = useState<string | null>(null);
+  const [editingPlan, setEditingPlan] = useState<SubscriptionPlan | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [formData, setFormData] = useState<Partial<SubscriptionPlan>>({});
+  const [formFeatures, setFormFeatures] = useState<string>('');
+  const [saveLoading, setSaveLoading] = useState(false);
 
   const fetchPlans = async () => {
     try {
@@ -82,6 +101,126 @@ export default function PlansManagement() {
     return limit === -1 ? 'Ilimitado' : limit.toLocaleString('es-ES');
   };
 
+  const handleEditPlan = (plan: SubscriptionPlan) => {
+    setEditingPlan(plan);
+    setFormData({
+      plan_name: plan.plan_name,
+      plan_slug: plan.plan_slug,
+      plan_description: plan.plan_description,
+      plan_color: plan.plan_color || 'blue',
+      sort_order: plan.sort_order || 0,
+      is_public: plan.is_public ?? true,
+      is_popular: plan.is_popular ?? false,
+      monthly_price_cents: plan.monthly_price_cents,
+      yearly_price_cents: plan.yearly_price_cents,
+      yearly_discount_percentage: plan.yearly_discount_percentage || 16.67,
+      max_users: plan.max_users,
+      max_recipes: plan.max_recipes,
+      max_events: plan.max_events,
+      max_storage_mb: plan.max_storage_mb || 1000,
+      max_api_calls_monthly: plan.max_api_calls_monthly || 10000,
+      support_level: plan.support_level || 'email',
+      has_analytics: plan.has_analytics ?? false,
+      has_multi_location: plan.has_multi_location ?? false,
+      has_custom_api: plan.has_custom_api ?? false,
+      has_white_label: plan.has_white_label ?? false,
+      is_active: plan.is_active
+    });
+    setFormFeatures(plan.features.join('\n'));
+  };
+
+  const handleSavePlan = async () => {
+    if (!editingPlan) return;
+    
+    try {
+      setSaveLoading(true);
+      setError(null);
+      
+      const featuresArray = formFeatures.split('\n').filter(f => f.trim()).map(f => f.trim());
+      
+      const updateData = {
+        ...formData,
+        features: featuresArray
+      };
+      
+      const response = await api.put(`/superadmin/billing/plans/${editingPlan.plan_id}`, updateData);
+      
+      if (response.data.success) {
+        // Actualizar la lista local
+        setPlans(prev => prev.map(plan => 
+          plan.plan_id === editingPlan.plan_id 
+            ? { ...plan, ...response.data.data, features: featuresArray }
+            : plan
+        ));
+        handleCancelEdit();
+      }
+    } catch (err: any) {
+      console.error('Error saving plan:', err);
+      const errorMessage = err.response?.data?.message || 'Error al guardar el plan';
+      setError(errorMessage);
+    } finally {
+      setSaveLoading(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingPlan(null);
+    setFormData({});
+    setFormFeatures('');
+    setError(null);
+  };
+
+  const handleTogglePlanStatus = async (planId: number, currentStatus: boolean) => {
+    try {
+      setActionLoading(`toggle-${planId}`);
+      
+      const response = await api.put(`/superadmin/billing/plans/${planId}`, {
+        is_active: !currentStatus
+      });
+
+      if (response.data.success) {
+        // Actualizar el plan en la lista local
+        setPlans(prev => prev.map(plan => 
+          Number(plan.plan_id) === Number(planId) 
+            ? { ...plan, is_active: !currentStatus }
+            : plan
+        ));
+      }
+    } catch (err) {
+      console.error('Error toggling plan status:', err);
+      setError('Error al cambiar estado del plan');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDeletePlan = async (planId: number) => {
+    if (!confirm('¿Estás seguro de que quieres desactivar este plan?')) {
+      return;
+    }
+
+    try {
+      setActionLoading(`delete-${planId}`);
+      
+      const response = await api.delete(`/superadmin/billing/plans/${planId}`);
+
+      if (response.data.success) {
+        // Actualizar la lista local
+        setPlans(prev => prev.map(plan => 
+          Number(plan.plan_id) === Number(planId) 
+            ? { ...plan, is_active: false }
+            : plan
+        ));
+      }
+    } catch (err: any) {
+      console.error('Error deleting plan:', err);
+      const errorMessage = err.response?.data?.message || 'Error al desactivar el plan';
+      setError(errorMessage);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   if (error) {
     return (
       <div className={`${themeClasses.card} rounded-lg p-6 text-center`}>
@@ -117,14 +256,23 @@ export default function PlansManagement() {
             Administra los planes disponibles y sus características
           </p>
         </div>
-        <button
-          onClick={fetchPlans}
-          disabled={loading}
-          className={`inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition-colors`}
-        >
-          <ArrowPathIcon className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-          Actualizar
-        </button>
+        <div className="flex space-x-3">
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className={`inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 transition-colors`}
+          >
+            <PlusIcon className="h-4 w-4 mr-2" />
+            Crear Plan
+          </button>
+          <button
+            onClick={fetchPlans}
+            disabled={loading}
+            className={`inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition-colors`}
+          >
+            <ArrowPathIcon className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Actualizar
+          </button>
+        </div>
       </div>
 
       {/* Plans Grid */}
@@ -253,13 +401,31 @@ export default function PlansManagement() {
                       {plan.is_active ? 'Activo' : 'Inactivo'}
                     </span>
                   </div>
-                  <button
-                    onClick={() => setEditingPlan(plan.plan_id)}
-                    className={`p-1 rounded ${isDark ? 'hover:bg-slate-600' : 'hover:bg-gray-200'} transition-colors`}
-                    title="Editar plan"
-                  >
-                    <PencilIcon className="h-4 w-4 opacity-60 hover:opacity-100" />
-                  </button>
+                  <div className="flex items-center space-x-1">
+                    <button
+                      onClick={() => handleEditPlan(plan)}
+                      disabled={actionLoading === `edit-${plan.plan_id}`}
+                      className={`p-1 rounded ${isDark ? 'hover:bg-slate-600' : 'hover:bg-gray-200'} transition-colors disabled:opacity-50`}
+                      title="Editar plan"
+                    >
+                      <PencilIcon className="h-4 w-4 opacity-60 hover:opacity-100" />
+                    </button>
+                    
+                    <button
+                      onClick={() => handleTogglePlanStatus(Number(plan.plan_id), plan.is_active)}
+                      disabled={actionLoading === `toggle-${plan.plan_id}`}
+                      className={`p-1 rounded ${isDark ? 'hover:bg-slate-600' : 'hover:bg-gray-200'} transition-colors disabled:opacity-50`}
+                      title={plan.is_active ? 'Desactivar plan' : 'Activar plan'}
+                    >
+                      {actionLoading === `toggle-${plan.plan_id}` ? (
+                        <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
+                      ) : plan.is_active ? (
+                        <XMarkIcon className="h-4 w-4 text-red-500 hover:text-red-700" />
+                      ) : (
+                        <CheckIcon className="h-4 w-4 text-green-500 hover:text-green-700" />
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -311,6 +477,339 @@ export default function PlansManagement() {
           <p className={themeClasses.textSecondary}>
             Configura tus primeros planes de suscripción para comenzar.
           </p>
+        </div>
+      )}
+
+      {/* Edit Plan Modal */}
+      {editingPlan && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className={`${themeClasses.card} rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto`}>
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <h3 className={`text-lg font-semibold ${themeClasses.text}`}>
+                Editar Plan: {editingPlan.plan_name}
+              </h3>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              {error && (
+                <div className="bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-3 rounded">
+                  {error}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Información básica */}
+                <div className="space-y-4">
+                  <h4 className={`font-medium ${themeClasses.text}`}>Información Básica</h4>
+                  
+                  <div>
+                    <label className={`block text-sm font-medium ${themeClasses.text} mb-1`}>
+                      Nombre del Plan
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.plan_name || ''}
+                      onChange={(e) => setFormData({...formData, plan_name: e.target.value})}
+                      className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100`}
+                    />
+                  </div>
+
+                  <div>
+                    <label className={`block text-sm font-medium ${themeClasses.text} mb-1`}>
+                      Slug (URL amigable)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.plan_slug || ''}
+                      onChange={(e) => setFormData({...formData, plan_slug: e.target.value})}
+                      className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100`}
+                    />
+                  </div>
+
+                  <div>
+                    <label className={`block text-sm font-medium ${themeClasses.text} mb-1`}>
+                      Descripción
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={formData.plan_description || ''}
+                      onChange={(e) => setFormData({...formData, plan_description: e.target.value})}
+                      className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100`}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className={`block text-sm font-medium ${themeClasses.text} mb-1`}>
+                        Color
+                      </label>
+                      <select
+                        value={formData.plan_color || 'blue'}
+                        onChange={(e) => setFormData({...formData, plan_color: e.target.value})}
+                        className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100`}
+                      >
+                        <option value="gray">Gris</option>
+                        <option value="blue">Azul</option>
+                        <option value="purple">Morado</option>
+                        <option value="amber">Ámbar</option>
+                        <option value="green">Verde</option>
+                        <option value="red">Rojo</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className={`block text-sm font-medium ${themeClasses.text} mb-1`}>
+                        Orden
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.sort_order || 0}
+                        onChange={(e) => setFormData({...formData, sort_order: parseInt(e.target.value)})}
+                        className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100`}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Precios */}
+                <div className="space-y-4">
+                  <h4 className={`font-medium ${themeClasses.text}`}>Precios</h4>
+                  
+                  <div>
+                    <label className={`block text-sm font-medium ${themeClasses.text} mb-1`}>
+                      Precio Mensual (céntimos)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.monthly_price_cents || 0}
+                      onChange={(e) => setFormData({...formData, monthly_price_cents: parseInt(e.target.value)})}
+                      className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100`}
+                    />
+                    <p className={`text-xs ${themeClasses.textSecondary} mt-1`}>
+                      Equivale a: {formatCurrency((formData.monthly_price_cents || 0) / 100)}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className={`block text-sm font-medium ${themeClasses.text} mb-1`}>
+                      Precio Anual (céntimos)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.yearly_price_cents || 0}
+                      onChange={(e) => setFormData({...formData, yearly_price_cents: parseInt(e.target.value)})}
+                      className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100`}
+                    />
+                    <p className={`text-xs ${themeClasses.textSecondary} mt-1`}>
+                      Equivale a: {formatCurrency((formData.yearly_price_cents || 0) / 100)}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className={`block text-sm font-medium ${themeClasses.text} mb-1`}>
+                      Descuento Anual (%)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.yearly_discount_percentage || 16.67}
+                      onChange={(e) => setFormData({...formData, yearly_discount_percentage: parseFloat(e.target.value)})}
+                      className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100`}
+                    />
+                  </div>
+                </div>
+
+                {/* Límites */}
+                <div className="space-y-4">
+                  <h4 className={`font-medium ${themeClasses.text}`}>Límites del Plan</h4>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className={`block text-sm font-medium ${themeClasses.text} mb-1`}>
+                        Máx. Usuarios
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.max_users || 0}
+                        onChange={(e) => setFormData({...formData, max_users: parseInt(e.target.value)})}
+                        className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100`}
+                      />
+                      <p className={`text-xs ${themeClasses.textSecondary} mt-1`}>-1 = ilimitado</p>
+                    </div>
+
+                    <div>
+                      <label className={`block text-sm font-medium ${themeClasses.text} mb-1`}>
+                        Máx. Recetas
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.max_recipes || 0}
+                        onChange={(e) => setFormData({...formData, max_recipes: parseInt(e.target.value)})}
+                        className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100`}
+                      />
+                    </div>
+
+                    <div>
+                      <label className={`block text-sm font-medium ${themeClasses.text} mb-1`}>
+                        Máx. Eventos
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.max_events || 0}
+                        onChange={(e) => setFormData({...formData, max_events: parseInt(e.target.value)})}
+                        className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100`}
+                      />
+                    </div>
+
+                    <div>
+                      <label className={`block text-sm font-medium ${themeClasses.text} mb-1`}>
+                        Almacenamiento (MB)
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.max_storage_mb || 1000}
+                        onChange={(e) => setFormData({...formData, max_storage_mb: parseInt(e.target.value)})}
+                        className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100`}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Configuración */}
+                <div className="space-y-4">
+                  <h4 className={`font-medium ${themeClasses.text}`}>Configuración</h4>
+                  
+                  <div>
+                    <label className={`block text-sm font-medium ${themeClasses.text} mb-1`}>
+                      Nivel de Soporte
+                    </label>
+                    <select
+                      value={formData.support_level || 'email'}
+                      onChange={(e) => setFormData({...formData, support_level: e.target.value})}
+                      className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100`}
+                    >
+                      <option value="email">Email</option>
+                      <option value="priority">Prioritario</option>
+                      <option value="24x7">24/7</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className={`flex items-center`}>
+                      <input
+                        type="checkbox"
+                        checked={formData.is_public ?? true}
+                        onChange={(e) => setFormData({...formData, is_public: e.target.checked})}
+                        className="mr-2"
+                      />
+                      <span className={`text-sm ${themeClasses.text}`}>Plan público</span>
+                    </label>
+                    
+                    <label className={`flex items-center`}>
+                      <input
+                        type="checkbox"
+                        checked={formData.is_popular ?? false}
+                        onChange={(e) => setFormData({...formData, is_popular: e.target.checked})}
+                        className="mr-2"
+                      />
+                      <span className={`text-sm ${themeClasses.text}`}>Plan popular</span>
+                    </label>
+
+                    <label className={`flex items-center`}>
+                      <input
+                        type="checkbox"
+                        checked={formData.has_analytics ?? false}
+                        onChange={(e) => setFormData({...formData, has_analytics: e.target.checked})}
+                        className="mr-2"
+                      />
+                      <span className={`text-sm ${themeClasses.text}`}>Analytics</span>
+                    </label>
+
+                    <label className={`flex items-center`}>
+                      <input
+                        type="checkbox"
+                        checked={formData.has_multi_location ?? false}
+                        onChange={(e) => setFormData({...formData, has_multi_location: e.target.checked})}
+                        className="mr-2"
+                      />
+                      <span className={`text-sm ${themeClasses.text}`}>Multi-ubicación</span>
+                    </label>
+
+                    <label className={`flex items-center`}>
+                      <input
+                        type="checkbox"
+                        checked={formData.has_custom_api ?? false}
+                        onChange={(e) => setFormData({...formData, has_custom_api: e.target.checked})}
+                        className="mr-2"
+                      />
+                      <span className={`text-sm ${themeClasses.text}`}>API personalizada</span>
+                    </label>
+
+                    <label className={`flex items-center`}>
+                      <input
+                        type="checkbox"
+                        checked={formData.has_white_label ?? false}
+                        onChange={(e) => setFormData({...formData, has_white_label: e.target.checked})}
+                        className="mr-2"
+                      />
+                      <span className={`text-sm ${themeClasses.text}`}>White label</span>
+                    </label>
+
+                    <label className={`flex items-center`}>
+                      <input
+                        type="checkbox"
+                        checked={formData.is_active ?? true}
+                        onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
+                        className="mr-2"
+                      />
+                      <span className={`text-sm ${themeClasses.text}`}>Plan activo</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Características */}
+              <div>
+                <label className={`block text-sm font-medium ${themeClasses.text} mb-1`}>
+                  Características (una por línea)
+                </label>
+                <textarea
+                  rows={6}
+                  value={formFeatures}
+                  onChange={(e) => setFormFeatures(e.target.value)}
+                  placeholder="Hasta 5 usuarios&#10;Hasta 200 recetas&#10;Gestión completa de inventario"
+                  className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100`}
+                />
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end space-x-3">
+              <button
+                onClick={handleCancelEdit}
+                disabled={saveLoading}
+                className={`px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium ${themeClasses.text} hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors`}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSavePlan}
+                disabled={saveLoading}
+                className={`inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition-colors`}
+              >
+                {saveLoading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                    Guardando...
+                  </>
+                ) : (
+                  <>
+                    <CheckIcon className="h-4 w-4 mr-2" />
+                    Guardar Cambios
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

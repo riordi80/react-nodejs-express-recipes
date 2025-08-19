@@ -75,8 +75,6 @@ export function SuperAdminProvider({ children }: SuperAdminProviderProps) {
 
   const checkAuth = async () => {
     try {
-      setLoading(true)
-      
       const response = await fetch(`${apiBaseUrl}/api/superadmin/auth/me`, {
         method: 'GET',
         credentials: 'include',
@@ -91,8 +89,8 @@ export function SuperAdminProvider({ children }: SuperAdminProviderProps) {
       } else {
         setUser(null)
       }
-    } catch {
-      console.error('Fixed error in catch block')
+    } catch (error) {
+      console.error('Error checking auth:', error)
       setUser(null)
     } finally {
       setLoading(false)
