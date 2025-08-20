@@ -1,42 +1,82 @@
 'use client'
 
+import React, { useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext'
-import { LayoutDashboard, BookOpen, Package, Users, Calendar, Clock, Plus } from 'lucide-react'
+import { LayoutDashboard, BookOpen, Package, Users, Calendar, Clock, Plus, Settings } from 'lucide-react'
 import Link from 'next/link'
+import { useDashboardConfig } from '@/hooks/useDashboardConfig';
+import { useDashboardSummary } from '@/hooks/useDashboardWidgets';
+import DynamicWidget from '@/components/dashboard/DynamicWidget';
+import { EmptyState, LoadingCard } from '@/components/ui';
 
 export default function DashboardPage() {
-  const { user } = useAuth()
+  const { user } = useAuth();
+  const { 
+    enabledWidgets, 
+    displaySettings, 
+    loading: configLoading 
+  } = useDashboardConfig();
+  
+  const { 
+    data: summaryData, 
+    loading: summaryLoading, 
+    error: summaryError,
+    refetch: refetchSummary 
+  } = useDashboardSummary(true);
 
+  // Auto-refresh si está habilitado
+  useEffect(() => {
+    if (!displaySettings.autoRefresh) return;
+
+    const intervalMs = parseInt(displaySettings.refreshInterval) * 1000;
+    const interval = setInterval(() => {
+      refetchSummary();
+    }, intervalMs);
+
+    return () => clearInterval(interval);
+  }, [displaySettings.autoRefresh, displaySettings.refreshInterval, refetchSummary]);
+
+  // Stats dinámicas desde el resumen
   const stats = [
     {
       name: 'Total Recetas',
-      value: '124',
+      value: summaryLoading ? '...' : (summaryData?.totalRecipes?.toString() || '0'),
       icon: BookOpen
     },
     {
       name: 'Ingredientes',
-      value: '456',
+      value: summaryLoading ? '...' : (summaryData?.totalIngredients?.toString() || '0'),
       icon: Package
     },
     {
       name: 'Proveedores',
-      value: '23',
+      value: summaryLoading ? '...' : (summaryData?.totalSuppliers?.toString() || '0'),
       icon: Users
     },
     {
       name: 'Eventos',
-      value: '12',
+      value: summaryLoading ? '...' : (summaryData?.totalEvents?.toString() || '0'),
       icon: Calendar
     }
-  ]
+  ];
 
   return (
     <div className="p-6">
       {/* Header */}
       <div className="mb-8">
-        <div className="flex items-center space-x-3 mb-2">
-          <LayoutDashboard className="h-8 w-8 text-orange-600" />
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center space-x-3">
+            <LayoutDashboard className="h-8 w-8 text-orange-600" />
+            <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+          </div>
+          
+          <Link
+            href="/settings"
+            className="flex items-center space-x-2 px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            <Settings className="h-4 w-4" />
+            <span className="text-sm">Configurar</span>
+          </Link>
         </div>
         <p className="text-gray-600">
           Bienvenido de vuelta, {user?.first_name}. Aquí tienes un resumen de tu sistema de gestión de recetas.
@@ -60,83 +100,102 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Activity */}
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <div className="bg-orange-100 p-2 rounded-lg">
-                <Clock className="h-5 w-5 text-orange-600" />
-              </div>
-              Actividad Reciente
-            </h3>
-          </div>
-          <div className="p-6">
-            <div className="space-y-4">
-              <div className="flex items-center space-x-3">
-                <div className="bg-blue-100 p-2 rounded-full">
-                  <BookOpen className="h-4 w-4 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">Nueva receta creada</p>
-                  <p className="text-xs text-gray-500">Paella Valenciana - hace 2 horas</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-3">
-                <div className="bg-green-100 p-2 rounded-full">
-                  <Package className="h-4 w-4 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">Inventario actualizado</p>
-                  <p className="text-xs text-gray-500">Stock de arroz - hace 5 horas</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-3">
-                <div className="bg-purple-100 p-2 rounded-full">
-                  <Users className="h-4 w-4 text-purple-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">Nuevo proveedor añadido</p>
-                  <p className="text-xs text-gray-500">Distribuciones García - ayer</p>
-                </div>
-              </div>
-            </div>
-          </div>
+      {configLoading ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <LoadingCard key={i} />
+          ))}
         </div>
+      ) : enabledWidgets.length === 0 ? (
+        <div className="mt-8">
+          <EmptyState
+            icon={LayoutDashboard}
+            title="Dashboard sin configurar"
+            description="No tienes widgets habilitados. Ve a Configuración → Dashboard para activar widgets."
+            action={{
+              label: 'Configurar Dashboard',
+              onClick: () => window.location.href = '/settings',
+              variant: 'primary'
+            }}
+          />
+        </div>
+      ) : (
+        <>
+          {/* Dynamic Widgets Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
+            {enabledWidgets.map((widget) => (
+              <DynamicWidget
+                key={widget.id}
+                widget={widget}
+                itemsPerWidget={displaySettings.itemsPerWidget}
+                compact={false}
+              />
+            ))}
+          </div>
 
-        {/* Quick Actions */}
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <div className="bg-orange-100 p-2 rounded-lg">
-                <Plus className="h-5 w-5 text-orange-600" />
+          {/* Quick Actions - Solo si hay espacio después de widgets */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <div className="bg-orange-100 p-2 rounded-lg">
+                    <Plus className="h-5 w-5 text-orange-600" />
+                  </div>
+                  Acciones Rápidas
+                </h3>
               </div>
-              Acciones Rápidas
-            </h3>
-          </div>
-          <div className="p-6">
-            <div className="grid grid-cols-2 gap-4">
-              <Link href="/recipes/new" className="flex flex-col items-center justify-center text-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                <BookOpen className="h-8 w-8 text-blue-600 mb-2" />
-                <span className="text-sm font-medium text-gray-900">Nueva Receta</span>
-              </Link>
-              <Link href="/ingredients/new" className="flex flex-col items-center justify-center text-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                <Package className="h-8 w-8 text-green-600 mb-2" />
-                <span className="text-sm font-medium text-gray-900">Añadir Ingrediente</span>
-              </Link>
-              <Link href="/suppliers/new" className="flex flex-col items-center justify-center text-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                <Users className="h-8 w-8 text-purple-600 mb-2" />
-                <span className="text-sm font-medium text-gray-900">Nuevo Proveedor</span>
-              </Link>
-              <Link href="/events/new" className="flex flex-col items-center justify-center text-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                <Calendar className="h-8 w-8 text-orange-600 mb-2" />
-                <span className="text-sm font-medium text-gray-900">Crear Evento</span>
-              </Link>
+              <div className="p-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <Link href="/recipes/new" className="flex flex-col items-center justify-center text-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                    <BookOpen className="h-8 w-8 text-blue-600 mb-2" />
+                    <span className="text-sm font-medium text-gray-900">Nueva Receta</span>
+                  </Link>
+                  <Link href="/ingredients/new" className="flex flex-col items-center justify-center text-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                    <Package className="h-8 w-8 text-green-600 mb-2" />
+                    <span className="text-sm font-medium text-gray-900">Añadir Ingrediente</span>
+                  </Link>
+                  <Link href="/suppliers/new" className="flex flex-col items-center justify-center text-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                    <Users className="h-8 w-8 text-purple-600 mb-2" />
+                    <span className="text-sm font-medium text-gray-900">Nuevo Proveedor</span>
+                  </Link>
+                  <Link href="/events/new" className="flex flex-col items-center justify-center text-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                    <Calendar className="h-8 w-8 text-orange-600 mb-2" />
+                    <span className="text-sm font-medium text-gray-900">Crear Evento</span>
+                  </Link>
+                </div>
+              </div>
+            </div>
+
+            {/* Info sobre configuración */}
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-6">
+              <div className="flex items-start space-x-3">
+                <LayoutDashboard className="h-6 w-6 text-orange-600 mt-1" />
+                <div>
+                  <h3 className="text-lg font-semibold text-orange-900 mb-2">
+                    Dashboard Personalizado
+                  </h3>
+                  <p className="text-sm text-orange-800 mb-4">
+                    Tienes {enabledWidgets.length} widgets activos. Personaliza tu dashboard en cualquier momento.
+                  </p>
+                  <div className="space-y-2 text-sm text-orange-700">
+                    <div>• Auto-refresh: {displaySettings.autoRefresh ? `Cada ${displaySettings.refreshInterval}s` : 'Desactivado'}</div>
+                    <div>• Elementos por widget: {displaySettings.itemsPerWidget}</div>
+                  </div>
+                  <div className="mt-4">
+                    <Link
+                      href="/settings"
+                      className="inline-flex items-center text-sm font-medium text-orange-600 hover:text-orange-700"
+                    >
+                      <Settings className="h-4 w-4 mr-2" />
+                      Configurar widgets
+                    </Link>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
+        </>
+      )}
     </div>
-  )
+  );
 }

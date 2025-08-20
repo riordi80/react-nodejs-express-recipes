@@ -5,42 +5,26 @@ import { LayoutDashboard, ArrowUp, ArrowDown, Move, Eye, EyeOff, Package, Calend
 import { useToast } from '@/context/ToastContext'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
-
-interface Widget {
-  id: string
-  title: string
-  description: string
-  category: string
-  enabled: boolean
-  order: number
-}
+import { useDashboardConfig } from '@/hooks/useDashboardConfig'
 
 const DashboardSection = () => {
   const { showToast } = useToast()
   const [showReorderModal, setShowReorderModal] = useState(false)
   
-  // Estado inicial de widgets (normalmente vendría de contexto o API)
-  const [widgets, setWidgets] = useState<Widget[]>([
-    // Gestión de Inventario
-    { id: 'stockAlerts', title: 'Alertas de Stock', description: 'Ingredientes con stock bajo', category: 'inventory', enabled: true, order: 1 },
-    { id: 'seasonalIngredients', title: 'Ingredientes de Temporada', description: 'Ingredientes actuales de temporada', category: 'inventory', enabled: true, order: 2 },
-    { id: 'seasonalAlerts', title: 'Alertas de Temporada', description: 'Ingredientes próximos a cambiar temporada', category: 'inventory', enabled: false, order: 3 },
-    // Eventos y Planificación
-    { id: 'upcomingEvents', title: 'Próximos Eventos', description: 'Eventos programados próximamente', category: 'events', enabled: true, order: 4 },
-    { id: 'eventsWithMenus', title: 'Eventos con Menús', description: 'Eventos que tienen menús asignados', category: 'events', enabled: true, order: 5 },
-    // Recetas y Cocina
-    { id: 'latestRecipes', title: 'Últimas Recetas', description: 'Recetas añadidas recientemente', category: 'recipes', enabled: true, order: 6 },
-    { id: 'recipesByCategory', title: 'Recetas por Categoría', description: 'Distribución de recetas por categoría', category: 'recipes', enabled: false, order: 7 },
-    // Proveedores y Pedidos
-    { id: 'pendingOrders', title: 'Pedidos Pendientes', description: 'Órdenes de compra pendientes', category: 'suppliers', enabled: true, order: 8 },
-    { id: 'costTrends', title: 'Tendencias de Costos', description: 'Evolución de precios de ingredientes', category: 'suppliers', enabled: false, order: 9 }
-  ])
-
-  const [displaySettings, setDisplaySettings] = useState({
-    itemsPerWidget: '5',
-    autoRefresh: true,
-    refreshInterval: '30'
-  })
+  // Usar el hook de configuración del dashboard
+  const {
+    widgets,
+    displaySettings,
+    loading,
+    totalWidgets,
+    enabledCount,
+    disabledCount,
+    toggleWidget,
+    moveWidget,
+    updateDisplaySettings,
+    resetToDefaults,
+    getWidgetsByCategory
+  } = useDashboardConfig()
 
   const categories = {
     inventory: { name: 'Gestión de Inventario', icon: Package, color: 'bg-gray-50' },
@@ -49,53 +33,41 @@ const DashboardSection = () => {
     suppliers: { name: 'Proveedores y Pedidos', icon: Truck, color: 'bg-gray-50' }
   }
 
-  const toggleWidget = (widgetId: string) => {
-    setWidgets(prev => prev.map(widget => 
-      widget.id === widgetId 
-        ? { ...widget, enabled: !widget.enabled }
-        : widget
-    ))
+  const handleToggleWidget = (widgetId: string) => {
+    toggleWidget(widgetId)
     showToast({ message: 'Configuración de widget actualizada', type: 'success' })
   }
 
-  const moveWidget = (widgetId: string, direction: 'up' | 'down') => {
-    const currentIndex = widgets.findIndex(w => w.id === widgetId)
-    if (
-      (direction === 'up' && currentIndex > 0) ||
-      (direction === 'down' && currentIndex < widgets.length - 1)
-    ) {
-      const newWidgets = [...widgets]
-      const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1
-      
-      // Intercambiar posiciones
-      const temp = newWidgets[currentIndex].order
-      newWidgets[currentIndex].order = newWidgets[targetIndex].order
-      newWidgets[targetIndex].order = temp
-      
-      // Reordenar array
-      newWidgets.sort((a, b) => a.order - b.order)
-      setWidgets(newWidgets)
-      showToast({ message: 'Orden actualizado', type: 'success' })
-    }
+  const handleMoveWidget = (widgetId: string, direction: 'up' | 'down') => {
+    moveWidget(widgetId, direction)
+    showToast({ message: 'Orden actualizado', type: 'success' })
   }
 
   const handleDisplaySettingChange = (key: string, value: string | boolean) => {
-    setDisplaySettings(prev => ({ ...prev, [key]: value }))
+    updateDisplaySettings(key as any, value)
     showToast({ message: 'Configuración de visualización actualizada', type: 'success' })
   }
 
-  const resetToDefaults = () => {
-    setWidgets(prev => prev.map(widget => ({ ...widget, enabled: true })))
-    setDisplaySettings({
-      itemsPerWidget: '5',
-      autoRefresh: true,
-      refreshInterval: '30'
-    })
+  const handleResetToDefaults = () => {
+    resetToDefaults()
     showToast({ message: 'Configuraciones restablecidas a valores por defecto', type: 'success' })
   }
 
-  const enabledWidgets = widgets.filter(w => w.enabled).length
-  const totalWidgets = widgets.length
+  if (loading) {
+    return (
+      <div className="space-y-8">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-1/3 mb-4"></div>
+          <div className="h-4 bg-gray-200 rounded w-2/3 mb-8"></div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="h-24 bg-gray-200 rounded-lg"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-8">
@@ -125,7 +97,7 @@ const DashboardSection = () => {
             <Eye className="h-8 w-8 text-orange-700" />
             <div>
               <p className="text-sm text-orange-700 font-medium">Widgets Activos</p>
-              <p className="text-2xl font-bold text-orange-900">{enabledWidgets}</p>
+              <p className="text-2xl font-bold text-orange-900">{enabledCount}</p>
             </div>
           </div>
         </div>
@@ -135,7 +107,7 @@ const DashboardSection = () => {
             <EyeOff className="h-8 w-8 text-gray-600" />
             <div>
               <p className="text-sm text-gray-600 font-medium">Widgets Ocultos</p>
-              <p className="text-2xl font-bold text-gray-900">{totalWidgets - enabledWidgets}</p>
+              <p className="text-2xl font-bold text-gray-900">{disabledCount}</p>
             </div>
           </div>
         </div>
@@ -210,7 +182,7 @@ const DashboardSection = () => {
 
       {/* Widgets por Categoría */}
       {Object.entries(categories).map(([category, categoryData]) => {
-        const categoryWidgets = widgets.filter(w => w.category === category)
+        const categoryWidgets = getWidgetsByCategory(category as any)
         
         return (
           <div key={category} className={`rounded-lg p-6 ${categoryData.color}`}>
@@ -229,7 +201,7 @@ const DashboardSection = () => {
                   
                   <div className="flex items-center gap-2 ml-4">
                     <button
-                      onClick={() => moveWidget(widget.id, 'up')}
+                      onClick={() => handleMoveWidget(widget.id, 'up')}
                       disabled={widget.order === 1}
                       className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
                     >
@@ -237,7 +209,7 @@ const DashboardSection = () => {
                     </button>
                     
                     <button
-                      onClick={() => moveWidget(widget.id, 'down')}
+                      onClick={() => handleMoveWidget(widget.id, 'down')}
                       disabled={widget.order === widgets.length}
                       className="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
                     >
@@ -245,7 +217,7 @@ const DashboardSection = () => {
                     </button>
                     
                     <button
-                      onClick={() => toggleWidget(widget.id)}
+                      onClick={() => handleToggleWidget(widget.id)}
                       className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                         widget.enabled ? 'bg-orange-600' : 'bg-gray-200'
                       }`}
@@ -275,7 +247,7 @@ const DashboardSection = () => {
         </Button>
         
         <Button 
-          onClick={resetToDefaults}
+          onClick={handleResetToDefaults}
           variant="outline"
         >
           Restablecer por Defecto
@@ -315,7 +287,7 @@ const DashboardSection = () => {
                   
                   <div className="flex gap-1">
                     <button
-                      onClick={() => moveWidget(widget.id, 'up')}
+                      onClick={() => handleMoveWidget(widget.id, 'up')}
                       disabled={widget.order === 1}
                       className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed border border-gray-300 rounded"
                     >
@@ -323,7 +295,7 @@ const DashboardSection = () => {
                     </button>
                     
                     <button
-                      onClick={() => moveWidget(widget.id, 'down')}
+                      onClick={() => handleMoveWidget(widget.id, 'down')}
                       disabled={widget.order === widgets.filter(w => w.enabled).length}
                       className="p-2 text-gray-400 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed border border-gray-300 rounded"
                     >
