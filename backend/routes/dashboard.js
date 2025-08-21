@@ -400,6 +400,7 @@ router.get('/seasonal-alerts', authenticateToken, authorizeRoles('admin', 'chef'
 router.get('/summary', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
   try {
     const [totalRecipes] = await req.tenantDb.query('SELECT COUNT(*) as count FROM RECIPES');
+    const [totalIngredients] = await req.tenantDb.query('SELECT COUNT(*) as count FROM INGREDIENTS WHERE is_available = 1');
     const [totalEvents] = await req.tenantDb.query('SELECT COUNT(*) as count FROM EVENTS');
     const [totalSuppliers] = await req.tenantDb.query('SELECT COUNT(*) as count FROM SUPPLIERS');
     const [lowStockCount] = await req.tenantDb.query('SELECT COUNT(*) as count FROM INGREDIENTS WHERE stock < stock_minimum AND is_available = 1');
@@ -441,6 +442,7 @@ router.get('/summary', authenticateToken, authorizeRoles('admin', 'chef'), async
     
     const summary = {
       totalRecipes: totalRecipes[0].count,
+      totalIngredients: totalIngredients[0].count,
       totalEvents: totalEvents[0].count,
       totalSuppliers: totalSuppliers[0].count,
       lowStockCount: lowStockCount[0].count,

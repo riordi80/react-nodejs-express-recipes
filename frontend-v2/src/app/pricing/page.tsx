@@ -130,11 +130,13 @@ export default function PreciosPage() {
               <span className={`transition-colors ${isYearly ? 'text-gray-900 font-semibold' : 'text-gray-600'}`}>
                 Anual
               </span>
-              {isYearly && (
-                <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-sm font-semibold">
-                  2 meses gratis
-                </span>
-              )}
+              <span className={`px-2 py-1 rounded-full text-sm font-semibold transition-all duration-200 ${
+                isYearly 
+                  ? 'bg-green-100 text-green-800 opacity-100' 
+                  : 'bg-transparent text-transparent opacity-0'
+              }`}>
+                2 meses gratis
+              </span>
             </div>
           </div>
         </div>

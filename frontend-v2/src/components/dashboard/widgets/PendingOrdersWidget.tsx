@@ -15,13 +15,40 @@ interface PendingOrdersWidgetProps {
   compact?: boolean;
 }
 
-// Mapeo de estados de pedidos
-const statusConfig = {
-  pending: { color: 'bg-yellow-100 text-yellow-800', label: 'Pendiente' },
-  ordered: { color: 'bg-blue-100 text-blue-800', label: 'Pedido' },
-  shipped: { color: 'bg-purple-100 text-purple-800', label: 'Enviado' },
-  delivered: { color: 'bg-green-100 text-green-800', label: 'Entregado' },
-  cancelled: { color: 'bg-red-100 text-red-800', label: 'Cancelado' }
+// Configuración de estados igual que en OrderCard de Pedidos Activos
+const getStatusStyle = (status: string) => {
+  switch (status) {
+    case 'pending':
+      return {
+        label: 'Pendiente',
+        badgeColor: 'bg-yellow-100 text-yellow-800',
+        bgColor: 'bg-yellow-50 border-yellow-200'
+      }
+    case 'ordered':
+      return {
+        label: 'Confirmado',
+        badgeColor: 'bg-blue-100 text-blue-800',
+        bgColor: 'bg-blue-50 border-blue-200'
+      }
+    case 'delivered':
+      return {
+        label: 'Recibido',
+        badgeColor: 'bg-green-100 text-green-800',
+        bgColor: 'bg-green-50 border-green-200'
+      }
+    case 'cancelled':
+      return {
+        label: 'Cancelado',
+        badgeColor: 'bg-red-100 text-red-800',
+        bgColor: 'bg-red-50 border-red-200'
+      }
+    default:
+      return {
+        label: status,
+        badgeColor: 'bg-gray-100 text-gray-800',
+        bgColor: 'bg-gray-50 border-gray-200'
+      }
+  }
 };
 
 const PendingOrdersWidget: React.FC<PendingOrdersWidgetProps> = ({
@@ -53,14 +80,6 @@ const PendingOrdersWidget: React.FC<PendingOrdersWidgetProps> = ({
     return 'normal';
   };
 
-  const getUrgencyColor = (urgency: string | null) => {
-    switch (urgency) {
-      case 'overdue': return 'border-red-300 bg-red-50';
-      case 'urgent': return 'border-orange-300 bg-orange-50';
-      case 'soon': return 'border-yellow-300 bg-yellow-50';
-      default: return 'border-gray-200 bg-gray-50';
-    }
-  };
 
   return (
     <DashboardWidget
@@ -81,14 +100,13 @@ const PendingOrdersWidget: React.FC<PendingOrdersWidgetProps> = ({
       ) : (
         <div className="space-y-3">
           {data.map((order) => {
-            const statusInfo = statusConfig[order.status as keyof typeof statusConfig] || statusConfig.pending;
+            const statusStyle = getStatusStyle(order.status);
             const urgency = getUrgency(order.delivery_date);
-            const urgencyColor = getUrgencyColor(urgency);
             
             return (
               <div
                 key={order.order_id}
-                className={`p-3 border rounded-lg transition-colors ${urgencyColor}`}
+                className={`p-3 border rounded-lg transition-colors ${statusStyle.bgColor}`}
               >
                 <div className="flex items-start justify-between mb-2">
                   <div>
@@ -99,8 +117,8 @@ const PendingOrdersWidget: React.FC<PendingOrdersWidgetProps> = ({
                       Pedido #{order.order_id}
                     </p>
                   </div>
-                  <Badge className={statusInfo.color} size="sm">
-                    {statusInfo.label}
+                  <Badge className={statusStyle.badgeColor} size="sm">
+                    {statusStyle.label}
                   </Badge>
                 </div>
                 

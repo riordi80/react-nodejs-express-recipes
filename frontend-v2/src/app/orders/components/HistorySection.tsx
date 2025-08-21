@@ -5,6 +5,8 @@ import { History, Calendar, Download, Filter, TrendingUp, Eye, Package, User } f
 import { apiGet } from '@/lib/api'
 import { useToastHelpers } from '@/context/ToastContext'
 import { useSettings } from '@/context/SettingsContext'
+import { usePageSize } from '@/hooks/usePageSize'
+import PaginationSelector from '@/components/ui/PaginationSelector'
 
 interface HistoryOrder {
   order_id: number
@@ -110,6 +112,7 @@ const getStatusStyle = (status: string) => {
 export default function HistorySection({ onOrderClick }: HistorySectionProps) {
   const { error: showError } = useToastHelpers()
   const { settings } = useSettings()
+  const { pageSize, setPageSize } = usePageSize('orders-history')
   
   // Initialize filters with settings
   const defaultFilters: HistoryFilters = {
@@ -123,7 +126,7 @@ export default function HistorySection({ onOrderClick }: HistorySectionProps) {
     orderBy: 'order_date',
     sortDirection: 'DESC',
     page: 1,
-    limit: settings.pageSize
+    limit: pageSize
   }
   
   const [historyData, setHistoryData] = useState<HistoryResponse | null>(null)
@@ -190,14 +193,14 @@ export default function HistorySection({ onOrderClick }: HistorySectionProps) {
     setFilters(prev => ({ ...prev, page: newPage }))
   }
 
-  // Update filters when settings change
+  // Update filters when pageSize changes
   useEffect(() => {
     setFilters(prev => ({
       ...prev,
-      limit: settings.pageSize,
+      limit: pageSize,
       page: 1 // Reset to first page when pageSize changes
     }))
-  }, [settings.pageSize])
+  }, [pageSize])
 
   useEffect(() => {
     loadHistory()
@@ -519,7 +522,14 @@ export default function HistorySection({ onOrderClick }: HistorySectionProps) {
 
           {/* Pagination */}
           {historyData.pagination.totalPages > 1 && (
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
+              {/* Page Size Selector */}
+              <PaginationSelector
+                currentPageSize={pageSize}
+                onPageSizeChange={setPageSize}
+                totalItems={historyData.pagination.totalRecords}
+              />
+
               <div className="text-sm text-gray-700">
                 Mostrando {((historyData.pagination.currentPage - 1) * historyData.pagination.recordsPerPage) + 1} a{' '}
                 {Math.min(historyData.pagination.currentPage * historyData.pagination.recordsPerPage, historyData.pagination.totalRecords)} de{' '}

@@ -6,6 +6,7 @@ import OrderCard from './OrderCard'
 // import OrdersTable from './OrdersTable' // Currently unused
 import SortableTableHeader from '@/components/ui/SortableTableHeader'
 import Pagination from '@/components/ui/Pagination'
+import PaginationSelector from '@/components/ui/PaginationSelector'
 
 interface Order {
   order_id: number
@@ -61,6 +62,8 @@ interface ActiveOrdersSectionProps {
   onDeleteOrder: (order: Order) => Promise<void>
   onPageChange?: (page: number) => void
   onSort?: (key: string) => void
+  pageSize?: number
+  onPageSizeChange?: (newSize: number) => void
 }
 
 export default function ActiveOrdersSection({
@@ -74,7 +77,9 @@ export default function ActiveOrdersSection({
   onUpdateOrderStatus,
   onDeleteOrder,
   onPageChange,
-  onSort
+  onSort,
+  pageSize,
+  onPageSizeChange
 }: ActiveOrdersSectionProps) {
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards')
 
@@ -355,25 +360,36 @@ export default function ActiveOrdersSection({
           
           {/* Pagination */}
           {pagination && pagination.totalPages > 1 && (
-            <div className="mt-6 flex justify-center">
-              {/* Desktop: Paginación completa */}
-              <div className="hidden sm:block">
-                <Pagination
-                  currentPage={pagination.currentPage}
-                  totalPages={pagination.totalPages}
-                  onPageChange={onPageChange || (() => {})}
+            <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+              {/* Page Size Selector */}
+              {pageSize && onPageSizeChange && (
+                <PaginationSelector
+                  currentPageSize={pageSize}
+                  onPageSizeChange={onPageSizeChange}
+                  totalItems={pagination.totalItems}
                 />
-              </div>
+              )}
               
-              {/* Mobile: Paginación compacta */}
-              <div className="block sm:hidden">
-                <Pagination
-                  currentPage={pagination.currentPage}
-                  totalPages={pagination.totalPages}
-                  onPageChange={onPageChange || (() => {})}
-                  showFirstLast={false}
-                  siblingCount={0}
-                />
+              <div className="flex justify-center">
+                {/* Desktop: Paginación completa */}
+                <div className="hidden sm:block">
+                  <Pagination
+                    currentPage={pagination.currentPage}
+                    totalPages={pagination.totalPages}
+                    onPageChange={onPageChange || (() => {})}
+                  />
+                </div>
+                
+                {/* Mobile: Paginación compacta */}
+                <div className="block sm:hidden">
+                  <Pagination
+                    currentPage={pagination.currentPage}
+                    totalPages={pagination.totalPages}
+                    onPageChange={onPageChange || (() => {})}
+                    showFirstLast={false}
+                    siblingCount={0}
+                  />
+                </div>
               </div>
             </div>
           )}

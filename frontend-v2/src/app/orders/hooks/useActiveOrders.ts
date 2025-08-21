@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react'
 import { apiPut, apiDelete, apiGet } from '@/lib/api'
 import { useToastHelpers } from '@/context/ToastContext'
 import { usePaginatedTable } from '@/hooks/usePaginatedTable'
-import { useSettings } from '@/context/SettingsContext'
+import { usePageSize } from '@/hooks/usePageSize'
 
 export interface Order {
   order_id: number
@@ -46,7 +46,7 @@ const defaultFilters: OrderFilters = {
 
 export const useActiveOrders = () => {
   const { success, error: showError } = useToastHelpers()
-  const { settings } = useSettings()
+  const { pageSize, setPageSize } = usePageSize('orders-active')
   const [filters, setFilters] = useState<OrderFilters>(defaultFilters)
 
   // Function to fetch paginated orders
@@ -109,10 +109,10 @@ export const useActiveOrders = () => {
     refresh
   } = usePaginatedTable(fetchOrders, {
     initialPage: 1,
-    itemsPerPage: settings.pageSize,
+    itemsPerPage: pageSize,
     initialSortKey: 'order_id',
     initialSortDirection: 'desc',
-    dependencies: [filters],
+    dependencies: [filters, pageSize],
     storageKey: 'active-orders-page'
   })
 
@@ -170,9 +170,11 @@ export const useActiveOrders = () => {
     filters,
     pagination,
     sortConfig,
+    pageSize,
 
     // Actions
     setFilters,
+    setPageSize,
     loadOrders,
     updateOrderStatus,
     deleteOrder,

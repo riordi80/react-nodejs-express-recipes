@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { useDashboardConfig } from '@/hooks/useDashboardConfig';
 import { useDashboardSummary } from '@/hooks/useDashboardWidgets';
 import DynamicWidget from '@/components/dashboard/DynamicWidget';
+import BentoGrid from '@/components/dashboard/BentoGrid';
 import { EmptyState, LoadingCard } from '@/components/ui';
 
 export default function DashboardPage() {
@@ -36,26 +37,26 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, [displaySettings.autoRefresh, displaySettings.refreshInterval, refetchSummary]);
 
-  // Stats dinámicas desde el resumen
+  // Stats dinámicas desde el resumen - evitar parpadeo manteniendo valores previos
   const stats = [
     {
       name: 'Total Recetas',
-      value: summaryLoading ? '...' : (summaryData?.totalRecipes?.toString() || '0'),
+      value: summaryData?.totalRecipes?.toString() || (summaryLoading ? '...' : '0'),
       icon: BookOpen
     },
     {
       name: 'Ingredientes',
-      value: summaryLoading ? '...' : (summaryData?.totalIngredients?.toString() || '0'),
+      value: summaryData?.totalIngredients?.toString() || (summaryLoading ? '...' : '0'),
       icon: Package
     },
     {
       name: 'Proveedores',
-      value: summaryLoading ? '...' : (summaryData?.totalSuppliers?.toString() || '0'),
+      value: summaryData?.totalSuppliers?.toString() || (summaryLoading ? '...' : '0'),
       icon: Users
     },
     {
       name: 'Eventos',
-      value: summaryLoading ? '...' : (summaryData?.totalEvents?.toString() || '0'),
+      value: summaryData?.totalEvents?.toString() || (summaryLoading ? '...' : '0'),
       icon: Calendar
     }
   ];
@@ -64,19 +65,9 @@ export default function DashboardPage() {
     <div className="p-6">
       {/* Header */}
       <div className="mb-8">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center space-x-3">
-            <LayoutDashboard className="h-8 w-8 text-orange-600" />
-            <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          </div>
-          
-          <Link
-            href="/settings"
-            className="flex items-center space-x-2 px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <Settings className="h-4 w-4" />
-            <span className="text-sm">Configurar</span>
-          </Link>
+        <div className="flex items-center space-x-3 mb-2">
+          <LayoutDashboard className="h-8 w-8 text-orange-600" />
+          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
         </div>
         <p className="text-gray-600">
           Bienvenido de vuelta, {user?.first_name}. Aquí tienes un resumen de tu sistema de gestión de recetas.
@@ -101,10 +92,12 @@ export default function DashboardPage() {
       </div>
 
       {configLoading ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <LoadingCard key={i} />
-          ))}
+        <div className="mb-8">
+          <BentoGrid>
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <LoadingCard key={i} />
+            ))}
+          </BentoGrid>
         </div>
       ) : enabledWidgets.length === 0 ? (
         <div className="mt-8">
@@ -121,16 +114,18 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
-          {/* Dynamic Widgets Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
-            {enabledWidgets.map((widget) => (
-              <DynamicWidget
-                key={widget.id}
-                widget={widget}
-                itemsPerWidget={displaySettings.itemsPerWidget}
-                compact={false}
-              />
-            ))}
+          {/* Dynamic Widgets Bento Layout */}
+          <div className="mb-8">
+            <BentoGrid>
+              {enabledWidgets.map((widget) => (
+                <DynamicWidget
+                  key={widget.id}
+                  widget={widget}
+                  itemsPerWidget={displaySettings.itemsPerWidget}
+                  compact={false}
+                />
+              ))}
+            </BentoGrid>
           </div>
 
           {/* Quick Actions - Solo si hay espacio después de widgets */}

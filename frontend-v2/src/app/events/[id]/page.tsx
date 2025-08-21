@@ -18,13 +18,15 @@ import {
   Info,
   Heart,
   Search,
-  Edit
+  Edit,
+  Download
 } from 'lucide-react'
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api'
 import ConfirmModal from '@/components/ui/ConfirmModal'
 import Modal from '@/components/ui/Modal'
 import UnifiedTabs from '@/components/ui/DetailTabs'
 import { useUnsavedChanges } from '@/hooks/useUnsavedChangesSimple'
+import { usePDFGenerator } from '@/hooks/usePDFGenerator'
 // Tipo Recipe que coincide con la API del backend
 interface Recipe {
   recipe_id: number
@@ -111,6 +113,9 @@ export default function EventDetailPage() {
 
   // Toast helpers
   const { success, error: showError } = useToastHelpers()
+  
+  // PDF Generator
+  const { generateEventPDF } = usePDFGenerator()
 
   // State
   const [event, setEvent] = useState<Event | null>(null)
@@ -491,6 +496,12 @@ export default function EventDetailPage() {
     }
   }
 
+  // Función para generar PDF del evento
+  const handleDownloadPDF = () => {
+    if (!event) return
+    generateEventPDF(event, eventRecipes)
+  }
+
   const formatCurrency = (value: number) => {
     return value.toLocaleString('es-ES', { 
       minimumFractionDigits: 2,
@@ -757,23 +768,6 @@ export default function EventDetailPage() {
             </div>
           )}
 
-          {/* Notes */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Notas
-            </label>
-            {isEditing ? (
-              <textarea
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                rows={3}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                placeholder="Notas adicionales"
-              />
-            ) : (
-              <p className="text-gray-900">{event?.notes || 'Sin notas'}</p>
-            )}
-          </div>
         </div>
       </div>
     </div>
@@ -823,6 +817,16 @@ export default function EventDetailPage() {
                 title="Eliminar evento"
               >
                 <Trash2 className="h-4 w-4" />
+              </button>
+            )}
+            
+            {!isNewEvent && (
+              <button
+                onClick={handleDownloadPDF}
+                className="p-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg transition-colors"
+                title="Descargar PDF"
+              >
+                <Download className="h-4 w-4" />
               </button>
             )}
             
@@ -890,6 +894,16 @@ export default function EventDetailPage() {
               >
                 <Trash2 className="h-4 w-4 mr-2" />
                 Eliminar
+              </button>
+            )}
+            
+            {!isNewEvent && (
+              <button
+                onClick={handleDownloadPDF}
+                className="inline-flex items-center px-4 py-2 border border-orange-300 text-orange-700 text-sm font-medium rounded-lg hover:bg-orange-50 transition-colors"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Descargar PDF
               </button>
             )}
             
@@ -1047,94 +1061,6 @@ export default function EventDetailPage() {
         {/* Sidebar */}
         <div className="space-y-6">
           
-          {/* Menu Section - Moved from tabs */}
-          {
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                  <div className="bg-orange-100 p-2 rounded-lg">
-                    <Utensils className="h-5 w-5 text-orange-600" />
-                  </div>
-                  Menú del Evento
-                </h3>
-                {!isNewEvent && (
-                  <button 
-                    onClick={openAddRecipeModal}
-                    className="inline-flex items-center text-orange-600 hover:text-orange-700 text-sm font-medium transition-colors"
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Añadir
-                  </button>
-                )}
-              </div>
-              
-              <div>
-                {eventRecipes.length > 0 ? (
-                  <div className="space-y-3">
-                    {eventRecipes.map((recipe) => (
-                      <div key={recipe.recipe_id} className="group relative flex flex-col p-3 border border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center space-x-2 flex-1 min-w-0">
-                            <div className="bg-orange-100 p-1.5 rounded-full flex-shrink-0">
-                              <ChefHat className="h-3 w-3 text-orange-600" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="font-medium text-gray-900 text-sm truncate">{recipe.recipe_name}</p>
-                              <p className="text-xs text-gray-500">
-                                {courseTypeLabels[recipe.course_type]} • {recipe.portions} raciones
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center space-x-1 flex-shrink-0">
-                            <button
-                              onClick={() => openEditRecipeModal(recipe)}
-                              className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded transition-colors opacity-0 group-hover:opacity-100"
-                              title="Editar receta"
-                            >
-                              <Edit className="h-3 w-3" />
-                            </button>
-                            <button
-                              onClick={() => openDeleteRecipeModal(recipe)}
-                              className="p-1 text-red-600 hover:text-red-800 hover:bg-red-100 rounded transition-colors opacity-0 group-hover:opacity-100"
-                              title="Eliminar receta"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </button>
-                          </div>
-                        </div>
-                        {recipe.notes && (
-                          <p className="text-xs text-gray-400 mt-2 italic pl-5">{recipe.notes}</p>
-                        )}
-                        <div className="text-right mt-2">
-                          <p className="text-sm font-medium text-gray-900">
-                            €{calculateRecipeCost(recipe).toLocaleString('es-ES', { 
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2 
-                            })}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-6">
-                    <Utensils className="h-8 w-8 mx-auto text-gray-400 mb-3" />
-                    <p className="text-gray-500 text-sm">
-                      {isNewEvent ? 'Guarda el evento primero para añadir recetas' : 'No hay recetas en el menú'}
-                    </p>
-                    {!isNewEvent && (
-                      <button 
-                        onClick={openAddRecipeModal}
-                        className="mt-2 text-orange-600 hover:text-orange-700 transition-colors text-sm"
-                      >
-                        Añadir primera receta
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          }
 
           {/* Cost Analysis */}
           {event && (() => {
@@ -1214,6 +1140,34 @@ export default function EventDetailPage() {
               </div>
             )
           })()}
+
+          {/* Event Notes */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <div className="bg-orange-100 p-2 rounded-lg">
+                <Info className="h-5 w-5 text-orange-600" />
+              </div>
+              Notas del Evento
+            </h3>
+            
+            {isEditing ? (
+              <textarea
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                rows={4}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                placeholder="Notas adicionales del evento..."
+              />
+            ) : (
+              <div className="prose max-w-none">
+                {event?.notes ? (
+                  <p className="text-gray-900 whitespace-pre-wrap">{event.notes}</p>
+                ) : (
+                  <p className="text-gray-500 italic">Sin notas adicionales</p>
+                )}
+              </div>
+            )}
+          </div>
 
         </div>
       </div>

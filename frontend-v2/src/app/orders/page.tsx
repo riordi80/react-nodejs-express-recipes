@@ -380,6 +380,8 @@ export default function OrdersPage() {
             onDeleteOrder={handleDeleteOrder}
             onPageChange={activeOrdersHook.handlePageChange}
             onSort={activeOrdersHook.handleSort}
+            pageSize={activeOrdersHook.pageSize}
+            onPageSizeChange={activeOrdersHook.setPageSize}
           />
         )}
         

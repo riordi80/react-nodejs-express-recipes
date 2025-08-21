@@ -16,8 +16,7 @@ import {
   AlertTriangle,
   Heart,
   Package,
-  Info,
-  BookOpen
+  Info
 } from 'lucide-react'
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api'
 import { useToastHelpers } from '@/context/ToastContext'
@@ -219,7 +218,7 @@ export default function RecipeDetailPage() {
   // Handle URL hash for direct tab navigation
   useEffect(() => {
     const hash = window.location.hash.substring(1) // Remove the #
-    if (hash && ['general', 'ingredients', 'preparation'].includes(hash)) {
+    if (hash && ['general', 'ingredients'].includes(hash)) {
       setActiveTab(hash)
     }
   }, [])
@@ -953,6 +952,36 @@ export default function RecipeDetailPage() {
         </div>
       </div>
 
+      {/* Instructions - Moved from Preparation tab */}
+      <div className="bg-gray-50 rounded-lg p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <div className="bg-orange-100 p-2 rounded-lg">
+            <ChefHat className="h-5 w-5 text-orange-600" />
+          </div>
+          Instrucciones de Preparación
+        </h3>
+        
+        {isEditing ? (
+          <textarea
+            rows={8}
+            value={formData.instructions}
+            onChange={(e) => setFormData({ ...formData, instructions: e.target.value })}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+            placeholder="Instrucciones paso a paso..."
+          />
+        ) : (
+          <div className="prose max-w-none">
+            {recipe?.instructions ? (
+              <pre className="whitespace-pre-wrap text-sm text-gray-900 font-sans">
+                {recipe.instructions}
+              </pre>
+            ) : (
+              <p className="text-gray-500 italic">No hay instrucciones registradas</p>
+            )}
+          </div>
+        )}
+      </div>
+
     </div>
   )
 
@@ -1147,40 +1176,6 @@ export default function RecipeDetailPage() {
     </div>
   )
 
-  const renderPreparationTab = () => (
-    <div className="space-y-6">
-      {/* Instructions */}
-      <div className="bg-gray-50 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <div className="bg-orange-100 p-2 rounded-lg">
-            <ChefHat className="h-5 w-5 text-orange-600" />
-          </div>
-          Instrucciones de Preparación
-        </h3>
-        
-        {isEditing ? (
-          <textarea
-            rows={8}
-            value={formData.instructions}
-            onChange={(e) => setFormData({ ...formData, instructions: e.target.value })}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-            placeholder="Instrucciones paso a paso..."
-          />
-        ) : (
-          <div className="prose max-w-none">
-            {recipe?.instructions ? (
-              <pre className="whitespace-pre-wrap text-sm text-gray-900 font-sans">
-                {recipe.instructions}
-              </pre>
-            ) : (
-              <p className="text-gray-500 italic">No hay instrucciones registradas</p>
-            )}
-          </div>
-        )}
-      </div>
-
-    </div>
-  )
 
   if (loading) {
     return (
@@ -1435,8 +1430,7 @@ export default function RecipeDetailPage() {
             <UnifiedTabs
               tabs={[
                 { id: 'general', label: 'Información General', icon: ChefHat },
-                { id: 'ingredients', label: 'Ingredientes', icon: Package },
-                { id: 'preparation', label: 'Preparación', icon: BookOpen }
+                { id: 'ingredients', label: 'Ingredientes', icon: Package }
               ]}
               activeTab={activeTab}
               onTabChange={setActiveTab}
@@ -1445,7 +1439,6 @@ export default function RecipeDetailPage() {
             >
               {activeTab === 'general' && renderGeneralTab()}
               {activeTab === 'ingredients' && renderIngredientsTab()}
-              {activeTab === 'preparation' && renderPreparationTab()}
             </UnifiedTabs>
 
             {/* Cost Analysis - Mobile only */}
