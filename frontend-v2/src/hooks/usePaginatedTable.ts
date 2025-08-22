@@ -133,6 +133,9 @@ export function usePaginatedTable<T extends Record<string, any> = any>(
   
   // Use ref to track current page without causing re-renders
   const currentPageRef = useRef(getPersistedPage())
+  
+  // Track if this is the initial load
+  const isInitialLoadRef = useRef(true)
 
   // Sorting using persistent hook
   const { sortedData, sortConfig, handleSort: handleSortInternal } = usePersistentTableSort(
@@ -246,9 +249,19 @@ export function usePaginatedTable<T extends Record<string, any> = any>(
 
   // Initial fetch and dependency changes
   useEffect(() => {
-    const persistedPage = getPersistedPage()
-    currentPageRef.current = persistedPage
-    fetchData(persistedPage, undefined) // Start from persisted page when dependencies change
+    if (isInitialLoadRef.current) {
+      // First load: use persisted page
+      const persistedPage = getPersistedPage()
+      currentPageRef.current = persistedPage
+      setCurrentPage(persistedPage)
+      fetchData(persistedPage, undefined)
+      isInitialLoadRef.current = false
+    } else {
+      // Subsequent loads (dependencies changed): reset to page 1
+      currentPageRef.current = 1
+      setCurrentPage(1)
+      fetchData(1, undefined)
+    }
   }, dependencies)
 
   // Restore scroll position on initial load after data is available

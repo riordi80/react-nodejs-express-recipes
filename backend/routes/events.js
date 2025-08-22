@@ -290,6 +290,25 @@ router.get('/:id', authenticateToken, authorizeRoles('admin','chef'), async (req
         r.name
     `, [id]);
 
+    // Obtener ingredientes detallados para cada receta del menú (para cálculo de costos)
+    for (let recipe of menuRows) {
+      const [ingredients] = await req.tenantDb.query(`
+        SELECT 
+          ri.ingredient_id,
+          ri.quantity_per_serving,
+          i.name as ingredient_name,
+          i.unit,
+          i.base_price,
+          IFNULL(i.waste_percent, 0) as waste_percent
+        FROM RECIPE_INGREDIENTS ri
+        JOIN INGREDIENTS i ON ri.ingredient_id = i.ingredient_id
+        WHERE ri.recipe_id = ?
+        ORDER BY i.name
+      `, [recipe.recipe_id]);
+      
+      recipe.ingredients = ingredients;
+    }
+
     const event = eventRows[0];
     event.menu = menuRows;
 
