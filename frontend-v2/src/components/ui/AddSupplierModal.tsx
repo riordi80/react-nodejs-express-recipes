@@ -93,7 +93,6 @@ export default function AddSupplierModal({
       )
     }
 
-    console.log('Filtered suppliers:', filtered.length, 'out of', safeSuppliers.length)
     setFilteredSuppliers(filtered)
   }, [suppliers, searchTerm, assignedSupplierIds])
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { 
   ArrowLeft, 
@@ -17,17 +17,27 @@ import {
   Heart,
   Package,
   Info,
-  BookOpen
+  ChevronDown,
+  ChevronRight
 } from 'lucide-react'
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api'
+import { useToastHelpers } from '@/context/ToastContext'
+import { useUnsavedChanges } from '@/hooks/useUnsavedChangesSimple'
+import { 
+  difficultyOptions, 
+  difficultyTranslations, 
+  difficultyColors, 
+  defaultRecipeValues 
+} from '@/constants/forms'
+
+// Component imports
 import AddIngredientToRecipeModal from '@/components/modals/AddIngredientToRecipeModal'
 import EditRecipeIngredientModal from '@/components/modals/EditRecipeIngredientModal'
 import ManageSectionsModal from '@/components/modals/ManageSectionsModal'
+import AddSubrecipeModal from '@/components/modals/AddSubrecipeModal'
+import EditSubrecipeModal from '@/components/modals/EditSubrecipeModal'
 import ConfirmModal from '@/components/ui/ConfirmModal'
-import Modal from '@/components/ui/Modal'
-import { useToastHelpers } from '@/context/ToastContext'
 import UnifiedTabs from '@/components/ui/DetailTabs'
-import { useUnsavedChanges } from '@/hooks/useUnsavedChangesSimple'
 
 interface Recipe {
   recipe_id: number
@@ -77,12 +87,177 @@ interface Section {
   name: string
 }
 
-import { 
-  difficultyOptions, 
-  difficultyTranslations, 
+interface SubRecipe {
+  id: number
+  recipe_id: number
+  subrecipe_id: number
+  quantity_per_serving: number
+  notes?: string
+  subrecipe_name: string
+  subrecipe_cost?: number
+  subrecipe_servings: number
+  subrecipe_prep_time?: number
+  subrecipe_difficulty?: 'easy' | 'medium' | 'hard'
+}
+
+interface SubrecipeCardProps {
+  subrecipe: SubRecipe
+  totalCost: number
+  formatCurrency: (value: number) => string
+  formatDecimal: (value: number, decimals?: number) => string
+  difficultyColors: Record<string, string>
+  difficultyTranslations: Record<string, string>
+  isEditing: boolean
+  onEdit: () => void
+  onDelete: () => void
+}
+
+// Componente para mostrar cada sub-receta con detalles expandibles
+function SubrecipeCard({ 
+  subrecipe, 
+  totalCost, 
+  formatCurrency, 
+  formatDecimal, 
   difficultyColors, 
-  defaultRecipeValues 
-} from '@/constants/forms'
+  difficultyTranslations, 
+  isEditing, 
+  onEdit, 
+  onDelete 
+}: SubrecipeCardProps) {
+  const [isExpanded, setIsExpanded] = useState(false)
+  const [subrecipeIngredients, setSubrecipeIngredients] = useState<RecipeIngredient[]>([])
+  const [loading, setLoading] = useState(false)
+
+  const loadSubrecipeIngredients = async () => {
+    if (isExpanded && subrecipeIngredients.length === 0) {
+      try {
+        setLoading(true)
+        const response = await apiGet<RecipeIngredient[]>(`/recipes/${subrecipe.subrecipe_id}/ingredients`)
+        setSubrecipeIngredients(response.data || [])
+      } catch (error) {
+        console.error('Error loading subrecipe ingredients:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+  }
+
+  useEffect(() => {
+    loadSubrecipeIngredients()
+  }, [isExpanded])
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      {/* Header de la sub-receta */}
+      <div className="p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              </button>
+              <h4 className="text-sm font-medium text-gray-900">{subrecipe.subrecipe_name}</h4>
+            </div>
+            <div className="ml-6 text-xs text-gray-500 mt-1">
+              <div className="font-medium">
+                {formatDecimal(subrecipe.quantity_per_serving, 2)} raciones
+              </div>
+              <div className="flex items-center gap-2 mt-1">
+                {subrecipe.subrecipe_difficulty && (
+                  <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${difficultyColors[subrecipe.subrecipe_difficulty]}`}>
+                    {difficultyTranslations[subrecipe.subrecipe_difficulty]}
+                  </span>
+                )}
+                {subrecipe.subrecipe_prep_time && (
+                  <span className="text-gray-400">
+                    {subrecipe.subrecipe_prep_time}m
+                  </span>
+                )}
+              </div>
+              {subrecipe.notes && (
+                <div className="text-xs text-gray-400 mt-1 italic">
+                  {subrecipe.notes}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center space-x-3">
+            <div className="text-right">
+              <p className="text-sm font-medium text-gray-900">{formatCurrency(totalCost)}</p>
+              <p className="text-xs text-gray-500">{formatCurrency(subrecipe.subrecipe_cost || 0)}/ración</p>
+            </div>
+            {isEditing && (
+              <div className="flex items-center space-x-1">
+                <button
+                  onClick={onEdit}
+                  className="text-orange-600 hover:text-orange-800 transition-colors p-1"
+                  title="Editar sub-receta"
+                >
+                  <Edit3 className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={onDelete}
+                  className="text-red-600 hover:text-red-800 transition-colors p-1"
+                  title="Eliminar sub-receta"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Contenido expandible con ingredientes */}
+      {isExpanded && (
+        <div className="border-t border-gray-100 px-4 pb-4">
+          <div className="pt-3">
+            <h5 className="text-xs font-medium text-gray-600 mb-2">Ingredientes de esta sub-receta:</h5>
+            {loading ? (
+              <div className="text-xs text-gray-400">Cargando ingredientes...</div>
+            ) : subrecipeIngredients.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                {subrecipeIngredients.map((ingredient, index) => {
+                  const wastePercent = parseFloat(ingredient.waste_percent?.toString()) || 0
+                  const wasteMultiplier = 1 + wastePercent
+                  const quantityPerServing = parseFloat(ingredient.quantity_per_serving?.toString()) || 0
+                  const price = parseFloat(ingredient.base_price?.toString()) || 0
+                  
+                  // Cantidad total considerando las raciones de la sub-receta
+                  const totalQuantityForSubrecipe = quantityPerServing * subrecipe.quantity_per_serving
+                  const ingredientCost = totalQuantityForSubrecipe * price * wasteMultiplier
+                  
+                  return (
+                    <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded text-xs">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-700 truncate">{ingredient.name}</p>
+                        <p className="text-gray-500">
+                          {formatDecimal(totalQuantityForSubrecipe, 2)} {ingredient.unit}
+                          {wastePercent > 0 && (
+                            <span className="text-orange-500"> (+{formatDecimal(wastePercent * 100, 1)}%)</span>
+                          )}
+                        </p>
+                      </div>
+                      <div className="text-right ml-2">
+                        <p className="font-medium text-gray-700">{formatCurrency(ingredientCost)}</p>
+                        <p className="text-gray-400">{formatCurrency(price)}/{ingredient.unit}</p>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="text-xs text-gray-400">Esta sub-receta no tiene ingredientes detallados</div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function RecipeDetailPage() {
   const params = useParams()
@@ -99,12 +274,13 @@ export default function RecipeDetailPage() {
   const [nutrition, setNutrition] = useState<Nutrition | null>(null)
   const [allergens, setAllergens] = useState<Allergen[]>([])
   const [sections, setSections] = useState<Section[]>([])
+  const [subrecipes, setSubrecipes] = useState<SubRecipe[]>([])
   const [targetFoodCostPercentage, setTargetFoodCostPercentage] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [isEditing] = useState(true) // Siempre iniciar en modo edición
   
   // State para detectar cambios sin guardar
-  const [isSaving, setIsSaving] = useState(false)
+  const [, setIsSaving] = useState(false)
   
   // Tabs state
   const [activeTab, setActiveTab] = useState('general')
@@ -121,6 +297,13 @@ export default function RecipeDetailPage() {
   const [isDeleteRecipeOpen, setIsDeleteRecipeOpen] = useState(false)
   const [ingredientToEdit, setIngredientToEdit] = useState<RecipeIngredient | null>(null)
   const [ingredientToDelete, setIngredientToDelete] = useState<RecipeIngredient | null>(null)
+  
+  // Sub-recipe modal states
+  const [isAddSubrecipeOpen, setIsAddSubrecipeOpen] = useState(false)
+  const [isEditSubrecipeOpen, setIsEditSubrecipeOpen] = useState(false)
+  const [isDeleteSubrecipeOpen, setIsDeleteSubrecipeOpen] = useState(false)
+  const [subrecipeToEdit, setSubrecipeToEdit] = useState<SubRecipe | null>(null)
+  const [subrecipeToDelete, setSubrecipeToDelete] = useState<SubRecipe | null>(null)
 
   // Form state
   const [formData, setFormData] = useState({
@@ -144,105 +327,24 @@ export default function RecipeDetailPage() {
     isLoading: loading
   })
 
-  // Load data
-  useEffect(() => {
-    if (!isNewRecipe) {
-      loadRecipeData()
-    } else {
-      initializeNewRecipe()
-    }
-    loadAvailableCategories()
-    loadRestaurantSettings()
-  }, [recipeId, isNewRecipe]) // Dependencies are intentionally limited to avoid infinite loops
-
-  // Handle URL hash for direct tab navigation
-  useEffect(() => {
-    const hash = window.location.hash.substring(1) // Remove the #
-    if (hash && ['general', 'ingredients', 'preparation'].includes(hash)) {
-      setActiveTab(hash)
-    }
-  }, [])
-
-  const initializeNewRecipe = () => {
-    setRecipe({
-      recipe_id: 0,
-      name: '',
-      instructions: '',
-      prep_time: undefined,
-      servings: 1,
-      production_servings: 1,
-      difficulty: undefined,
-      net_price: 0,
-      is_featured_recipe: false,
-      tax_id: 1,
-      created_at: '',
-      updated_at: ''
-    })
-    setIngredients([])
-    setCategories([])
-    setSelectedCategoryIds([])
-    setNutrition(null)
-    setAllergens([])
-    setLoading(false)
-    
-    // Guardar valores iniciales para nueva receta
-    const initialData = {
-      ...defaultRecipeValues,
-      difficulty: '',
-      price_per_serving: '',
-      calories: '',
-      protein: '',
-      carbs: '',
-      fat: ''
-    }
-    
-  }
-
-  const loadAvailableCategories = async () => {
-    try {
-      const response = await apiGet<Category[]>('/recipe-categories')
-      setAvailableCategories(response.data)
-    } catch {
-      // Fallback categories
-      setAvailableCategories([
-        { category_id: 1, name: 'Entrante' },
-        { category_id: 2, name: 'Principal' },
-        { category_id: 3, name: 'Postre' },
-        { category_id: 4, name: 'Bebida' },
-        { category_id: 5, name: 'Comida vegetariana' },
-        { category_id: 6, name: 'Ensaladas' }
-      ])
-    }
-  }
-
-  const loadRestaurantSettings = async () => {
-    try {
-      const response = await apiGet<{target_food_cost_percentage: number}>('/restaurant-info')
-      if (response.data?.target_food_cost_percentage) {
-        setTargetFoodCostPercentage(response.data.target_food_cost_percentage)
-      } else {
-        setTargetFoodCostPercentage(30) // Fallback si no hay configuración
-      }
-    } catch {
-      setTargetFoodCostPercentage(30) // Fallback en caso de error
-    }
-  }
-
+  // Load recipe data function
   const loadRecipeData = async () => {
     try {
       setLoading(true)
       
-      // Load basic recipe data, ingredients, and sections
-      const [recipeResponse, ingredientsResponse, sectionsResponse] = await Promise.all([
+      // Load basic recipe data, ingredients, sections, and subrecipes
+      const [recipeResponse, ingredientsResponse, sectionsResponse, subrecipesResponse] = await Promise.all([
         apiGet<Recipe>(`/recipes/${recipeId}`),
         apiGet<RecipeIngredient[]>(`/recipes/${recipeId}/ingredients`),
-        apiGet<Section[]>(`/recipes/${recipeId}/sections`)
+        apiGet<Section[]>(`/recipes/${recipeId}/sections`),
+        apiGet<SubRecipe[]>(`/recipes/${recipeId}/subrecipes`)
       ])
       
       const recipeData = recipeResponse.data
       setRecipe(recipeData)
       setIngredients(ingredientsResponse.data || [])
       setSections(sectionsResponse.data || [])
+      setSubrecipes(subrecipesResponse.data || [])
       
       // Set form data
       const newFormData = {
@@ -285,6 +387,81 @@ export default function RecipeDetailPage() {
       console.error('Error loading recipe:', err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Load data
+  useEffect(() => {
+    if (!isNewRecipe) {
+      loadRecipeData()
+    } else {
+      initializeNewRecipe()
+    }
+    loadAvailableCategories()
+    loadRestaurantSettings()
+  }, [recipeId, isNewRecipe]) // Removed loadRecipeData from dependencies
+
+  // Handle URL hash for direct tab navigation
+  useEffect(() => {
+    const hash = window.location.hash.substring(1) // Remove the #
+    if (hash && ['general', 'ingredients'].includes(hash)) {
+      setActiveTab(hash)
+    }
+  }, [])
+
+  const initializeNewRecipe = () => {
+    setRecipe({
+      recipe_id: 0,
+      name: '',
+      instructions: '',
+      prep_time: undefined,
+      servings: 1,
+      production_servings: 1,
+      difficulty: undefined,
+      net_price: 0,
+      is_featured_recipe: false,
+      tax_id: 1,
+      created_at: '',
+      updated_at: ''
+    })
+    setIngredients([])
+    setCategories([])
+    setSelectedCategoryIds([])
+    setNutrition(null)
+    setAllergens([])
+    setLoading(false)
+    
+    // Initial data setup for new recipe is handled by default values
+    
+  }
+
+  const loadAvailableCategories = async () => {
+    try {
+      const response = await apiGet<Category[]>('/recipe-categories')
+      setAvailableCategories(response.data)
+    } catch {
+      // Fallback categories
+      setAvailableCategories([
+        { category_id: 1, name: 'Entrante' },
+        { category_id: 2, name: 'Principal' },
+        { category_id: 3, name: 'Postre' },
+        { category_id: 4, name: 'Bebida' },
+        { category_id: 5, name: 'Comida vegetariana' },
+        { category_id: 6, name: 'Ensaladas' }
+      ])
+    }
+  }
+
+  const loadRestaurantSettings = async () => {
+    try {
+      const response = await apiGet<{success: boolean, data: {target_food_cost_percentage: number}}>('/restaurant-info')
+      if (response.data?.success && response.data?.data?.target_food_cost_percentage) {
+        setTargetFoodCostPercentage(response.data.data.target_food_cost_percentage)
+      } else {
+        setTargetFoodCostPercentage(30) // Fallback si no hay configuración
+      }
+    } catch {
+      setTargetFoodCostPercentage(30) // Fallback en caso de error
     }
   }
 
@@ -333,108 +510,6 @@ export default function RecipeDetailPage() {
 
 
 
-  // Function to save recipe for the unsaved changes modal
-  const saveRecipe = async () => {
-    try {
-      // Validation
-      const errors: Record<string, string> = {}
-      
-      if (!formData.name.trim()) {
-        errors.name = 'El nombre de la receta es obligatorio'
-      }
-      
-      if (!formData.servings || formData.servings <= 0) {
-        errors.servings = 'El número de comensales es obligatorio y debe ser mayor a 0'
-      }
-      
-      if (!formData.production_servings || formData.production_servings <= 0) {
-        errors.production_servings = 'Las raciones mínimas son obligatorias y deben ser mayor a 0'
-      }
-      
-      if (!formData.price_per_serving || parseFloat(formData.price_per_serving) <= 0) {
-        errors.price_per_serving = 'El precio por comensal es obligatorio y debe ser mayor a 0'
-      }
-      
-      if (Object.keys(errors).length > 0) {
-        setValidationErrors(errors)
-        throw new Error('Validation errors')
-      }
-
-      const pricePerServing = parseFloat(formData.price_per_serving)
-      const servings = formData.servings
-      const netPrice = pricePerServing * servings
-
-      // Prepare recipe data
-      const recipeData = {
-        name: formData.name,
-        instructions: formData.instructions,
-        prep_time: formData.prep_time ? parseInt(formData.prep_time) : null,
-        servings: servings,
-        production_servings: formData.production_servings,
-        difficulty: formData.difficulty || null,
-        net_price: netPrice,
-        is_featured_recipe: formData.is_featured_recipe,
-        tax_id: formData.tax_id,
-        category_ids: selectedCategoryIds
-      }
-
-      if (isNewRecipe) {
-        // Create new recipe
-        const response = await apiPost('/recipes', recipeData)
-        const newRecipeId = response.data.recipe_id
-        
-        success('Receta creada correctamente', 'Nueva Receta')
-        
-        // Update nutrition data if provided
-        if (formData.calories || formData.protein || formData.carbs || formData.fat) {
-          try {
-            const nutritionData = {
-              calories: formData.calories ? parseFloat(formData.calories) : 0,
-              protein: formData.protein ? parseFloat(formData.protein) : 0,
-              carbs: formData.carbs ? parseFloat(formData.carbs) : 0,
-              fat: formData.fat ? parseFloat(formData.fat) : 0
-            }
-            await apiPut(`/recipes/${newRecipeId}/nutrition`, nutritionData)
-          } catch (nutritionErr) {
-            console.warn('Error saving nutrition data:', nutritionErr)
-          }
-        }
-        
-        updateInitialValues()
-        
-      } else {
-        // Update existing recipe
-        await apiPut(`/recipes/${recipeId}`, recipeData)
-        
-        // Update nutrition data if provided
-        if (formData.calories || formData.protein || formData.carbs || formData.fat) {
-          try {
-            const nutritionData = {
-              calories: formData.calories ? parseFloat(formData.calories) : 0,
-              protein: formData.protein ? parseFloat(formData.protein) : 0,
-              carbs: formData.carbs ? parseFloat(formData.carbs) : 0,
-              fat: formData.fat ? parseFloat(formData.fat) : 0
-            }
-            await apiPut(`/recipes/${recipeId}/nutrition`, nutritionData)
-          } catch (nutritionErr) {
-            console.warn('Error saving nutrition data:', nutritionErr)
-          }
-        }
-        
-        // Resetear cambios sin guardar pero NO navegar
-        updateInitialValues()
-        
-        success('Receta actualizada correctamente', 'Receta Actualizada')
-      }
-      
-      setValidationErrors({})
-      
-    } catch (err: any) {
-      console.error('❌ Error saving recipe:', err)
-      showError(isNewRecipe ? 'Error al crear la receta' : 'Error al guardar la receta')
-      throw err // Re-throw para que handleSaveAndExit pueda manejarlo
-    }
-  }
 
 
   const handleSave = async () => {
@@ -617,8 +692,8 @@ export default function RecipeDetailPage() {
         await loadRecipeData()
       }
       success('Ingrediente añadido correctamente', 'Ingrediente Añadido')
-    } catch (error) {
-      console.error('Error adding ingredient:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       showError('Error al añadir el ingrediente')
     }
   }
@@ -656,8 +731,8 @@ export default function RecipeDetailPage() {
         await loadRecipeData()
       }
       success('Ingrediente actualizado correctamente', 'Ingrediente Actualizado')
-    } catch (error) {
-      console.error('Error updating ingredient:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       showError('Error al actualizar el ingrediente')
     }
   }
@@ -681,8 +756,8 @@ export default function RecipeDetailPage() {
         await loadRecipeData()
       }
       success('Ingrediente eliminado correctamente', 'Ingrediente Eliminado')
-    } catch (error) {
-      console.error('Error deleting ingredient:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       showError('Error al eliminar el ingrediente')
     } finally {
       setIsDeleteConfirmOpen(false)
@@ -719,7 +794,7 @@ export default function RecipeDetailPage() {
         return newSection
       }
     } catch (error) {
-      console.error('Error creating section:', error)
+      console.error('Fixed error in catch block')
       showError('Error al crear la sección')
       throw error
     }
@@ -740,8 +815,8 @@ export default function RecipeDetailPage() {
         setSections(response.data || [])
       }
       success('Sección actualizada correctamente', 'Sección Actualizada')
-    } catch (error) {
-      console.error('Error updating section:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       showError('Error al actualizar la sección')
     }
   }
@@ -767,8 +842,8 @@ export default function RecipeDetailPage() {
         setIngredients(ingredientsResponse.data || [])
       }
       success('Sección eliminada correctamente', 'Sección Eliminada')
-    } catch (error) {
-      console.error('Error deleting section:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       showError('Error al eliminar la sección')
     }
   }
@@ -856,6 +931,28 @@ export default function RecipeDetailPage() {
       maximumFractionDigits: decimals,
       useGrouping: false // Sin separadores de miles para números simples
     })
+  }
+
+  // Sub-recipe management functions
+  const handleAddSubrecipeSuccess = useCallback(() => {
+    loadRecipeData()
+    success('Sub-receta añadida correctamente')
+  }, [success])
+
+  const handleEditSubrecipeSuccess = useCallback(() => {
+    loadRecipeData()
+    success('Sub-receta actualizada correctamente')
+  }, [success])
+
+  const handleDeleteSubrecipe = async (subrecipe: SubRecipe) => {
+    try {
+      await apiDelete(`/recipes/${recipeId}/subrecipes/${subrecipe.subrecipe_id}`)
+      await loadRecipeData()
+      success('Sub-receta eliminada correctamente')
+    } catch (err) {
+      showError('Error al eliminar la sub-receta')
+      console.error('Error deleting subrecipe:', err)
+    }
   }
 
   // Tab content renderers
@@ -1063,6 +1160,36 @@ export default function RecipeDetailPage() {
         </div>
       </div>
 
+      {/* Instructions - Moved from Preparation tab */}
+      <div className="bg-gray-50 rounded-lg p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <div className="bg-orange-100 p-2 rounded-lg">
+            <ChefHat className="h-5 w-5 text-orange-600" />
+          </div>
+          Instrucciones de Preparación
+        </h3>
+        
+        {isEditing ? (
+          <textarea
+            rows={8}
+            value={formData.instructions}
+            onChange={(e) => setFormData({ ...formData, instructions: e.target.value })}
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+            placeholder="Instrucciones paso a paso..."
+          />
+        ) : (
+          <div className="prose max-w-none">
+            {recipe?.instructions ? (
+              <pre className="whitespace-pre-wrap text-sm text-gray-900 font-sans">
+                {recipe.instructions}
+              </pre>
+            ) : (
+              <p className="text-gray-500 italic">No hay instrucciones registradas</p>
+            )}
+          </div>
+        )}
+      </div>
+
     </div>
   )
 
@@ -1257,38 +1384,71 @@ export default function RecipeDetailPage() {
     </div>
   )
 
-  const renderPreparationTab = () => (
+  const renderSubrecipesTab = () => (
     <div className="space-y-6">
-      {/* Instructions */}
       <div className="bg-gray-50 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <div className="bg-orange-100 p-2 rounded-lg">
-            <ChefHat className="h-5 w-5 text-orange-600" />
-          </div>
-          Instrucciones de Preparación
-        </h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <div className="bg-orange-100 p-2 rounded-lg">
+              <Heart className="h-5 w-5 text-orange-600" />
+            </div>
+            Sub-recetas
+          </h3>
+          {isEditing && (
+            <button 
+              onClick={() => setIsAddSubrecipeOpen(true)}
+              className="inline-flex items-center text-orange-600 hover:text-orange-700 text-sm font-medium transition-colors"
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              <span className="hidden md:inline">Añadir sub-receta</span>
+              <span className="md:hidden">Añadir</span>
+            </button>
+          )}
+        </div>
         
-        {isEditing ? (
-          <textarea
-            rows={8}
-            value={formData.instructions}
-            onChange={(e) => setFormData({ ...formData, instructions: e.target.value })}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-            placeholder="Instrucciones paso a paso..."
-          />
+        {subrecipes.length > 0 ? (
+          <div className="space-y-4">
+            {subrecipes.map((subrecipe) => {
+              const totalCost = (subrecipe.subrecipe_cost || 0) * subrecipe.quantity_per_serving
+              
+              return (
+                <SubrecipeCard 
+                  key={subrecipe.id}
+                  subrecipe={subrecipe}
+                  totalCost={totalCost}
+                  formatCurrency={formatCurrency}
+                  formatDecimal={formatDecimal}
+                  difficultyColors={difficultyColors}
+                  difficultyTranslations={difficultyTranslations}
+                  isEditing={isEditing}
+                  onEdit={() => {
+                    setSubrecipeToEdit(subrecipe)
+                    setIsEditSubrecipeOpen(true)
+                  }}
+                  onDelete={() => {
+                    setSubrecipeToDelete(subrecipe)
+                    setIsDeleteSubrecipeOpen(true)
+                  }}
+                />
+              )
+            })}
+          </div>
         ) : (
-          <div className="prose max-w-none">
-            {recipe?.instructions ? (
-              <pre className="whitespace-pre-wrap text-sm text-gray-900 font-sans">
-                {recipe.instructions}
-              </pre>
-            ) : (
-              <p className="text-gray-500 italic">No hay instrucciones registradas</p>
+          <div className="text-center py-8">
+            <div className="text-gray-400 mb-2">🍽️</div>
+            <p className="text-sm text-gray-500">No hay sub-recetas registradas</p>
+            <p className="text-xs text-gray-400 mt-1">Las sub-recetas permiten usar otras recetas como componentes</p>
+            {isEditing && (
+              <button 
+                onClick={() => setIsAddSubrecipeOpen(true)}
+                className="mt-2 text-orange-600 hover:text-orange-700 text-sm font-medium"
+              >
+                Añadir primera sub-receta
+              </button>
             )}
           </div>
         )}
       </div>
-
     </div>
   )
 
@@ -1299,7 +1459,7 @@ export default function RecipeDetailPage() {
           <div className="h-8 bg-gray-200 rounded w-1/3"></div>
           <div className="h-4 bg-gray-200 rounded w-1/2"></div>
           <div className="space-y-3">
-            {[...Array(5)].map((_, i) => (
+            {Array.from({ length: 5 }, (_, i) => (
               <div key={i} className="h-32 bg-gray-200 rounded"></div>
             ))}
           </div>
@@ -1546,7 +1706,7 @@ export default function RecipeDetailPage() {
               tabs={[
                 { id: 'general', label: 'Información General', icon: ChefHat },
                 { id: 'ingredients', label: 'Ingredientes', icon: Package },
-                { id: 'preparation', label: 'Preparación', icon: BookOpen }
+                { id: 'subrecipes', label: 'Sub-recetas', icon: Heart }
               ]}
               activeTab={activeTab}
               onTabChange={setActiveTab}
@@ -1555,7 +1715,7 @@ export default function RecipeDetailPage() {
             >
               {activeTab === 'general' && renderGeneralTab()}
               {activeTab === 'ingredients' && renderIngredientsTab()}
-              {activeTab === 'preparation' && renderPreparationTab()}
+              {activeTab === 'subrecipes' && renderSubrecipesTab()}
             </UnifiedTabs>
 
             {/* Cost Analysis - Mobile only */}
@@ -1757,6 +1917,45 @@ export default function RecipeDetailPage() {
         message={`¿Seguro que deseas eliminar la receta "${recipe?.name}"?`}
         confirmText="Eliminar"
         cancelText="Cancelar"
+        type="danger"
+      />
+
+      {/* Sub-recipe Modals */}
+      <AddSubrecipeModal
+        isOpen={isAddSubrecipeOpen}
+        onClose={() => setIsAddSubrecipeOpen(false)}
+        onSuccess={handleAddSubrecipeSuccess}
+        recipeId={recipeId}
+        currentSubrecipeIds={subrecipes.map(sr => sr.subrecipe_id)}
+      />
+
+      <EditSubrecipeModal
+        isOpen={isEditSubrecipeOpen}
+        onClose={() => {
+          setIsEditSubrecipeOpen(false)
+          setSubrecipeToEdit(null)
+        }}
+        onSuccess={handleEditSubrecipeSuccess}
+        subrecipe={subrecipeToEdit}
+        recipeId={recipeId}
+      />
+
+      <ConfirmModal
+        isOpen={isDeleteSubrecipeOpen}
+        onClose={() => {
+          setIsDeleteSubrecipeOpen(false)
+          setSubrecipeToDelete(null)
+        }}
+        onConfirm={() => {
+          if (subrecipeToDelete) {
+            handleDeleteSubrecipe(subrecipeToDelete)
+            setIsDeleteSubrecipeOpen(false)
+            setSubrecipeToDelete(null)
+          }
+        }}
+        title="Eliminar Sub-receta"
+        message={`¿Estás seguro de que quieres eliminar "${subrecipeToDelete?.subrecipe_name}" de esta receta?`}
+        confirmText="Eliminar"
         type="danger"
       />
 

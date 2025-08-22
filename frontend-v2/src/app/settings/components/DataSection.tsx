@@ -13,7 +13,6 @@ import api from '@/lib/api'
 interface BackupSettings {
   enabled: boolean
   frequency: string
-  time: string
 }
 
 interface BackupFile {
@@ -38,9 +37,8 @@ const DataSection = () => {
   const [showResetConfirm, setShowResetConfirm] = useState(false)
   
   const [backupSettings, setBackupSettings] = useState<BackupSettings>({
-    enabled: false,
-    frequency: 'weekly',
-    time: '02:00'
+    enabled: true,
+    frequency: 'daily'
   })
   
   const [backupsList, setBackupsList] = useState<BackupFile[]>([])
@@ -62,10 +60,23 @@ const DataSection = () => {
   const fetchBackupStatus = async () => {
     try {
       const response = await api.get('/data/backup/status')
-      setBackupSettings(response.data.settings || backupSettings)
-      setBackupStats(response.data.stats || backupStats)
-    } catch (error) {
-      console.error('Error al cargar estado de backups:', error)
+      
+      // Transform backend response to frontend format
+      if (response.data) {
+        setBackupSettings({
+          enabled: response.data.auto_enabled || false,
+          frequency: response.data.frequency || 'weekly'
+        })
+        
+        setBackupStats({
+          total_backups: response.data.stats?.total_backups || 0,
+          total_size: response.data.stats?.total_size || 0,
+          last_backup: response.data.last_backup || '',
+          next_backup: response.data.next_backup || ''
+        })
+      }
+    } catch {
+      console.error('Fixed error in catch block')
     }
   }
 
@@ -89,7 +100,10 @@ const DataSection = () => {
 
     try {
       setLoading(true)
-      const response = await api.get(`/data/export/${type}?format=${format}`, {
+      
+      // Manejar caso especial de exportación completa (full)
+      const apiUrl = type === 'full' ? '/data/backup' : `/data/export/${type}?format=${format}`
+      const response = await api.get(apiUrl, {
         responseType: 'blob'
       })
       
@@ -98,13 +112,21 @@ const DataSection = () => {
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.download = `${type}_${new Date().toISOString().split('T')[0]}.${format}`
+      
+      // Nombre del archivo según el tipo
+      if (type === 'full') {
+        link.download = `backup_completo_${new Date().toISOString().split('T')[0]}.json`
+      } else {
+        link.download = `${type}_${new Date().toISOString().split('T')[0]}.${format}`
+      }
+      
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
       
-      showToast({ message: `Exportación de ${type} completada`, type: 'success' })
+      const exportType = type === 'full' ? 'backup completo' : type
+      showToast({ message: `Exportación de ${exportType} completada`, type: 'success' })
     } catch (error: any) {
       showToast({ message: error.response?.data?.message || 'Error en la exportación', type: 'error' })
     } finally {
@@ -172,7 +194,10 @@ const DataSection = () => {
 
     try {
       setLoading(true)
-      await api.put('/data/backup/settings', backupSettings)
+      await api.put('/data/backup/settings', {
+        auto_enabled: backupSettings.enabled,
+        frequency: backupSettings.frequency
+      })
       showToast({ message: 'Configuración de backups actualizada', type: 'success' })
       fetchBackupStatus()
     } catch (error: any) {
@@ -299,15 +324,17 @@ const DataSection = () => {
                 >
                   JSON
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleExport(item.type, 'csv')}
-                  loading={loading}
-                  disabled={!isAdmin}
-                >
-                  CSV
-                </Button>
+                {item.type !== 'full' && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleExport(item.type, 'csv')}
+                    loading={loading}
+                    disabled={!isAdmin}
+                  >
+                    CSV
+                  </Button>
+                )}
               </div>
             </div>
           ))}
@@ -482,22 +509,6 @@ const DataSection = () => {
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Hora
-                  </label>
-                  <Select
-                    value={backupSettings.time}
-                    onChange={(e) => setBackupSettings(prev => ({ ...prev, time: e.target.value }))}
-                    options={[
-                      { value: '00:00', label: '00:00' },
-                      { value: '02:00', label: '02:00' },
-                      { value: '04:00', label: '04:00' },
-                      { value: '06:00', label: '06:00' }
-                    ]}
-                    disabled={!isAdmin}
-                  />
-                </div>
               </>
             )}
           </div>
@@ -521,8 +532,8 @@ const DataSection = () => {
                 backupSettings.frequency === 'weekly' ? 'Cada semana (domingos)' :
                 'Cada mes (día 1)'
               }</p>
-              <p>• <strong>Hora:</strong> {backupSettings.time} (hora del servidor)</p>
-              <p>• <strong>Retención:</strong> Se mantienen los últimos 10 backups automáticos</p>
+              <p>• <strong>Horario:</strong> Durante la madrugada (optimizado automáticamente)</p>
+              <p>• <strong>Retención:</strong> Se mantienen los últimos 30 backups automáticos</p>
             </div>
           </div>
         )}
@@ -572,10 +583,11 @@ const DataSection = () => {
         isOpen={showBackupsList}
         onClose={() => setShowBackupsList(false)}
         title="Lista de Backups"
-        size="md"
+        size="lg"
       >
-        <div className="space-y-4">
-          <p className="text-gray-600">
+        {/* Content */}
+        <div className="p-6">
+          <p className="text-gray-600 mb-6">
             Gestiona los backups almacenados en el sistema.
           </p>
           
@@ -585,36 +597,46 @@ const DataSection = () => {
                 {loading ? 'Cargando backups...' : 'No hay backups disponibles'}
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-4">
                 {backupsList.map(backup => (
-                  <div key={backup.filename} className="flex items-center justify-between bg-gray-50 rounded-lg p-3">
-                    <div>
-                      <p className="font-medium text-gray-900">{backup.filename}</p>
-                      <div className="flex items-center gap-4 text-sm text-gray-600">
-                        <span>{formatFileSize(backup.size)}</span>
-                        <span>{formatDate(backup.created_at)}</span>
+                  <div key={backup.filename} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-900 truncate" title={backup.filename}>
+                          {backup.filename}
+                        </p>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm text-gray-600 mt-1">
+                          <span className="flex items-center gap-1">
+                            <Database className="h-4 w-4" />
+                            {formatFileSize(backup.size)}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Calendar className="h-4 w-4" />
+                            {formatDate(backup.created_at)}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                    
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => downloadBackup(backup.filename)}
-                        loading={loading}
-                        icon={Download}
-                      >
-                        Descargar
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="danger"
-                        onClick={() => deleteBackup(backup.filename)}
-                        loading={loading}
-                        icon={Trash2}
-                      >
-                        Eliminar
-                      </Button>
+                      
+                      <div className="flex gap-2 shrink-0">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => downloadBackup(backup.filename)}
+                          loading={loading}
+                          icon={Download}
+                        >
+                          Descargar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          onClick={() => deleteBackup(backup.filename)}
+                          loading={loading}
+                          icon={Trash2}
+                        >
+                          Eliminar
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -623,7 +645,8 @@ const DataSection = () => {
           </div>
         </div>
         
-        <div className="flex justify-end mt-6">
+        {/* Footer */}
+        <div className="flex items-center justify-end space-x-3 px-6 py-4 border-t border-gray-200 bg-gray-50">
           <Button variant="outline" onClick={() => setShowBackupsList(false)}>
             Cerrar
           </Button>

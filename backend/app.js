@@ -79,6 +79,11 @@ app.use('/api', (req, res, next) => {
     return next();
   }
   
+  // Si es console.ordidev.com, tratarlo como dominio principal (sin tenant)
+  if (cleanHostname === `console.${TENANT_BASE_URL}`) {
+    return next();
+  }
+  
   // Para subdominios, aplicar tenant middleware
   resolveTenant(req, res, (err) => {
     if (err) return next(err);
@@ -90,14 +95,22 @@ app.use('/api', (req, res, next) => {
 const authRoutes = require('./routes/auth');
 app.use('/api', authRoutes);
 
-// 4c) Middleware de autenticación condicional - excluir rutas públicas
+// 4c) Rutas públicas - no requieren autenticación
+app.use('/api/public', require('./routes/public-plans'));
+
+// 4d) Rutas de SuperAdmin - Sistema de administración (usa base de datos master)
+app.use('/api/superadmin', require('./routes/superadmin'));
+
+// 4d) Middleware de autenticación condicional - excluir rutas públicas
 app.use('/api', (req, res, next) => {
   // Rutas públicas que NO requieren autenticación
   const publicPaths = ['/find-tenant', '/login', '/logout'];
+  // SuperAdmin tiene su propio middleware de autenticación
+  const isSuperAdminPath = req.path.startsWith('/superadmin');
   const isPublicPath = publicPaths.some(path => req.path === path);
   
-  if (isPublicPath) {
-    return next(); // Saltar autenticación
+  if (isPublicPath || isSuperAdminPath) {
+    return next(); // Saltar autenticación para rutas públicas y SuperAdmin
   }
   
   // Para el resto de rutas, aplicar autenticación
@@ -126,6 +139,9 @@ app.use('/api/settings',       require('./routes/settings'));
 app.use('/api/data',           require('./routes/data'));
 app.use('/api/supplier-orders', require('./routes/supplier-orders'));
 app.use('/api/restaurant-info', require('./routes/restaurant-info'));
+
+// 4d) Rutas de SaaS existentes (mantener)
+app.use('/api/saas', require('./routes/saas'));
 
 // 5) Ruta raíz
 app.get('/', (req, res) => {

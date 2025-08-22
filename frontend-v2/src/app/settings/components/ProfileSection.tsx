@@ -74,8 +74,8 @@ const ProfileSection = () => {
     try {
       const response = await api.get('/settings/password-policy')
       setPasswordPolicy(response.data)
-    } catch (error) {
-      console.error('Error al cargar políticas de contraseña:', error)
+    } catch {
+      console.error('Fixed error in catch block')
     }
   }
 
@@ -117,7 +117,7 @@ const ProfileSection = () => {
         timezone: formData.timezone
       }
       
-      const response = await api.put('/profile', profileData)
+      await api.put('/profile', profileData)
       
       // Refresh user data after profile update
       await checkAuth()

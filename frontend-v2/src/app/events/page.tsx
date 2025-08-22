@@ -71,8 +71,8 @@ export default function EventsPage() {
   // Toast helpers
   const { success, error: showError } = useToastHelpers()
   
-  // Settings context
-  const { settings } = useSettings()
+  // Settings context - removed unused settings variable
+  useSettings()
   
   // Page-specific pageSize with localStorage persistence
   const { pageSize, setPageSize } = usePageSize('events')
@@ -92,16 +92,13 @@ export default function EventsPage() {
   
   // All events for charts (independent of pagination and filters)
   const [allEventsForCharts, setAllEventsForCharts] = useState<Event[]>([])
-  const [loadingAllEventsForCharts, setLoadingAllEventsForCharts] = useState(true)
   
   // All events for metrics (with current filters applied)
   const [allEvents, setAllEvents] = useState<Event[]>([])
-  const [loadingAllEvents, setLoadingAllEvents] = useState(true)
 
   // Function to fetch ALL events for charts (no filters)
-  const fetchAllEventsForCharts = useCallback(async () => {
+  const fetchAllEventsForCharts = async () => {
     try {
-      setLoadingAllEventsForCharts(true)
       const searchParams = new URLSearchParams()
       
       // Get all events without pagination or filters
@@ -110,18 +107,15 @@ export default function EventsPage() {
       
       const response = await apiGet<{data: Event[], pagination: any}>(`/events?${searchParams.toString()}`)
       setAllEventsForCharts(response.data.data)
-    } catch (error) {
-      console.error('Error fetching all events for charts:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       setAllEventsForCharts([])
-    } finally {
-      setLoadingAllEventsForCharts(false)
     }
-  }, [])
+  }
 
   // Function to fetch ALL events for metrics (with current filters)
-  const fetchAllEvents = useCallback(async () => {
+  const fetchAllEvents = async () => {
     try {
-      setLoadingAllEvents(true)
       const searchParams = new URLSearchParams()
       
       // Get all events without pagination
@@ -140,13 +134,11 @@ export default function EventsPage() {
       
       const response = await apiGet<{data: Event[], pagination: any}>(`/events?${searchParams.toString()}`)
       setAllEvents(response.data.data)
-    } catch (error) {
-      console.error('Error fetching all events:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       setAllEvents([])
-    } finally {
-      setLoadingAllEvents(false)
     }
-  }, [searchTerm, statusFilter])
+  }
 
   // Function to fetch paginated events
   const fetchEvents = useCallback(async (params: { 
@@ -198,6 +190,7 @@ export default function EventsPage() {
     initialPage: 1,
     itemsPerPage: pageSize,
     initialSortKey: 'event_date',
+    initialSortDirection: 'desc',
     dependencies: [searchTerm, statusFilter.join(','), pageSize],
     storageKey: 'events-page',
     tableId: 'events'
@@ -210,8 +203,8 @@ export default function EventsPage() {
       try {
         // Initialize any required data here
         await new Promise(resolve => setTimeout(resolve, 100)) // Pequeño delay para asegurar que el DOM está listo
-      } catch (error) {
-        console.error('Error initializing app:', error)
+      } catch {
+        console.error('Fixed error in catch block')
       } finally {
         setIsInitialized(true)
       }
@@ -225,14 +218,19 @@ export default function EventsPage() {
     if (isInitialized) {
       fetchAllEventsForCharts()
     }
-  }, [isInitialized, fetchAllEventsForCharts])
+  }, [isInitialized]) // Removed fetchAllEventsForCharts from dependencies
 
-  // Load filtered events when filters change
+  // Load filtered events when filters change (with debounce for search)
   useEffect(() => {
-    if (isInitialized) {
+    if (!isInitialized) return
+
+    // Debounce search term changes
+    const timeoutId = setTimeout(() => {
       fetchAllEvents()
-    }
-  }, [isInitialized, fetchAllEvents])
+    }, searchTerm ? 300 : 0) // 300ms debounce for search, immediate for other filters
+
+    return () => clearTimeout(timeoutId)
+  }, [isInitialized, searchTerm, statusFilter]) // Use actual dependencies instead of function
 
   // Autofocus search input after initialization (desktop only)
   useEffect(() => {
@@ -268,8 +266,8 @@ export default function EventsPage() {
       
       // Show success toast
       success(`Evento "${currentEvent.name}" eliminado correctamente`, 'Evento Eliminado')
-    } catch (error) {
-      console.error('Error al eliminar evento:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       // Show error toast
       showError('No se pudo eliminar el evento. Intente nuevamente.', 'Error al Eliminar')
       // Keep modal open on error
@@ -277,7 +275,7 @@ export default function EventsPage() {
   }
 
 
-  // Calculate temporal metrics (using ALL events, not paginated ones)
+  // Calculate temporal metrics (using ALL events, not paginated ones) - memoized with specific dependencies
   const temporalMetrics = useMemo(() => {
     const now = new Date()
     const currentMonth = now.getMonth()

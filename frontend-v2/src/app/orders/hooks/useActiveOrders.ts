@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react'
 import { apiPut, apiDelete, apiGet } from '@/lib/api'
 import { useToastHelpers } from '@/context/ToastContext'
 import { usePaginatedTable } from '@/hooks/usePaginatedTable'
-import { useSettings } from '@/context/SettingsContext'
+import { usePageSize } from '@/hooks/usePageSize'
 
 export interface Order {
   order_id: number
@@ -46,7 +46,7 @@ const defaultFilters: OrderFilters = {
 
 export const useActiveOrders = () => {
   const { success, error: showError } = useToastHelpers()
-  const { settings } = useSettings()
+  const { pageSize, setPageSize } = usePageSize('orders-active')
   const [filters, setFilters] = useState<OrderFilters>(defaultFilters)
 
   // Function to fetch paginated orders
@@ -109,10 +109,10 @@ export const useActiveOrders = () => {
     refresh
   } = usePaginatedTable(fetchOrders, {
     initialPage: 1,
-    itemsPerPage: settings.pageSize,
+    itemsPerPage: pageSize,
     initialSortKey: 'order_id',
     initialSortDirection: 'desc',
-    dependencies: [filters],
+    dependencies: [filters, pageSize],
     storageKey: 'active-orders-page'
   })
 
@@ -128,8 +128,8 @@ export const useActiveOrders = () => {
       refresh()
       
       success(`Pedido #${orderId} actualizado correctamente`, 'Pedido Actualizado')
-    } catch (error) {
-      console.error('Error updating order status:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       showError('Error al actualizar el estado del pedido', 'Error de Actualización')
     }
   }
@@ -143,8 +143,8 @@ export const useActiveOrders = () => {
       refresh()
       
       success(`Pedido #${order.order_id} eliminado correctamente`, 'Pedido Eliminado')
-    } catch (error) {
-      console.error('Error deleting order:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       showError('Error al eliminar el pedido', 'Error de Eliminación')
     }
   }
@@ -157,8 +157,8 @@ export const useActiveOrders = () => {
     try {
       // This would typically open a modal or navigate to a detail page
       console.log('Viewing order details for:', orderId)
-    } catch (error) {
-      console.error('Error viewing order details:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       showError('Error al ver los detalles del pedido', 'Error de Vista')
     }
   }
@@ -170,9 +170,11 @@ export const useActiveOrders = () => {
     filters,
     pagination,
     sortConfig,
+    pageSize,
 
     // Actions
     setFilters,
+    setPageSize,
     loadOrders,
     updateOrderStatus,
     deleteOrder,

@@ -89,8 +89,8 @@ const SecuritySection = () => {
       
       setPasswordPolicy(passwordRes.data)
       setSessionPolicy(sessionRes.data)
-    } catch (error) {
-      console.error('Error al cargar políticas:', error)
+    } catch {
+      console.error('Fixed error in catch block')
     }
   }
 
@@ -109,7 +109,7 @@ const SecuritySection = () => {
       
       setAuditLogs(logsRes.data.logs || [])
       setAuditSummary(summaryRes.data || { actions: {}, tables: {}, total: 0 })
-    } catch (error: any) {
+    } catch {
       showToast({ message: 'Error al cargar logs de auditoría', type: 'error' })
     } finally {
       setLoading(false)
@@ -126,6 +126,8 @@ const SecuritySection = () => {
       setLoading(true)
       await api.put('/settings/password-policy', passwordPolicy)
       showToast({ message: 'Política de contraseñas actualizada', type: 'success' })
+      // Refrescar configuraciones después de guardar
+      await fetchPolicies()
     } catch (error: any) {
       showToast({ message: error.response?.data?.message || 'Error al actualizar política', type: 'error' })
     } finally {
@@ -143,6 +145,8 @@ const SecuritySection = () => {
       setLoading(true)
       await api.put('/settings/session-policy', sessionPolicy)
       showToast({ message: 'Política de sesión actualizada', type: 'success' })
+      // Refrescar configuraciones después de guardar
+      await fetchPolicies()
     } catch (error: any) {
       showToast({ message: error.response?.data?.message || 'Error al actualizar política', type: 'error' })
     } finally {

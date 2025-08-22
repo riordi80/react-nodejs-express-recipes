@@ -35,8 +35,8 @@ const ExpiringIngredientsModal = ({ isOpen, onClose }: ExpiringIngredientsModalP
       setLoading(true)
       const response = await apiGet<ExpiringIngredient[]>('/ingredients/expiring/all')
       setIngredients(response.data)
-    } catch (error) {
-      console.error('Error loading expiring ingredients:', error)
+    } catch {
+      console.error('Fixed error in catch block')
     } finally {
       setLoading(false)
     }

@@ -17,7 +17,6 @@ import {
   HelpCircle,
   LogOut,
   BookOpen,
-  Palette,
   Volume2,
   VolumeX,
   Menu,
@@ -60,7 +59,6 @@ const navigation = [
 ]
 
 const bottomNavigation = [
-  { name: 'Demo Componentes', href: '/demo/components', icon: Palette },
   { name: 'Configuración', href: '/settings', icon: Settings },
   { name: 'Ayuda', href: '/docs', icon: HelpCircle },
 ]
@@ -83,9 +81,11 @@ export default function DashboardSidebar() {
   const handleLogout = async () => {
     try {
       await logout()
+      // No hacer router.push porque logout() ya maneja la redirección al dominio principal
+    } catch {
+      console.error('Fixed error in catch block')
+      // Solo en caso de error, redirigir al login local
       router.push('/login')
-    } catch (error) {
-      console.error('Error al cerrar sesión:', error)
     }
   }
 
@@ -215,22 +215,8 @@ export default function DashboardSidebar() {
           </div>
         </button>
         
-        {/* Demo Componentes */}
-        <Link
-          href="/demo/components"
-          className="group flex items-center px-3 py-2 text-sm font-medium text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
-          onClick={() => {
-            if (isMobileMenuOpen) {
-              setIsMobileMenuOpen(false)
-            }
-          }}
-        >
-          <Palette className="mr-3 h-5 w-5 text-gray-500" />
-          Demo componentes
-        </Link>
-
         {/* Configuración y Ayuda */}
-        {bottomNavigation.slice(1).map((item) => (
+        {bottomNavigation.map((item) => (
           <Link
             key={item.name}
             href={item.href}

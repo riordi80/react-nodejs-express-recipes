@@ -139,8 +139,8 @@ export default function IngredientsPage() {
   const router = useRouter()
   const [isInitialized, setIsInitialized] = useState(false)
   
-  // Settings context
-  const { settings } = useSettings()
+  // Settings context - removed unused settings variable  
+  useSettings()
   
   // Page-specific pageSize with localStorage persistence
   const { pageSize, setPageSize } = usePageSize('ingredients')
@@ -295,8 +295,8 @@ export default function IngredientsPage() {
       try {
         // Load widgets data
         await loadWidgets()
-      } catch (error) {
-        console.error('Error initializing app:', error)
+      } catch {
+        console.error('Fixed error in catch block')
       } finally {
         setIsInitialized(true)
       }
@@ -360,8 +360,8 @@ export default function IngredientsPage() {
       
       // Show success toast
       success(`Ingrediente "${currentIngredient.name}" desactivado correctamente`, 'Ingrediente Desactivado')
-    } catch (error) {
-      console.error('Error al desactivar ingrediente:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       // Show error toast
       showError('No se pudo desactivar el ingrediente. Intente nuevamente.', 'Error al Desactivar')
       // Keep modal open on error

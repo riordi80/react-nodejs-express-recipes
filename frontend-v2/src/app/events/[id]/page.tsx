@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { 
   ArrowLeft, 
@@ -18,13 +18,15 @@ import {
   Info,
   Heart,
   Search,
-  Edit
+  Edit,
+  Download
 } from 'lucide-react'
 import { apiGet, apiPost, apiPut, apiDelete } from '@/lib/api'
 import ConfirmModal from '@/components/ui/ConfirmModal'
 import Modal from '@/components/ui/Modal'
 import UnifiedTabs from '@/components/ui/DetailTabs'
 import { useUnsavedChanges } from '@/hooks/useUnsavedChangesSimple'
+import { usePDFGenerator } from '@/hooks/usePDFGenerator'
 // Tipo Recipe que coincide con la API del backend
 interface Recipe {
   recipe_id: number
@@ -111,6 +113,9 @@ export default function EventDetailPage() {
 
   // Toast helpers
   const { success, error: showError } = useToastHelpers()
+  
+  // PDF Generator
+  const { generateEventPDF } = usePDFGenerator()
 
   // State
   const [event, setEvent] = useState<Event | null>(null)
@@ -147,6 +152,9 @@ export default function EventDetailPage() {
   const [isDeleteRecipeOpen, setIsDeleteRecipeOpen] = useState(false)
   const [recipeToDelete, setRecipeToDelete] = useState<EventRecipe | null>(null)
   
+  // Restaurant configuration state
+  const [targetFoodCostPercentage, setTargetFoodCostPercentage] = useState<number | null>(null)
+  
   // Form state
   const [formData, setFormData] = useState({
     name: '',
@@ -160,8 +168,7 @@ export default function EventDetailPage() {
     notes: ''
   })
 
-  // Saving state
-  const [isSaving, setIsSaving] = useState(false)
+  // Saving state is handled by form submission
 
   // Hook simplificado para detectar cambios sin guardar
   const {
@@ -174,14 +181,6 @@ export default function EventDetailPage() {
   })
 
   // Load event data
-  useEffect(() => {
-    if (!isNewEvent) {
-      loadEventData()
-    } else {
-      setLoading(false)
-    }
-  }, [eventId, isNewEvent]) // loadEventData is defined below, exclude from deps
-
   const loadEventData = async () => {
     try {
       setLoading(true)
@@ -190,8 +189,6 @@ export default function EventDetailPage() {
       const eventData = eventResponse.data
       setEvent(eventData)
       setEventRecipes(eventData.menu || [])
-      
-      
       
       // Set form data
       setFormData({
@@ -213,15 +210,40 @@ export default function EventDetailPage() {
     }
   }
 
+  // Load restaurant configuration
+  const loadRestaurantSettings = async () => {
+    try {
+      const response = await apiGet<{success: boolean, data: {target_food_cost_percentage: number}}>('/restaurant-info')
+      if (response.data?.success && response.data?.data?.target_food_cost_percentage) {
+        setTargetFoodCostPercentage(response.data.data.target_food_cost_percentage)
+      } else {
+        setTargetFoodCostPercentage(30) // Fallback si no hay configuración
+      }
+    } catch {
+      setTargetFoodCostPercentage(30) // Fallback en caso de error
+    }
+  }
+
+  useEffect(() => {
+    if (!isNewEvent) {
+      loadEventData()
+    } else {
+      setLoading(false)
+    }
+  }, [eventId, isNewEvent]) // Removed loadEventData from dependencies
+
+  // Load restaurant settings on component mount
+  useEffect(() => {
+    loadRestaurantSettings()
+  }, [])
+
   // Función principal de guardado
   const handleSave = async () => {
-    setIsSaving(true)
-    
     try {
       await performSave(true)
       updateInitialValues()
-    } finally {
-      setIsSaving(false)
+    } catch {
+      console.error('Fixed error in catch block')
     }
   }
 
@@ -322,7 +344,10 @@ export default function EventDetailPage() {
     const costPerGuest = event?.guests_count ? totalCost / event.guests_count : 0
     const remainingBudget = budget - totalCost
     const budgetUsagePercent = budget > 0 ? (totalCost / budget) * 100 : 0
-    const suggestedBudget = totalCost * 1.4 // 40% margin
+    
+    // Use restaurant configuration for food cost percentage, with fallback to 30%
+    const foodCostPercent = targetFoodCostPercentage || 30
+    const suggestedBudget = totalCost > 0 ? totalCost / (foodCostPercent / 100) : 0
     
     return {
       totalCost,
@@ -330,7 +355,8 @@ export default function EventDetailPage() {
       costPerGuest,
       remainingBudget,
       budgetUsagePercent,
-      suggestedBudget
+      suggestedBudget,
+      foodCostPercent
     }
   }
 
@@ -339,22 +365,12 @@ export default function EventDetailPage() {
     setLoadingRecipes(true)
     setIsAddRecipeOpen(true)
     try {
-      console.log('🔍 Haciendo llamada a /recipes...')
       const response = await apiGet<{data: Recipe[], pagination: any}>('/recipes')
-      console.log('📡 Respuesta completa del API:', response)
-      console.log('📊 response.data:', response.data)
-      console.log('📋 response.data.data:', response.data.data)
       
       // Extract recipes from response.data.data (paginated response structure)
       const recipesData = Array.isArray(response.data.data) ? response.data.data : []
-      console.log('✅ Recetas procesadas:', recipesData.length)
-      if (recipesData.length > 0) {
-        console.log('📝 Primera receta:', recipesData[0])
-      }
-      console.log('🍽️ Recetas del evento actual:', eventRecipes.length)
       setAvailableRecipes(recipesData)
-    } catch (error) {
-      console.error('❌ Error cargando recetas:', error)
+    } catch {
       setAvailableRecipes([]) // Reset to empty array on error
       showError('Error al cargar las recetas disponibles', 'Error de Carga')
     } finally {
@@ -419,7 +435,7 @@ export default function EventDetailPage() {
         'Recetas Añadidas'
       )
     } catch (error: unknown) {
-      console.error('Error adding recipes to event:', error)
+      console.error('Fixed error in catch block')
       if (error && typeof error === 'object' && 'response' in error) {
         const axiosError = error as any
         console.error('Response data:', axiosError.response?.data)
@@ -449,12 +465,6 @@ export default function EventDetailPage() {
     return matchesSearch
   })
   
-  // Debug logging for filtered recipes
-  console.log('Available recipes:', availableRecipes.length)
-  console.log('Event recipes:', eventRecipes.length)
-  console.log('Search text:', recipeSearchText)
-  console.log('Filtered available recipes:', filteredAvailableRecipes.length)
-
   // Edit recipe functions
   const openEditRecipeModal = (recipe: EventRecipe) => {
     setEditingRecipe(recipe)
@@ -480,8 +490,8 @@ export default function EventDetailPage() {
       setEditingRecipe(null)
       
       success('Receta actualizada correctamente', 'Receta Actualizada')
-    } catch (error) {
-      console.error('Error updating recipe:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       showError('Error al actualizar la receta', 'Error al Actualizar')
     }
   }
@@ -506,10 +516,16 @@ export default function EventDetailPage() {
       setRecipeToDelete(null)
       
       success('Receta eliminada correctamente', 'Receta Eliminada')
-    } catch (error) {
-      console.error('Error deleting recipe:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       showError('Error al eliminar la receta del evento', 'Error al Eliminar')
     }
+  }
+
+  // Función para generar PDF del evento
+  const handleDownloadPDF = () => {
+    if (!event) return
+    generateEventPDF(event, eventRecipes)
   }
 
   const formatCurrency = (value: number) => {
@@ -520,6 +536,92 @@ export default function EventDetailPage() {
   }
 
   // Tab content renderers
+  const renderMenuTab = () => (
+    <div className="space-y-6">
+      {/* Menu */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <div className="bg-orange-100 p-2 rounded-lg">
+              <Utensils className="h-5 w-5 text-orange-600" />
+            </div>
+            Menú del Evento
+          </h3>
+          <button 
+            onClick={openAddRecipeModal}
+            className="inline-flex items-center text-orange-600 hover:text-orange-700 text-sm font-medium transition-colors"
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Añadir
+          </button>
+        </div>
+        
+        <div>
+          {eventRecipes.length > 0 ? (
+            <div className="space-y-4">
+              {eventRecipes.map((recipe) => (
+                <div key={recipe.recipe_id} className="group relative flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors overflow-hidden">
+                  <div className="flex items-center space-x-3">
+                    <div className="bg-orange-100 p-2 rounded-full">
+                      <ChefHat className="h-4 w-4 text-orange-600" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">{recipe.recipe_name}</p>
+                      <p className="text-sm text-gray-500">
+                        {courseTypeLabels[recipe.course_type]} • {recipe.portions} raciones
+                      </p>
+                      {recipe.notes && (
+                        <p className="text-xs text-gray-400 mt-1 italic">{recipe.notes}</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3 flex-shrink-0 min-w-0">
+                    <div className="text-right">
+                      <p className="text-sm font-medium text-gray-900">
+                        €{calculateRecipeCost(recipe).toLocaleString('es-ES', { 
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2 
+                        })}
+                      </p>
+                    </div>
+                    {/* Actions buttons - always visible on mobile, hover on desktop */}
+                    <div className="flex items-center space-x-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex-shrink-0">
+                      <button
+                        onClick={() => openEditRecipeModal(recipe)}
+                        className="p-1.5 md:p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded transition-colors"
+                        title="Editar receta"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => openDeleteRecipeModal(recipe)}
+                        className="p-1.5 md:p-1 text-red-600 hover:text-red-800 hover:bg-red-100 rounded transition-colors"
+                        title="Eliminar receta"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <Utensils className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+              <p className="text-gray-500">No hay recetas en el menú</p>
+              <button 
+                onClick={openAddRecipeModal}
+                className="mt-2 text-orange-600 hover:text-orange-700 transition-colors"
+              >
+                Añadir primera receta
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+
   const renderGeneralTab = () => (
     <div className="space-y-6">
       {/* Event Details */}
@@ -692,113 +794,11 @@ export default function EventDetailPage() {
             </div>
           )}
 
-          {/* Notes */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Notas
-            </label>
-            {isEditing ? (
-              <textarea
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                rows={3}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                placeholder="Notas adicionales"
-              />
-            ) : (
-              <p className="text-gray-900">{event?.notes || 'Sin notas'}</p>
-            )}
-          </div>
         </div>
       </div>
     </div>
   )
 
-  const renderMenuTab = () => (
-    <div className="space-y-6">
-      {/* Menu */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-            <div className="bg-orange-100 p-2 rounded-lg">
-              <Utensils className="h-5 w-5 text-orange-600" />
-            </div>
-            Menú del Evento
-          </h3>
-          <button 
-            onClick={openAddRecipeModal}
-            className="inline-flex items-center text-orange-600 hover:text-orange-700 text-sm font-medium transition-colors"
-          >
-            <Plus className="h-4 w-4 mr-1" />
-            Añadir
-          </button>
-        </div>
-        
-        <div>
-          {eventRecipes.length > 0 ? (
-            <div className="space-y-4">
-              {eventRecipes.map((recipe) => (
-                <div key={recipe.recipe_id} className="group relative flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors overflow-hidden">
-                  <div className="flex items-center space-x-3">
-                    <div className="bg-orange-100 p-2 rounded-full">
-                      <ChefHat className="h-4 w-4 text-orange-600" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900">{recipe.recipe_name}</p>
-                      <p className="text-sm text-gray-500">
-                        {courseTypeLabels[recipe.course_type]} • {recipe.portions} raciones
-                      </p>
-                      {recipe.notes && (
-                        <p className="text-xs text-gray-400 mt-1 italic">{recipe.notes}</p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-3 flex-shrink-0 min-w-0">
-                    <div className="text-right">
-                      <p className="text-sm font-medium text-gray-900">
-                        €{calculateRecipeCost(recipe).toLocaleString('es-ES', { 
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2 
-                        })}
-                      </p>
-                    </div>
-                    {/* Actions buttons - always visible on mobile, hover on desktop */}
-                    <div className="flex items-center space-x-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex-shrink-0">
-                      <button
-                        onClick={() => openEditRecipeModal(recipe)}
-                        className="p-1.5 md:p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded transition-colors"
-                        title="Editar receta"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={() => openDeleteRecipeModal(recipe)}
-                        className="p-1.5 md:p-1 text-red-600 hover:text-red-800 hover:bg-red-100 rounded transition-colors"
-                        title="Eliminar receta"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <Utensils className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-              <p className="text-gray-500">No hay recetas en el menú</p>
-              <button 
-                onClick={openAddRecipeModal}
-                className="mt-2 text-orange-600 hover:text-orange-700 transition-colors"
-              >
-                Añadir primera receta
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  )
 
   if (loading) {
     return (
@@ -843,6 +843,16 @@ export default function EventDetailPage() {
                 title="Eliminar evento"
               >
                 <Trash2 className="h-4 w-4" />
+              </button>
+            )}
+            
+            {!isNewEvent && (
+              <button
+                onClick={handleDownloadPDF}
+                className="p-2 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded-lg transition-colors"
+                title="Descargar PDF"
+              >
+                <Download className="h-4 w-4" />
               </button>
             )}
             
@@ -913,6 +923,16 @@ export default function EventDetailPage() {
               </button>
             )}
             
+            {!isNewEvent && (
+              <button
+                onClick={handleDownloadPDF}
+                className="inline-flex items-center px-4 py-2 border border-orange-300 text-orange-700 text-sm font-medium rounded-lg hover:bg-orange-50 transition-colors"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Descargar PDF
+              </button>
+            )}
+            
             <button
               onClick={handleSave}
               disabled={!hasUnsavedChanges && !isNewEvent}
@@ -952,43 +972,6 @@ export default function EventDetailPage() {
               </div>
               <div className="bg-orange-100 p-3 rounded-lg">
                 <Users className="h-6 w-6 text-orange-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Estado</p>
-                <p className={`text-2xl font-bold mt-1 ${(() => {
-                  switch(event.status) {
-                    case 'planned': return 'text-blue-600'
-                    case 'confirmed': return 'text-green-600'
-                    case 'in_progress': return 'text-yellow-600'
-                    case 'completed': return 'text-gray-600'
-                    case 'cancelled': return 'text-red-600'
-                    default: return 'text-gray-900'
-                  }
-                })()}`}>
-                  {statusLabels[event.status]}
-                </p>
-              </div>
-              <div className="bg-orange-100 p-3 rounded-lg">
-                <Calendar className="h-6 w-6 text-orange-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Presupuesto</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">
-                  {event.budget ? `€${event.budget.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'N/A'}
-                </p>
-              </div>
-              <div className="bg-orange-100 p-3 rounded-lg">
-                <Euro className="h-6 w-6 text-orange-600" />
               </div>
             </div>
           </div>
@@ -1037,29 +1020,73 @@ export default function EventDetailPage() {
               </div>
             </div>
           </div>
+
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Presupuesto</p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">
+                  {event.budget ? `€${event.budget.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'N/A'}
+                </p>
+              </div>
+              <div className="bg-orange-100 p-3 rounded-lg">
+                <Euro className="h-6 w-6 text-orange-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Estado</p>
+                <p className={`text-2xl font-bold mt-1 ${(() => {
+                  switch(event.status) {
+                    case 'planned': return 'text-blue-600'
+                    case 'confirmed': return 'text-green-600'
+                    case 'in_progress': return 'text-yellow-600'
+                    case 'completed': return 'text-gray-600'
+                    case 'cancelled': return 'text-red-600'
+                    default: return 'text-gray-900'
+                  }
+                })()}`}>
+                  {statusLabels[event.status]}
+                </p>
+              </div>
+              <div className="bg-orange-100 p-3 rounded-lg">
+                <Calendar className="h-6 w-6 text-orange-600" />
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
       {/* Main Content with Tabs */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2">
-          <UnifiedTabs
-            variant="detail"
-            mobileStyle="orange"
-            tabs={[
-              { id: 'general', label: 'Información General', icon: Info },
-              { id: 'menu', label: 'Menú del Evento', icon: Utensils }
-            ]}
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-          >
-            {activeTab === 'general' && renderGeneralTab()}
-            {activeTab === 'menu' && renderMenuTab()}
-          </UnifiedTabs>
+          {!isNewEvent ? (
+            <UnifiedTabs
+              variant="detail"
+              mobileStyle="orange"
+              tabs={[
+                { id: 'general', label: 'Información General', icon: Info },
+                { id: 'menu', label: 'Menú del Evento', icon: Utensils }
+              ]}
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+            >
+              {activeTab === 'general' && renderGeneralTab()}
+              {activeTab === 'menu' && renderMenuTab()}
+            </UnifiedTabs>
+          ) : (
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              {renderGeneralTab()}
+            </div>
+          )}
         </div>
 
         {/* Sidebar */}
         <div className="space-y-6">
+          
 
           {/* Cost Analysis */}
           {event && (() => {
@@ -1127,7 +1154,7 @@ export default function EventDetailPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium text-orange-700">Presupuesto Sugerido</p>
-                        <p className="text-sm text-orange-600 mb-1">Margen 40%</p>
+                        <p className="text-sm text-orange-600 mb-1">Food Cost {metrics.foodCostPercent}%</p>
                         <p className="text-xl font-bold text-orange-800">€{formatCurrency(metrics.suggestedBudget)}</p>
                       </div>
                       <div className="bg-orange-100 p-3 rounded-lg">
@@ -1139,6 +1166,34 @@ export default function EventDetailPage() {
               </div>
             )
           })()}
+
+          {/* Event Notes */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+              <div className="bg-orange-100 p-2 rounded-lg">
+                <Info className="h-5 w-5 text-orange-600" />
+              </div>
+              Notas del Evento
+            </h3>
+            
+            {isEditing ? (
+              <textarea
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                rows={4}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                placeholder="Notas adicionales del evento..."
+              />
+            ) : (
+              <div className="prose max-w-none">
+                {event?.notes ? (
+                  <p className="text-gray-900 whitespace-pre-wrap">{event.notes}</p>
+                ) : (
+                  <p className="text-gray-500 italic">Sin notas adicionales</p>
+                )}
+              </div>
+            )}
+          </div>
 
         </div>
       </div>

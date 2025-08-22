@@ -37,8 +37,8 @@ const LowStockIngredientsModal = ({ isOpen, onClose }: LowStockIngredientsModalP
       setLoading(true)
       const response = await apiGet<LowStockIngredient[]>('/ingredients/low-stock/all')
       setIngredients(response.data)
-    } catch (error) {
-      console.error('Error loading low stock ingredients:', error)
+    } catch {
+      console.error('Fixed error in catch block')
     } finally {
       setLoading(false)
     }

@@ -44,7 +44,6 @@ export const usePageSize = (storageKey: string) => {
     
     try {
       // Obtener la configuración global guardada previamente
-      const globalSettingKey = 'app-pageSize'
       const previousGlobalSetting = localStorage.getItem('previous-global-pageSize')
       const currentGlobalSetting = settings.pageSize.toString()
       

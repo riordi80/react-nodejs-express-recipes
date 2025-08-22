@@ -822,4 +822,198 @@ router.get('/:id/nutrition', authenticateToken, authorizeRoles('admin','chef'), 
   }
 });
 
+// =====================================================
+// GESTIÓN DE SUB-RECETAS
+// =====================================================
+
+// GET /recipes/:id/subrecipes - Obtener sub-recetas de una receta
+router.get('/:id/subrecipes', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const [subrecipes] = await req.tenantDb.query(`
+      SELECT 
+        rs.id,
+        rs.recipe_id,
+        rs.subrecipe_id,
+        rs.quantity_per_serving,
+        rs.notes,
+        r.name as subrecipe_name,
+        r.cost_per_serving as subrecipe_cost,
+        r.servings as subrecipe_servings,
+        r.prep_time as subrecipe_prep_time,
+        r.difficulty as subrecipe_difficulty
+      FROM RECIPE_SUBRECIPES rs
+      JOIN RECIPES r ON rs.subrecipe_id = r.recipe_id
+      WHERE rs.recipe_id = ?
+      ORDER BY r.name
+    `, [id]);
+
+    res.json(subrecipes);
+  } catch (error) {
+    console.error('Error al obtener sub-recetas:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// POST /recipes/:id/subrecipes - Añadir sub-receta a una receta
+router.post('/:id/subrecipes', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
+  const { id } = req.params;
+  const { subrecipe_id, quantity_per_serving, notes } = req.body;
+
+  // Validaciones
+  if (!subrecipe_id || !quantity_per_serving) {
+    return res.status(400).json({ 
+      message: 'ID de sub-receta y cantidad por porción son obligatorios' 
+    });
+  }
+
+  if (parseInt(id) === parseInt(subrecipe_id)) {
+    return res.status(400).json({ 
+      message: 'Una receta no puede usarse a sí misma como sub-receta' 
+    });
+  }
+
+  if (quantity_per_serving <= 0) {
+    return res.status(400).json({ 
+      message: 'La cantidad debe ser mayor que 0' 
+    });
+  }
+
+  try {
+    // Verificar que la receta principal existe
+    const [recipeExists] = await req.tenantDb.query('SELECT recipe_id FROM RECIPES WHERE recipe_id = ?', [id]);
+    if (recipeExists.length === 0) {
+      return res.status(404).json({ message: 'Receta no encontrada' });
+    }
+
+    // Verificar que la sub-receta existe
+    const [subrecipeExists] = await req.tenantDb.query('SELECT name FROM RECIPES WHERE recipe_id = ?', [subrecipe_id]);
+    if (subrecipeExists.length === 0) {
+      return res.status(404).json({ message: 'Sub-receta no encontrada' });
+    }
+
+    // Verificar que no haya dependencia circular (A usa B y B usa A)
+    const [circularCheck] = await req.tenantDb.query(`
+      WITH RECURSIVE recipe_dependencies AS (
+        SELECT recipe_id, subrecipe_id, 1 as level
+        FROM RECIPE_SUBRECIPES 
+        WHERE recipe_id = ?
+        
+        UNION ALL
+        
+        SELECT rd.recipe_id, rs.subrecipe_id, rd.level + 1
+        FROM recipe_dependencies rd
+        JOIN RECIPE_SUBRECIPES rs ON rd.subrecipe_id = rs.recipe_id
+        WHERE rd.level < 10
+      )
+      SELECT 1 as has_circular_dependency
+      FROM recipe_dependencies 
+      WHERE subrecipe_id = ?
+      LIMIT 1
+    `, [subrecipe_id, id]);
+
+    if (circularCheck.length > 0) {
+      return res.status(400).json({ 
+        message: 'No se puede añadir esta sub-receta porque crearía una dependencia circular' 
+      });
+    }
+
+    // Verificar que la sub-receta no esté ya añadida
+    const [existingSubrecipe] = await req.tenantDb.query(
+      'SELECT id FROM RECIPE_SUBRECIPES WHERE recipe_id = ? AND subrecipe_id = ?', 
+      [id, subrecipe_id]
+    );
+    if (existingSubrecipe.length > 0) {
+      return res.status(400).json({ message: 'Esta sub-receta ya está añadida a la receta' });
+    }
+
+    // Añadir sub-receta
+    await req.tenantDb.query(`
+      INSERT INTO RECIPE_SUBRECIPES (recipe_id, subrecipe_id, quantity_per_serving, notes)
+      VALUES (?, ?, ?, ?)
+    `, [id, subrecipe_id, quantity_per_serving, notes]);
+
+    // Registrar auditoría
+    const subrecipeName = subrecipeExists[0].name;
+    await logAudit(req.tenantDb, req.user.user_id, 'create', 'RECIPE_SUBRECIPES', null, 
+      `Sub-receta "${subrecipeName}" añadida a receta ${id}`);
+
+    res.status(201).json({ message: 'Sub-receta añadida correctamente' });
+  } catch (error) {
+    console.error('Error al añadir sub-receta:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// PUT /recipes/:id/subrecipes/:subrecipe_id - Actualizar sub-receta
+router.put('/:id/subrecipes/:subrecipe_id', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
+  const { id, subrecipe_id } = req.params;
+  const { quantity_per_serving, notes } = req.body;
+
+  // Validaciones
+  if (!quantity_per_serving) {
+    return res.status(400).json({ message: 'Cantidad por porción es obligatoria' });
+  }
+
+  if (quantity_per_serving <= 0) {
+    return res.status(400).json({ message: 'La cantidad debe ser mayor que 0' });
+  }
+
+  try {
+    // Verificar que la relación existe
+    const [existingSubrecipe] = await req.tenantDb.query(
+      'SELECT id FROM RECIPE_SUBRECIPES WHERE recipe_id = ? AND subrecipe_id = ?', 
+      [id, subrecipe_id]
+    );
+    if (existingSubrecipe.length === 0) {
+      return res.status(404).json({ message: 'Sub-receta no encontrada en esta receta' });
+    }
+
+    // Actualizar sub-receta
+    await req.tenantDb.query(`
+      UPDATE RECIPE_SUBRECIPES 
+      SET quantity_per_serving = ?, notes = ?
+      WHERE recipe_id = ? AND subrecipe_id = ?
+    `, [quantity_per_serving, notes, id, subrecipe_id]);
+
+    // Registrar auditoría
+    await logAudit(req.tenantDb, req.user.user_id, 'update', 'RECIPE_SUBRECIPES', existingSubrecipe[0].id, 
+      `Sub-receta ${subrecipe_id} actualizada en receta ${id}`);
+
+    res.json({ message: 'Sub-receta actualizada correctamente' });
+  } catch (error) {
+    console.error('Error al actualizar sub-receta:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
+// DELETE /recipes/:id/subrecipes/:subrecipe_id - Eliminar sub-receta
+router.delete('/:id/subrecipes/:subrecipe_id', authenticateToken, authorizeRoles('admin','chef'), async (req, res) => {
+  const { id, subrecipe_id } = req.params;
+
+  try {
+    // Verificar que la relación existe
+    const [existingSubrecipe] = await req.tenantDb.query(
+      'SELECT id FROM RECIPE_SUBRECIPES WHERE recipe_id = ? AND subrecipe_id = ?', 
+      [id, subrecipe_id]
+    );
+    if (existingSubrecipe.length === 0) {
+      return res.status(404).json({ message: 'Sub-receta no encontrada en esta receta' });
+    }
+
+    // Eliminar sub-receta
+    await req.tenantDb.query('DELETE FROM RECIPE_SUBRECIPES WHERE recipe_id = ? AND subrecipe_id = ?', [id, subrecipe_id]);
+
+    // Registrar auditoría
+    await logAudit(req.tenantDb, req.user.user_id, 'delete', 'RECIPE_SUBRECIPES', existingSubrecipe[0].id, 
+      `Sub-receta ${subrecipe_id} eliminada de receta ${id}`);
+
+    res.json({ message: 'Sub-receta eliminada correctamente' });
+  } catch (error) {
+    console.error('Error al eliminar sub-receta:', error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+});
+
 module.exports = router;

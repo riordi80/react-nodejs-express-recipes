@@ -33,7 +33,10 @@ router.get('/password-policy', authenticateToken, authorizeRoles('admin'), async
     
     res.json({
       ...defaultSettings,
-      ...settings
+      ...settings,
+      // Convertir strings a booleanos
+      password_require_special: (settings.password_require_special || defaultSettings.password_require_special) === 'true',
+      password_require_numbers: (settings.password_require_numbers || defaultSettings.password_require_numbers) === 'true'
     });
     
   } catch (error) {
@@ -105,7 +108,7 @@ router.get('/session-policy', authenticateToken, authorizeRoles('admin'), async 
         setting_key, 
         setting_value 
       FROM SYSTEM_SETTINGS 
-      WHERE setting_key IN ('session_timeout', 'session_auto_close')
+      WHERE setting_key IN ('session_duration', 'auto_logout', 'auto_logout_time')
     `);
     
     // Convertir array de configuraciones a objeto
@@ -116,13 +119,16 @@ router.get('/session-policy', authenticateToken, authorizeRoles('admin'), async 
     
     // Valores por defecto si no existen
     const defaultSettings = {
-      session_timeout: '120', // 2 horas en minutos
-      session_auto_close: 'false'
+      session_duration: '3600', // 1 hora en segundos
+      auto_logout: 'true',
+      auto_logout_time: '1800' // 30 minutos en segundos
     };
     
     res.json({
       ...defaultSettings,
-      ...settings
+      ...settings,
+      // Convertir string 'true'/'false' a boolean para auto_logout
+      auto_logout: (settings.auto_logout || defaultSettings.auto_logout) === 'true'
     });
     
   } catch (error) {
@@ -134,17 +140,25 @@ router.get('/session-policy', authenticateToken, authorizeRoles('admin'), async 
 // PUT /settings/session-policy - Actualizar configuración de política de sesiones
 router.put('/session-policy', authenticateToken, authorizeRoles('admin'), async (req, res) => {
   try {
-    const { session_timeout, session_auto_close } = req.body;
+    const { session_duration, auto_logout, auto_logout_time } = req.body;
     
     // Validar valores
-    if (!session_timeout || isNaN(session_timeout) || session_timeout < 15 || session_timeout > 1440) {
-      return res.status(400).json({ message: 'El tiempo de sesión debe ser entre 15 minutos y 24 horas' });
+    if (!session_duration || isNaN(session_duration) || session_duration < 900 || session_duration > 86400) {
+      return res.status(400).json({ message: 'La duración de sesión debe ser entre 15 minutos y 24 horas' });
+    }
+    
+    if (auto_logout && auto_logout_time && (isNaN(auto_logout_time) || auto_logout_time < 300 || auto_logout_time > 7200)) {
+      return res.status(400).json({ message: 'El tiempo de auto-logout debe ser entre 5 minutos y 2 horas' });
     }
     
     const settings = [
-      { key: 'session_timeout', value: session_timeout.toString() },
-      { key: 'session_auto_close', value: session_auto_close ? 'true' : 'false' }
+      { key: 'session_duration', value: session_duration.toString() },
+      { key: 'auto_logout', value: auto_logout ? 'true' : 'false' }
     ];
+    
+    if (auto_logout && auto_logout_time) {
+      settings.push({ key: 'auto_logout_time', value: auto_logout_time.toString() });
+    }
     
     // Usar transacción para actualizar todas las configuraciones
     const connection = await req.tenantDb.getConnection();
@@ -164,7 +178,7 @@ router.put('/session-policy', authenticateToken, authorizeRoles('admin'), async 
       await connection.commit();
       
       // Registrar auditoría
-      const auditDescription = `Configuración de política de sesiones actualizada: timeout=${session_timeout}min, auto-close=${session_auto_close}`;
+      const auditDescription = `Configuración de política de sesiones actualizada: duration=${session_duration}s, auto-logout=${auto_logout}, logout-time=${auto_logout_time || 'N/A'}s`;
       await connection.execute(`
         INSERT INTO AUDIT_LOGS (user_id, action, table_name, record_id, description, timestamp) 
         VALUES (?, 'update', 'SYSTEM_SETTINGS', NULL, ?, NOW())

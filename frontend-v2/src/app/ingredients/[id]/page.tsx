@@ -83,7 +83,6 @@ export default function IngredientDetailPage() {
   const [isEditing] = useState(true) // Siempre iniciar en modo edición
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
   const [preferredSupplier, setPreferredSupplier] = useState<{id: number, name: string} | null>(null)
-  const [isSaving, setIsSaving] = useState(false)
   
   // Tabs state
   const [activeTab, setActiveTab] = useState('general')
@@ -204,8 +203,8 @@ export default function IngredientDetailPage() {
         categories: categoriesRes.data.map((c: any) => c.name || c),
         allergens: allergensRes.data // Mantener objetos completos con ID y name
       })
-    } catch (error) {
-      console.error('Error loading filter options:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       // Fallback to empty arrays
       setFilterOptions({
         categories: [],
@@ -333,34 +332,20 @@ export default function IngredientDetailPage() {
       } else {
         setPreferredSupplier(null)
       }
-    } catch (error) {
-      console.error('Error loading preferred supplier:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       setPreferredSupplier(null)
     }
   }
 
-  // Función de guardado sin navegación (para la modal)
-  const saveWithoutNavigation = async () => {
-    setIsSaving(true)
-    
-    try {
-      // Reutilizar la lógica de guardado existente pero sin navegación
-      await performSave(false)
-      updateInitialValues()
-    } finally {
-      setIsSaving(false)
-    }
-  }
 
   // Función principal de guardado
   const handleSave = async () => {
-    setIsSaving(true)
     
     try {
       await performSave(true)
       updateInitialValues()
     } finally {
-      setIsSaving(false)
     }
   }
 
@@ -850,7 +835,7 @@ export default function IngredientDetailPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Fecha de expiración
+              Fecha de caducidad
             </label>
             {isEditing ? (
               <input

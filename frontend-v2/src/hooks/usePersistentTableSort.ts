@@ -26,7 +26,7 @@ const getStoredSortConfig = (tableId: string): SortConfig => {
         return JSON.parse(stored)
       }
     }
-  } catch (error) {
+  } catch {
     console.warn('Error reading stored sort config:', error)
   }
   return { key: null, direction: null }
@@ -39,7 +39,7 @@ const storeSortConfig = (tableId: string, config: SortConfig) => {
     if (typeof window !== 'undefined' && window.sessionStorage) {
       sessionStorage.setItem(getStorageKey(tableId), JSON.stringify(config))
     }
-  } catch (error) {
+  } catch {
     console.warn('Error storing sort config:', error)
   }
 }
@@ -133,7 +133,7 @@ export function usePersistentTableSort<T extends Record<string, any>>(
         sessionStorage.removeItem(getStorageKey(tableId))
       }
       setSortConfig({ key: null, direction: null })
-    } catch (error) {
+    } catch {
       console.warn('Error clearing stored sort config:', error)
     }
   }

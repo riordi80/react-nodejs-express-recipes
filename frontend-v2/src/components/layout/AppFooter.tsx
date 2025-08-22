@@ -31,7 +31,7 @@ const AppFooter = () => {
           ? 'bg-orange-50 border-orange-200' // Móvil login: fondo naranja claro
           : 'bg-white border-gray-200'       // Desktop login: fondo blanco
         : 'bg-white border-gray-200'         // Páginas normales: fondo blanco
-    }`}>
+    } ${!isLoginPage ? 'lg:pl-64' : ''}`}> {/* Usar padding-left en lugar de margin-left para evitar overflow */}
       <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${
         isMobile ? 'py-4' : 'py-3'
       }`}>

@@ -89,8 +89,8 @@ export default function DashboardSection({ onNavigateToTab }: DashboardSectionPr
         lowStockItems: response.data.lowStockItems || 0,
         savingsDetail: response.data.savingsDetail || []
       })
-    } catch (error) {
-      console.error('Error loading dashboard data:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       showError('Error al cargar los datos del dashboard', 'Error de Carga')
       
       // Fallback to default data on error
@@ -260,7 +260,7 @@ export default function DashboardSection({ onNavigateToTab }: DashboardSectionPr
                   </div>
                   <div>
                     <span className="font-medium text-green-700">Ahorro:</span>
-                    <div className="text-green-600 font-semibold">{formatCurrency(item.ahorro_euros)}</div>
+                    <div className="text-green-600 font-semibold">{formatCurrency(Number(item.ahorro_euros) || 0)}</div>
                   </div>
                 </div>
               </div>

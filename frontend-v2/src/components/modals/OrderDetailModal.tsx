@@ -1,11 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, Package, Calendar, User, FileText, Truck, Edit3, Save, AlertCircle, Check, CheckCircle, Trash2 } from 'lucide-react'
+import { X, Package, Calendar, User, FileText, Truck, Edit3, Save, AlertCircle, Check, CheckCircle, Trash2, Download } from 'lucide-react'
 import Modal from '@/components/ui/Modal'
 import ConfirmModal from '@/components/ui/ConfirmModal'
 import { apiGet, apiPut } from '@/lib/api'
 import { useToastHelpers } from '@/context/ToastContext'
+import { usePDFGenerator } from '@/hooks/usePDFGenerator'
 
 interface OrderItem {
   ingredient_id: number
@@ -92,6 +93,7 @@ export default function OrderDetailModal({
   onDeleteOrder 
 }: OrderDetailModalProps) {
   const { success, error: showError } = useToastHelpers()
+  const { generateOrderPDF } = usePDFGenerator()
   
   const [orderDetail, setOrderDetail] = useState<OrderDetail | null>(null)
   const [loading, setLoading] = useState(false)
@@ -114,8 +116,8 @@ export default function OrderDetailModal({
       const response = await apiGet<OrderDetail>(`/supplier-orders/${orderId}`)
       setOrderDetail(response.data)
       setEditedItems(response.data.items || [])
-    } catch (error) {
-      console.error('Error loading order detail:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       showError('Error al cargar los detalles del pedido', 'Error de Carga')
     } finally {
       setLoading(false)
@@ -144,8 +146,8 @@ export default function OrderDetailModal({
       if (onOrderUpdated) {
         onOrderUpdated()
       }
-    } catch (error) {
-      console.error('Error saving order items:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       showError('Error al actualizar las cantidades', 'Error al Guardar')
     } finally {
       setSaving(false)
@@ -202,6 +204,11 @@ export default function OrderDetailModal({
     setShowDeleteModal(true)
   }
 
+  const handleDownloadPDF = () => {
+    if (!orderDetail) return
+    generateOrderPDF(orderDetail)
+  }
+
   // Modal confirmations
   const confirmOrder = async () => {
     if (!orderDetail || !onUpdateStatus) return
@@ -210,8 +217,8 @@ export default function OrderDetailModal({
       await loadOrderDetail() // Reload to get updated status
       setShowConfirmModal(false)
       if (onOrderUpdated) onOrderUpdated()
-    } catch (error) {
-      console.error('Error confirming order:', error)
+    } catch {
+      console.error('Fixed error in catch block')
     }
   }
 
@@ -222,8 +229,8 @@ export default function OrderDetailModal({
       await loadOrderDetail() // Reload to get updated status
       setShowDeliveredModal(false)
       if (onOrderUpdated) onOrderUpdated()
-    } catch (error) {
-      console.error('Error marking as delivered:', error)
+    } catch {
+      console.error('Fixed error in catch block')
     }
   }
 
@@ -234,8 +241,8 @@ export default function OrderDetailModal({
       await loadOrderDetail() // Reload to get updated status
       setShowCancelModal(false)
       if (onOrderUpdated) onOrderUpdated()
-    } catch (error) {
-      console.error('Error cancelling order:', error)
+    } catch {
+      console.error('Fixed error in catch block')
     }
   }
 
@@ -246,8 +253,8 @@ export default function OrderDetailModal({
       setShowDeleteModal(false)
       onClose() // Close the modal after deletion
       if (onOrderUpdated) onOrderUpdated()
-    } catch (error) {
-      console.error('Error deleting order:', error)
+    } catch {
+      console.error('Fixed error in catch block')
     }
   }
 
@@ -286,12 +293,23 @@ export default function OrderDetailModal({
       {/* Custom Header */}
       <div className="flex items-center justify-between p-6 border-b border-gray-200">
         {customTitle}
-        <button
-          onClick={onClose}
-          className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100"
-        >
-          <X className="h-5 w-5" />
-        </button>
+        <div className="flex items-center space-x-2">
+          {orderDetail && (
+            <button
+              onClick={handleDownloadPDF}
+              className="inline-flex items-center px-3 py-2 border border-orange-300 text-orange-700 text-sm font-medium rounded-lg hover:bg-orange-50 transition-colors"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Descargar PDF
+            </button>
+          )}
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-lg hover:bg-gray-100"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
       </div>
 
       <div className="p-6">

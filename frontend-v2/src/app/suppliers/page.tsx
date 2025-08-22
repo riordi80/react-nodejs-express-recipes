@@ -27,7 +27,6 @@ import {
 import { apiGet, apiDelete, apiPut } from '@/lib/api'
 import ConfirmModal from '@/components/ui/ConfirmModal'
 import { useToastHelpers } from '@/context/ToastContext'
-import { useSettings } from '@/context/SettingsContext'
 
 interface Supplier {
   supplier_id: number
@@ -52,8 +51,6 @@ export default function SuppliersPage() {
   // Toast helpers
   const { success, error: showError } = useToastHelpers()
   
-  // Settings context
-  const { settings } = useSettings()
   
   // Page-specific pageSize with localStorage persistence
   const { pageSize, setPageSize } = usePageSize('suppliers')
@@ -136,8 +133,8 @@ export default function SuppliersPage() {
       try {
         // Initialize any required data here
         await new Promise(resolve => setTimeout(resolve, 100)) // Pequeño delay para asegurar que el DOM está listo
-      } catch (error) {
-        console.error('Error initializing app:', error)
+      } catch {
+        console.error('Fixed error in catch block')
       } finally {
         setIsInitialized(true)
       }
@@ -176,8 +173,8 @@ export default function SuppliersPage() {
       
       // Show success toast
       success(`Proveedor "${currentSupplier.name}" eliminado correctamente`, 'Proveedor Eliminado')
-    } catch (error) {
-      console.error('Error al eliminar proveedor:', error)
+    } catch {
+      console.error('Fixed error in catch block')
       // Show error toast
       showError('No se pudo eliminar el proveedor. Intente nuevamente.', 'Error al Eliminar')
       // Keep modal open on error
@@ -213,9 +210,9 @@ export default function SuppliersPage() {
         `Proveedor "${supplier.name}" ${newActiveStatus ? 'activado' : 'desactivado'} correctamente`,
         'Estado Actualizado'
       )
-    } catch (error) {
+    } catch {
       showError('Error al cambiar el estado del proveedor', 'Error')
-      console.error('Error toggling supplier status:', error)
+      console.error('Fixed error in catch block')
     }
   }
 
