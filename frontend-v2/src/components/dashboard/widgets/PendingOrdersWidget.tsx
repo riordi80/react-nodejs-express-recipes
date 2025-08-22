@@ -3,11 +3,12 @@
 
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Truck, Calendar, Euro, Package } from 'lucide-react';
 import DashboardWidget from '../DashboardWidget';
 import { usePendingOrders } from '@/hooks/useDashboardWidgets';
 import { Badge, EmptyState } from '@/components/ui';
+import OrderDetailModal from '@/components/modals/OrderDetailModal';
 
 interface PendingOrdersWidgetProps {
   limit?: number;
@@ -57,6 +58,22 @@ const PendingOrdersWidget: React.FC<PendingOrdersWidgetProps> = ({
   compact = false
 }) => {
   const { data, loading, error, refetch } = usePendingOrders(limit, enabled);
+  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null);
+  const [showOrderModal, setShowOrderModal] = useState(false);
+
+  const handleOrderClick = (orderId: number) => {
+    setSelectedOrderId(orderId);
+    setShowOrderModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowOrderModal(false);
+    setSelectedOrderId(null);
+  };
+
+  const handleOrderUpdated = () => {
+    refetch(); // Refresh the widget data when order is updated
+  };
 
   const formatDate = (dateString: string) => {
     return new Intl.DateTimeFormat('es-ES', {
@@ -106,11 +123,12 @@ const PendingOrdersWidget: React.FC<PendingOrdersWidgetProps> = ({
             return (
               <div
                 key={order.order_id}
-                className={`p-3 border rounded-lg transition-colors ${statusStyle.bgColor}`}
+                onClick={() => handleOrderClick(order.order_id)}
+                className={`p-3 border rounded-lg transition-colors hover:bg-gray-100 cursor-pointer ${statusStyle.bgColor}`}
               >
                 <div className="flex items-start justify-between mb-2">
                   <div>
-                    <h4 className="font-medium text-gray-900 truncate">
+                    <h4 className="font-medium text-gray-900 truncate hover:text-orange-600 transition-colors">
                       {order.supplier_name}
                     </h4>
                     <p className="text-xs text-gray-600">
@@ -170,6 +188,14 @@ const PendingOrdersWidget: React.FC<PendingOrdersWidgetProps> = ({
           )}
         </div>
       )}
+
+      {/* Order Detail Modal */}
+      <OrderDetailModal
+        isOpen={showOrderModal}
+        onClose={handleCloseModal}
+        orderId={selectedOrderId}
+        onOrderUpdated={handleOrderUpdated}
+      />
     </DashboardWidget>
   );
 };

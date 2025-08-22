@@ -152,6 +152,9 @@ export default function EventDetailPage() {
   const [isDeleteRecipeOpen, setIsDeleteRecipeOpen] = useState(false)
   const [recipeToDelete, setRecipeToDelete] = useState<EventRecipe | null>(null)
   
+  // Restaurant configuration state
+  const [targetFoodCostPercentage, setTargetFoodCostPercentage] = useState<number | null>(null)
+  
   // Form state
   const [formData, setFormData] = useState({
     name: '',
@@ -207,6 +210,20 @@ export default function EventDetailPage() {
     }
   }
 
+  // Load restaurant configuration
+  const loadRestaurantSettings = async () => {
+    try {
+      const response = await apiGet<{success: boolean, data: {target_food_cost_percentage: number}}>('/restaurant-info')
+      if (response.data?.success && response.data?.data?.target_food_cost_percentage) {
+        setTargetFoodCostPercentage(response.data.data.target_food_cost_percentage)
+      } else {
+        setTargetFoodCostPercentage(30) // Fallback si no hay configuración
+      }
+    } catch {
+      setTargetFoodCostPercentage(30) // Fallback en caso de error
+    }
+  }
+
   useEffect(() => {
     if (!isNewEvent) {
       loadEventData()
@@ -214,6 +231,11 @@ export default function EventDetailPage() {
       setLoading(false)
     }
   }, [eventId, isNewEvent]) // Removed loadEventData from dependencies
+
+  // Load restaurant settings on component mount
+  useEffect(() => {
+    loadRestaurantSettings()
+  }, [])
 
   // Función principal de guardado
   const handleSave = async () => {
@@ -322,7 +344,10 @@ export default function EventDetailPage() {
     const costPerGuest = event?.guests_count ? totalCost / event.guests_count : 0
     const remainingBudget = budget - totalCost
     const budgetUsagePercent = budget > 0 ? (totalCost / budget) * 100 : 0
-    const suggestedBudget = totalCost * 1.4 // 40% margin
+    
+    // Use restaurant configuration for food cost percentage, with fallback to 30%
+    const foodCostPercent = targetFoodCostPercentage || 30
+    const suggestedBudget = totalCost > 0 ? totalCost / (foodCostPercent / 100) : 0
     
     return {
       totalCost,
@@ -330,7 +355,8 @@ export default function EventDetailPage() {
       costPerGuest,
       remainingBudget,
       budgetUsagePercent,
-      suggestedBudget
+      suggestedBudget,
+      foodCostPercent
     }
   }
 
@@ -1128,7 +1154,7 @@ export default function EventDetailPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-medium text-orange-700">Presupuesto Sugerido</p>
-                        <p className="text-sm text-orange-600 mb-1">Margen 40%</p>
+                        <p className="text-sm text-orange-600 mb-1">Food Cost {metrics.foodCostPercent}%</p>
                         <p className="text-xl font-bold text-orange-800">€{formatCurrency(metrics.suggestedBudget)}</p>
                       </div>
                       <div className="bg-orange-100 p-3 rounded-lg">

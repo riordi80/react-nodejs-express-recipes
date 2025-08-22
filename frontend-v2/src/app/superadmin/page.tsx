@@ -135,7 +135,7 @@ export default function SuperAdminDashboard() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className={`text-3xl font-bold ${themeClasses.text} mb-2`}>Dashboard SuperAdmin</h1>
+          <h1 className={`text-3xl font-bold ${themeClasses.text} mb-2`}>Dashboard RecipesAPI</h1>
           <p className={themeClasses.textSecondary}>
             Bienvenido, {user?.first_name}. Resumen del estado del sistema.
           </p>

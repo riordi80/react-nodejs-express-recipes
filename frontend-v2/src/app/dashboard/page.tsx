@@ -2,7 +2,7 @@
 
 import React, { useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext'
-import { LayoutDashboard, BookOpen, Package, Users, Calendar, Clock, Plus, Settings } from 'lucide-react'
+import { LayoutDashboard, BookOpen, Package, Users, Calendar, Clock, Plus } from 'lucide-react'
 import Link from 'next/link'
 import { useDashboardConfig } from '@/hooks/useDashboardConfig';
 import { useDashboardSummary } from '@/hooks/useDashboardWidgets';
@@ -91,6 +91,38 @@ export default function DashboardPage() {
         ))}
       </div>
 
+      {/* Quick Actions - Justo después de las estadísticas */}
+      <div className="bg-white rounded-lg border border-gray-200 shadow-sm mb-8">
+        <div className="px-6 py-4 border-b border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <div className="bg-orange-100 p-2 rounded-lg">
+              <Plus className="h-5 w-5 text-orange-600" />
+            </div>
+            Acciones Rápidas
+          </h3>
+        </div>
+        <div className="p-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Link href="/recipes/new" className="flex flex-col items-center justify-center text-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+              <BookOpen className="h-8 w-8 text-blue-600 mb-2" />
+              <span className="text-sm font-medium text-gray-900">Nueva Receta</span>
+            </Link>
+            <Link href="/ingredients/new" className="flex flex-col items-center justify-center text-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+              <Package className="h-8 w-8 text-green-600 mb-2" />
+              <span className="text-sm font-medium text-gray-900">Añadir Ingrediente</span>
+            </Link>
+            <Link href="/suppliers/new" className="flex flex-col items-center justify-center text-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+              <Users className="h-8 w-8 text-purple-600 mb-2" />
+              <span className="text-sm font-medium text-gray-900">Nuevo Proveedor</span>
+            </Link>
+            <Link href="/events/new" className="flex flex-col items-center justify-center text-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+              <Calendar className="h-8 w-8 text-orange-600 mb-2" />
+              <span className="text-sm font-medium text-gray-900">Crear Evento</span>
+            </Link>
+          </div>
+        </div>
+      </div>
+
       {configLoading ? (
         <div className="mb-8">
           <BentoGrid>
@@ -128,67 +160,6 @@ export default function DashboardPage() {
             </BentoGrid>
           </div>
 
-          {/* Quick Actions - Solo si hay espacio después de widgets */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                  <div className="bg-orange-100 p-2 rounded-lg">
-                    <Plus className="h-5 w-5 text-orange-600" />
-                  </div>
-                  Acciones Rápidas
-                </h3>
-              </div>
-              <div className="p-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <Link href="/recipes/new" className="flex flex-col items-center justify-center text-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                    <BookOpen className="h-8 w-8 text-blue-600 mb-2" />
-                    <span className="text-sm font-medium text-gray-900">Nueva Receta</span>
-                  </Link>
-                  <Link href="/ingredients/new" className="flex flex-col items-center justify-center text-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                    <Package className="h-8 w-8 text-green-600 mb-2" />
-                    <span className="text-sm font-medium text-gray-900">Añadir Ingrediente</span>
-                  </Link>
-                  <Link href="/suppliers/new" className="flex flex-col items-center justify-center text-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                    <Users className="h-8 w-8 text-purple-600 mb-2" />
-                    <span className="text-sm font-medium text-gray-900">Nuevo Proveedor</span>
-                  </Link>
-                  <Link href="/events/new" className="flex flex-col items-center justify-center text-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-                    <Calendar className="h-8 w-8 text-orange-600 mb-2" />
-                    <span className="text-sm font-medium text-gray-900">Crear Evento</span>
-                  </Link>
-                </div>
-              </div>
-            </div>
-
-            {/* Info sobre configuración */}
-            <div className="bg-orange-50 border border-orange-200 rounded-lg p-6">
-              <div className="flex items-start space-x-3">
-                <LayoutDashboard className="h-6 w-6 text-orange-600 mt-1" />
-                <div>
-                  <h3 className="text-lg font-semibold text-orange-900 mb-2">
-                    Dashboard Personalizado
-                  </h3>
-                  <p className="text-sm text-orange-800 mb-4">
-                    Tienes {enabledWidgets.length} widgets activos. Personaliza tu dashboard en cualquier momento.
-                  </p>
-                  <div className="space-y-2 text-sm text-orange-700">
-                    <div>• Auto-refresh: {displaySettings.autoRefresh ? `Cada ${displaySettings.refreshInterval}s` : 'Desactivado'}</div>
-                    <div>• Elementos por widget: {displaySettings.itemsPerWidget}</div>
-                  </div>
-                  <div className="mt-4">
-                    <Link
-                      href="/settings"
-                      className="inline-flex items-center text-sm font-medium text-orange-600 hover:text-orange-700"
-                    >
-                      <Settings className="h-4 w-4 mr-2" />
-                      Configurar widgets
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
         </>
       )}
     </div>

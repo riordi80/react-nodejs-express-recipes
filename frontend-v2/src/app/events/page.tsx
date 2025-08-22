@@ -190,6 +190,7 @@ export default function EventsPage() {
     initialPage: 1,
     itemsPerPage: pageSize,
     initialSortKey: 'event_date',
+    initialSortDirection: 'desc',
     dependencies: [searchTerm, statusFilter.join(','), pageSize],
     storageKey: 'events-page',
     tableId: 'events'

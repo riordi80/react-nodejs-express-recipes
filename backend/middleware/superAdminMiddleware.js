@@ -96,11 +96,6 @@ async function requireSuperAdmin(req, res, next) {
         };
 
         console.log(`✅ SuperAdmin autenticado: ${superAdminUser.email} (ID: ${superAdminUser.user_id}) para ${req.method} ${req.path}`);
-        console.log(`🔍 req.superAdmin configurado:`, {
-            user_id: req.superAdmin.user_id,
-            email: req.superAdmin.email,
-            permissions: req.superAdmin.permissions
-        });
 
         // 6. Actualizar último login de superadmin
         await masterPool.execute(

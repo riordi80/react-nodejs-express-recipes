@@ -4,6 +4,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { Calendar, Clock, MapPin, Users } from 'lucide-react';
 import DashboardWidget from '../DashboardWidget';
 import { useUpcomingEvents } from '@/hooks/useDashboardWidgets';
@@ -71,12 +72,13 @@ const UpcomingEventsWidget: React.FC<UpcomingEventsWidgetProps> = ({
             const statusInfo = statusConfig[event.status] || statusConfig.planned;
             
             return (
-              <div
+              <Link
                 key={event.event_id}
-                className="p-3 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors"
+                href={`/events/${event.event_id}`}
+                className="block p-3 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
               >
                 <div className="flex items-start justify-between mb-2">
-                  <h4 className="font-medium text-gray-900 truncate mr-2">
+                  <h4 className="font-medium text-gray-900 truncate mr-2 hover:text-orange-600 transition-colors">
                     {event.name}
                   </h4>
                   <Badge className={statusInfo.color} size="sm">
@@ -113,7 +115,7 @@ const UpcomingEventsWidget: React.FC<UpcomingEventsWidgetProps> = ({
                     </div>
                   )}
                 </div>
-              </div>
+              </Link>
             );
           })}
           

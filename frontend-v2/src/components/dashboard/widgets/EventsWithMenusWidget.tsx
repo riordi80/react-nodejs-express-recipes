@@ -3,6 +3,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { Calendar, ChefHat, Users } from 'lucide-react';
 import DashboardWidget from '../DashboardWidget';
 import { useEventsWithMenus } from '@/hooks/useDashboardWidgets';
@@ -48,13 +49,14 @@ const EventsWithMenusWidget: React.FC<EventsWithMenusWidgetProps> = ({
       ) : (
         <div className="space-y-3">
           {data.map((event) => (
-            <div
+            <Link
               key={event.event_id}
-              className="p-3 bg-gray-50 border border-gray-200 rounded-lg"
+              href={`/events/${event.event_id}`}
+              className="block p-3 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
             >
               <div className="flex items-start justify-between mb-3">
                 <div>
-                  <h4 className="font-medium text-gray-900">{event.event_name}</h4>
+                  <h4 className="font-medium text-gray-900 hover:text-orange-600 transition-colors">{event.event_name}</h4>
                   <p className="text-sm text-gray-600 flex items-center space-x-2">
                     <Calendar className="h-3 w-3" />
                     <span>{formatDate(event.event_date)}</span>
@@ -90,7 +92,7 @@ const EventsWithMenusWidget: React.FC<EventsWithMenusWidgetProps> = ({
                   )}
                 </div>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       )}

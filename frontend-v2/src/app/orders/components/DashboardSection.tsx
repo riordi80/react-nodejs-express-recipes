@@ -260,7 +260,7 @@ export default function DashboardSection({ onNavigateToTab }: DashboardSectionPr
                   </div>
                   <div>
                     <span className="font-medium text-green-700">Ahorro:</span>
-                    <div className="text-green-600 font-semibold">{formatCurrency(item.ahorro_euros)}</div>
+                    <div className="text-green-600 font-semibold">{formatCurrency(Number(item.ahorro_euros) || 0)}</div>
                   </div>
                 </div>
               </div>

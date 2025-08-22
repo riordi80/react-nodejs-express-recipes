@@ -327,7 +327,18 @@ router.get('/:id', authenticateToken, authorizeRoles('admin', 'chef', 'inventory
     ingredient.allergens = allergenRows.map(allergen => allergen.allergen_id);
     ingredient.allergen_details = allergenRows; // Para información adicional si se necesita
 
-    // 4. Convertir fecha de caducidad a formato ISO si existe
+    // 4. Obtener categoría asignada a este ingrediente
+    const [categoryRows] = await req.tenantDb.query(`
+      SELECT ic.name
+      FROM INGREDIENT_CATEGORY_ASSIGNMENTS ica
+      JOIN INGREDIENT_CATEGORIES ic ON ica.category_id = ic.category_id
+      WHERE ica.ingredient_id = ?
+    `, [req.params.id]);
+
+    // Incluir la categoría como string (para compatibilidad con el frontend)
+    ingredient.category = categoryRows.length > 0 ? categoryRows[0].name : '';
+
+    // 5. Convertir fecha de caducidad a formato ISO si existe
     if (ingredient.expiration_date) {
       // MySQL devuelve un objeto Date, convertirlo a formato ISO
       const dateObj = new Date(ingredient.expiration_date);
@@ -345,10 +356,16 @@ router.get('/:id', authenticateToken, authorizeRoles('admin', 'chef', 'inventory
 
 // POST /ingredients - Crear nuevo ingrediente
 router.post('/', authenticateToken, authorizeRoles('admin', 'chef'), async (req, res) => {
-  const {
-    name, unit, base_price, waste_percent, net_price,
-    stock, stock_minimum, season, expiration_date, is_available, comment
-  } = req.body;
+  const connection = await req.tenantDb.getConnection();
+  
+  try {
+    await connection.beginTransaction();
+    
+    const {
+      name, unit, base_price, waste_percent, net_price,
+      stock, stock_minimum, season, expiration_date, is_available, comment,
+      category
+    } = req.body;
 
   // Convertir fecha ISO a formato MySQL DATE (YYYY-MM-DD)
   let mysql_expiration_date = null;
@@ -367,18 +384,46 @@ router.post('/', authenticateToken, authorizeRoles('admin', 'chef'), async (req,
     }
   }
 
-  const [result] = await req.tenantDb.query(`
-    INSERT INTO INGREDIENTS
-    (name, unit, base_price, waste_percent, net_price, stock, stock_minimum, season, expiration_date, is_available, comment)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [name, unit, base_price, waste_percent, net_price, stock, stock_minimum, season, mysql_expiration_date, is_available, comment]
-  );
+    const [result] = await connection.query(`
+      INSERT INTO INGREDIENTS
+      (name, unit, base_price, waste_percent, net_price, stock, stock_minimum, season, expiration_date, is_available, comment)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [name, unit, base_price, waste_percent, net_price, stock, stock_minimum, season, mysql_expiration_date, is_available, comment]
+    );
 
-  await logAudit(req.tenantDb, req.user.user_id, 'create', 'INGREDIENTS', result.insertId, `Ingrediente "${name}" creado`);
-  res.status(201).json({ 
-    message: 'Ingrediente creado correctamente', 
-    ingredient_id: result.insertId 
-  });
+    const ingredientId = result.insertId;
+
+    // Handle category assignment if provided
+    if (category && category.trim()) {
+      // First, find the category_id by name
+      const [categoryRows] = await connection.query(
+        'SELECT category_id FROM INGREDIENT_CATEGORIES WHERE name = ?', 
+        [category.trim()]
+      );
+      
+      if (categoryRows.length > 0) {
+        // Category exists, create assignment
+        await connection.query(
+          'INSERT INTO INGREDIENT_CATEGORY_ASSIGNMENTS (ingredient_id, category_id) VALUES (?, ?)',
+          [ingredientId, categoryRows[0].category_id]
+        );
+      }
+    }
+
+    await connection.commit();
+    await logAudit(req.tenantDb, req.user.user_id, 'create', 'INGREDIENTS', ingredientId, `Ingrediente "${name}" creado`);
+    
+    res.status(201).json({ 
+      message: 'Ingrediente creado correctamente', 
+      ingredient_id: ingredientId 
+    });
+  } catch (error) {
+    await connection.rollback();
+    console.error('Error al crear ingrediente:', error);
+    res.status(500).json({ message: 'Error interno del servidor', error: error.message });
+  } finally {
+    connection.release();
+  }
 });
 
 // PUT /ingredients/:id - Actualizar ingrediente
@@ -392,7 +437,7 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'chef'), async (re
       name, unit, base_price, waste_percent, net_price,
       stock, stock_minimum, season, expiration_date, is_available, comment,
       calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g,
-      allergens
+      allergens, category
     } = req.body;
 
     // Convertir fecha ISO a formato MySQL DATE (YYYY-MM-DD)
@@ -454,6 +499,29 @@ router.put('/:id', authenticateToken, authorizeRoles('admin', 'chef'), async (re
           'INSERT INTO INGREDIENT_ALLERGENS (ingredient_id, allergen_id) VALUES ?',
           [values]
         );
+      }
+    }
+
+    // 3. Handle category assignment
+    if (category !== undefined) {
+      // Remove existing category assignment
+      await connection.query('DELETE FROM INGREDIENT_CATEGORY_ASSIGNMENTS WHERE ingredient_id = ?', [req.params.id]);
+      
+      // If category is provided and not empty, assign it
+      if (category && category.trim()) {
+        // Find the category_id by name
+        const [categoryRows] = await connection.query(
+          'SELECT category_id FROM INGREDIENT_CATEGORIES WHERE name = ?', 
+          [category.trim()]
+        );
+        
+        if (categoryRows.length > 0) {
+          // Category exists, create assignment
+          await connection.query(
+            'INSERT INTO INGREDIENT_CATEGORY_ASSIGNMENTS (ingredient_id, category_id) VALUES (?, ?)',
+            [req.params.id, categoryRows[0].category_id]
+          );
+        }
       }
     }
 
