@@ -69,25 +69,66 @@ router.get('/dashboard', authenticateToken, authorizeRoles('admin', 'chef'), asy
         ) numbers
         WHERE JSON_EXTRACT(pp.source_events, CONCAT('$[', numbers.n, ']')) IS NOT NULL
       ),
-      cantidades_reales_por_pedido AS (
-        -- Calcular cantidad real necesaria por ingrediente y pedido desde los eventos
+      recipe_hierarchy AS (
+        -- Base case: recetas directas de los eventos en pedidos
         SELECT 
           edp.order_id,
           edp.supplier_name,
+          edp.event_id,
+          em.recipe_id,
+          em.portions,
+          1 as multiplier,
+          1 as level
+        FROM eventos_de_pedidos edp
+        JOIN EVENT_MENUS em ON edp.event_id = em.event_id
+        
+        UNION ALL
+        
+        -- Recursive case: sub-recetas
+        SELECT 
+          rh.order_id,
+          rh.supplier_name,
+          rh.event_id,
+          rs.subrecipe_id as recipe_id,
+          rh.portions,
+          rh.multiplier * rs.quantity_per_serving as multiplier,
+          rh.level + 1 as level
+        FROM recipe_hierarchy rh
+        JOIN RECIPE_SUBRECIPES rs ON rh.recipe_id = rs.recipe_id
+        WHERE rh.level < 10  -- Prevenir loops infinitos
+      ),
+      all_ingredients_for_orders AS (
+        -- Obtener todos los ingredientes de todas las recetas (principales y sub-recetas)
+        SELECT 
+          rh.order_id,
+          rh.supplier_name,
+          rh.event_id,
+          rh.recipe_id,
+          rh.portions,
+          rh.multiplier,
+          ri.ingredient_id,
+          ri.quantity_per_serving,
+          ri.quantity_per_serving * rh.multiplier * rh.portions as total_quantity_needed
+        FROM recipe_hierarchy rh
+        JOIN RECIPE_INGREDIENTS ri ON rh.recipe_id = ri.recipe_id
+      ),
+      cantidades_reales_por_pedido AS (
+        -- Calcular cantidad real necesaria por ingrediente y pedido desde los eventos (incluyendo sub-recetas)
+        SELECT 
+          aifo.order_id,
+          aifo.supplier_name,
           i.ingredient_id,
           i.name as ingredient_name,
-          SUM(ri.quantity_per_serving * em.portions * (1 + IFNULL(i.waste_percent, 0))) as cantidad_real_necesaria,
+          SUM(aifo.total_quantity_needed * (1 + IFNULL(i.waste_percent, 0))) as cantidad_real_necesaria,
           i.base_price,
           -- Obtener información del paquete del proveedor preferido
           COALESCE(si.package_size, 1.0) as package_size,
           COALESCE(si.package_unit, 'unidad') as package_unit,
           COALESCE(si.price, i.base_price) as supplier_price
-        FROM eventos_de_pedidos edp
-        JOIN EVENT_MENUS em ON edp.event_id = em.event_id
-        JOIN RECIPE_INGREDIENTS ri ON em.recipe_id = ri.recipe_id
-        JOIN INGREDIENTS i ON ri.ingredient_id = i.ingredient_id
+        FROM all_ingredients_for_orders aifo
+        JOIN INGREDIENTS i ON aifo.ingredient_id = i.ingredient_id
         LEFT JOIN SUPPLIER_INGREDIENTS si ON i.ingredient_id = si.ingredient_id AND si.is_preferred_supplier = 1
-        GROUP BY edp.order_id, edp.supplier_name, i.ingredient_id, i.name, i.base_price, si.package_size, si.package_unit, si.price
+        GROUP BY aifo.order_id, aifo.supplier_name, i.ingredient_id, i.name, i.base_price, si.package_size, si.package_unit, si.price
       ),
       cantidades_pedidas_por_pedido AS (
         -- Obtener cantidades pedidas por ingrediente y pedido
@@ -169,22 +210,60 @@ router.get('/dashboard', authenticateToken, authorizeRoles('admin', 'chef'), asy
         ) numbers
         WHERE JSON_EXTRACT(pp.source_events, CONCAT('$[', numbers.n, ']')) IS NOT NULL
       ),
-      cantidades_reales_por_pedido AS (
-        -- Calcular cantidad real necesaria por ingrediente y pedido desde los eventos
+      recipe_hierarchy_savings AS (
+        -- Base case: recetas directas de los eventos en pedidos
         SELECT 
           edp.order_id,
+          edp.event_id,
+          em.recipe_id,
+          em.portions,
+          1 as multiplier,
+          1 as level
+        FROM eventos_de_pedidos edp
+        JOIN EVENT_MENUS em ON edp.event_id = em.event_id
+        
+        UNION ALL
+        
+        -- Recursive case: sub-recetas
+        SELECT 
+          rhs.order_id,
+          rhs.event_id,
+          rs.subrecipe_id as recipe_id,
+          rhs.portions,
+          rhs.multiplier * rs.quantity_per_serving as multiplier,
+          rhs.level + 1 as level
+        FROM recipe_hierarchy_savings rhs
+        JOIN RECIPE_SUBRECIPES rs ON rhs.recipe_id = rs.recipe_id
+        WHERE rhs.level < 10  -- Prevenir loops infinitos
+      ),
+      all_ingredients_savings AS (
+        -- Obtener todos los ingredientes de todas las recetas (principales y sub-recetas)
+        SELECT 
+          rhs.order_id,
+          rhs.event_id,
+          rhs.recipe_id,
+          rhs.portions,
+          rhs.multiplier,
+          ri.ingredient_id,
+          ri.quantity_per_serving,
+          ri.quantity_per_serving * rhs.multiplier * rhs.portions as total_quantity_needed
+        FROM recipe_hierarchy_savings rhs
+        JOIN RECIPE_INGREDIENTS ri ON rhs.recipe_id = ri.recipe_id
+      ),
+      cantidades_reales_por_pedido AS (
+        -- Calcular cantidad real necesaria por ingrediente y pedido desde los eventos (incluyendo sub-recetas)
+        SELECT 
+          ais.order_id,
           i.ingredient_id,
-          SUM(ri.quantity_per_serving * em.portions * (1 + IFNULL(i.waste_percent, 0))) as cantidad_real_necesaria,
+          SUM(ais.total_quantity_needed * (1 + IFNULL(i.waste_percent, 0))) as cantidad_real_necesaria,
           i.base_price,
           COALESCE(si.package_size, 1.0) as package_size,
           COALESCE(si.package_unit, 'unidad') as package_unit,
           COALESCE(si.price, i.base_price) as supplier_price
-        FROM eventos_de_pedidos edp
-        JOIN EVENT_MENUS em ON edp.event_id = em.event_id
-        JOIN RECIPE_INGREDIENTS ri ON em.recipe_id = ri.recipe_id
-        JOIN INGREDIENTS i ON ri.ingredient_id = i.ingredient_id
+        FROM all_ingredients_savings ais
+        JOIN INGREDIENTS i ON ais.ingredient_id = i.ingredient_id
         LEFT JOIN SUPPLIER_INGREDIENTS si ON i.ingredient_id = si.ingredient_id AND si.is_preferred_supplier = 1
-        GROUP BY edp.order_id, i.ingredient_id, i.base_price, si.package_size, si.package_unit, si.price
+        GROUP BY ais.order_id, i.ingredient_id, i.base_price, si.package_size, si.package_unit, si.price
       ),
       cantidades_pedidas_por_pedido AS (
         -- Obtener cantidades pedidas por ingrediente y pedido
@@ -300,6 +379,44 @@ router.get('/shopping-list', authenticateToken, authorizeRoles('admin', 'chef'),
       : 'SUM(ri.quantity_per_serving * em.portions) * (1 + IFNULL(i.waste_percent, 0)) * i.base_price';
 
     const [neededIngredients] = await req.tenantDb.query(`
+      WITH RECURSIVE recipe_hierarchy AS (
+        -- Base case: recetas directas de los eventos
+        SELECT 
+          em.event_id,
+          em.recipe_id,
+          em.portions,
+          1 as multiplier,
+          1 as level
+        FROM EVENTS e
+        JOIN EVENT_MENUS em ON e.event_id = em.event_id
+        WHERE ${whereClause}
+        
+        UNION ALL
+        
+        -- Recursive case: sub-recetas
+        SELECT 
+          rh.event_id,
+          rs.subrecipe_id as recipe_id,
+          rh.portions,
+          rh.multiplier * rs.quantity_per_serving as multiplier,
+          rh.level + 1 as level
+        FROM recipe_hierarchy rh
+        JOIN RECIPE_SUBRECIPES rs ON rh.recipe_id = rs.recipe_id
+        WHERE rh.level < 10  -- Prevenir loops infinitos
+      ),
+      all_ingredients AS (
+        -- Obtener todos los ingredientes de todas las recetas (principales y sub-recetas)
+        SELECT 
+          rh.event_id,
+          rh.recipe_id,
+          rh.portions,
+          rh.multiplier,
+          ri.ingredient_id,
+          ri.quantity_per_serving,
+          ri.quantity_per_serving * rh.multiplier * rh.portions as total_quantity_needed
+        FROM recipe_hierarchy rh
+        JOIN RECIPE_INGREDIENTS ri ON rh.recipe_id = ri.recipe_id
+      )
       SELECT 
         i.ingredient_id,
         i.name,
@@ -307,10 +424,10 @@ router.get('/shopping-list', authenticateToken, authorizeRoles('admin', 'chef'),
         i.base_price as price_per_unit,
         i.stock as current_stock,
         i.waste_percent,
-        SUM(ri.quantity_per_serving * em.portions) as total_needed_base,
-        SUM(ri.quantity_per_serving * em.portions) * (1 + IFNULL(i.waste_percent, 0)) as total_needed_with_waste,
-        ${stockFormula} as to_buy,
-        ${costFormula} as total_cost,
+        SUM(ai.total_quantity_needed) as total_needed_base,
+        SUM(ai.total_quantity_needed) * (1 + IFNULL(i.waste_percent, 0)) as total_needed_with_waste,
+        ${stockFormula.replace('SUM(ri.quantity_per_serving * em.portions)', 'SUM(ai.total_quantity_needed)')} as to_buy,
+        ${costFormula.replace('SUM(ri.quantity_per_serving * em.portions)', 'SUM(ai.total_quantity_needed)')} as total_cost,
         MAX(si.supplier_id) as supplier_id,
         MAX(s.name) as supplier_name,
         MAX(si.package_size) as package_size,
@@ -328,14 +445,11 @@ router.get('/shopping-list', authenticateToken, authorizeRoles('admin', 'chef'),
         MAX(si.supplier_id) as debug_supplier_id,
         MAX(si.price) as debug_price,
         MAX(si.is_preferred_supplier) as debug_preferred
-      FROM EVENTS e
-      JOIN EVENT_MENUS em ON e.event_id = em.event_id
-      JOIN RECIPE_INGREDIENTS ri ON em.recipe_id = ri.recipe_id
-      JOIN INGREDIENTS i ON ri.ingredient_id = i.ingredient_id
+      FROM all_ingredients ai
+      JOIN INGREDIENTS i ON ai.ingredient_id = i.ingredient_id
       LEFT JOIN SUPPLIER_INGREDIENTS si ON i.ingredient_id = si.ingredient_id AND si.is_preferred_supplier = 1
       LEFT JOIN SUPPLIERS s ON si.supplier_id = s.supplier_id
-      WHERE ${whereClause}
-        AND i.is_available = 1
+      WHERE i.is_available = 1
       GROUP BY i.ingredient_id, i.name, i.unit, i.base_price, i.stock, i.waste_percent
       HAVING to_buy > 0
       ORDER BY COALESCE(MAX(s.name), 'zzz'), i.name
